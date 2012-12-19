@@ -75,6 +75,7 @@ __FBSDID("$FreeBSD$");
 #define SW_INT_IRQNO_ENMI		0
 
 #define SW_INT_ENABLE_REG(_b)		(0x10 + ((_b) * 4))
+#define SW_INT_MASK_REG(_b)		(0x50 + ((_b) * 4))
 
 struct a10_aintc_softc {
 	device_t		sc_dev;
@@ -202,11 +203,6 @@ arm_mask_irq(uintptr_t nb)
 {
         uint32_t bit, block, value;
 	
-	if(nb >=  32 && nb < 64)
-		nb -= 32;
-	else if(nb >= 64 && nb < 96)
-		nb -= 64;
-
 	bit = (nb % 32);
 	block = (nb / 32);
 
@@ -225,11 +221,6 @@ arm_unmask_irq(uintptr_t nb)
 	uint32_t bit, block, value;
 
 	printf("*** AINT_UNMASK *** 1\n");
-
-	if(nb >=  32 && nb < 64)
-		nb -= 32;
-	else if(nb >= 64 && nb < 96)
-		nb -= 64;
 
 	bit = (nb % 32);
 	block = (nb / 32);

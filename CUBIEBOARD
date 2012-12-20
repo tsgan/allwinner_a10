@@ -80,6 +80,12 @@ device		mmcsd			# mmc/sd flash cards
 # Boot device is 2nd slice on MMC/SD card
 #options 	ROOTDEVNAME=\"ufs:mmcsd0s2\"
 
+# ATA controllers
+#device          ahci            # AHCI-compatible SATA controllers
+#device          ata             # Legacy ATA/SATA controllers
+#options         ATA_CAM         # Handle legacy controllers with CAM
+#options         ATA_STATIC_ID   # Static device numbering
+
 # Console and misc
 #device		uart
 #device		uart_ns8250
@@ -89,23 +95,23 @@ device		md
 device		random			# Entropy device
 
 # I2C support
-device		iicbus
-device		iic
+#device		iicbus
+#device		iic
 
 # GPIO
 #device		gpio
 
 # USB support
-device		usb
-options 	USB_DEBUG
-#options 	USB_REQ_DEBUG
-#options 	USB_VERBOSE
-device		uhci
-device		ohci
-device		ehci
-device		umass
-device		scbus			# SCSI bus (required for SCSI)
-device		da			# Direct Access (disks)
+#device		usb
+#options 	USB_DEBUG
+##options 	USB_REQ_DEBUG
+##options 	USB_VERBOSE
+#device		uhci
+#device		ohci
+#device		ehci
+#device		umass
+#device		scbus			# SCSI bus (required for SCSI)
+#device		da			# Direct Access (disks)
 
 # Ethernet
 device		loop

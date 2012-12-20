@@ -151,8 +151,6 @@ a10_aintc_attach(device_t dev)
 	/*config the external interrupt source type*/
 	aintc_write_4(SW_INT_NMI_CTRL_REG, 0x00);
 
-	aintc_write_4(SW_INT_VECTOR_REG, 0x01);
-
 	return (0);
 }
 

@@ -94,10 +94,10 @@ static struct resource_spec a10_aintc_spec[] = {
 
 static struct a10_aintc_softc *a10_aintc_sc = NULL;
 
-#define	aintc_read_4(reg)		\
-    bus_space_read_4(a10_aintc_sc->aintc_bst, a10_aintc_sc->aintc_bsh, reg)
-#define	aintc_write_4(reg, val)		\
-    bus_space_write_4(a10_aintc_sc->aintc_bst, a10_aintc_sc->aintc_bsh, reg, val)
+#define	aintc_read_4(reg)						\
+	bus_space_read_4(a10_aintc_sc->aintc_bst, a10_aintc_sc->aintc_bsh, reg)
+#define	aintc_write_4(reg, val)						\
+	bus_space_write_4(a10_aintc_sc->aintc_bst, a10_aintc_sc->aintc_bsh, reg, val)
 
 
 static int

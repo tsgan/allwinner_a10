@@ -55,9 +55,9 @@ __FBSDID("$FreeBSD$");
 
 #define SW_VA_TIMERC_IO_BASE              0xe1c20c00
 /**
-* Timer registers addr
-*
-*/
+ * Timer registers addr
+ *
+ */
 
 #define SW_TIMER_INT_CTL_REG 	0x00
 #define SW_TIMER_INT_STA_REG 	0x04
@@ -84,10 +84,10 @@ struct a10_timer_softc {
 
 int a10_timer_get_timerfreq(struct a10_timer_softc *);
 
-#define timer_read_4(sc, reg)                  \
-    bus_space_read_4(sc->sc_bst, sc->sc_bsh, reg)
-#define timer_write_4(sc, reg, val)            \
-    bus_space_write_4(sc->sc_bst, sc->sc_bsh, reg, val)
+#define timer_read_4(sc, reg)				\
+	bus_space_read_4(sc->sc_bst, sc->sc_bsh, reg)
+#define timer_write_4(sc, reg, val)				\
+	bus_space_write_4(sc->sc_bst, sc->sc_bsh, reg, val)
 
 static u_int	a10_timer_get_timecount(struct timecounter *);
 static int	a10_timer_timer_start(struct eventtimer *,
@@ -174,17 +174,17 @@ a10_timer_attach(device_t dev)
 		    "err = %d\n", err);
 		return (ENXIO);
 	}
-/*
-        node = ofw_bus_get_node(dev);
-        if (OF_getprop(OF_parent(node), "clock-frequency", &freq,
-            sizeof(pcell_t)) <= 0) {
-                bus_release_resources(dev, a10_timer_spec, sc->res);
-                device_printf(dev, "could not obtain clock frequency\n");
-                return (ENXIO);
-        }
+        /*
+	  node = ofw_bus_get_node(dev);
+	  if (OF_getprop(OF_parent(node), "clock-frequency", &freq,
+	  sizeof(pcell_t)) <= 0) {
+	  bus_release_resources(dev, a10_timer_spec, sc->res);
+	  device_printf(dev, "could not obtain clock frequency\n");
+	  return (ENXIO);
+	  }
 
-        freq = fdt32_to_cpu(freq);
-*/
+	  freq = fdt32_to_cpu(freq);
+	*/
         freq = fdt32_to_cpu(24000000);
 
         /* Set desired frequency in event timer and timecounter */
@@ -205,7 +205,7 @@ a10_timer_attach(device_t dev)
 	et_register(&sc->et);
 
 	if (device_get_unit(dev) == 0)
-	    a10_timer_sc = sc;
+		a10_timer_sc = sc;
 
 	a10_timer_timecounter.tc_frequency = (uint64_t)freq;
 	tc_init(&a10_timer_timecounter);

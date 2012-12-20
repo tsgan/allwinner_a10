@@ -52,6 +52,7 @@ __FBSDID("$FreeBSD$");
 #define SW_INT_BASE_ADR_REG		0x04
 #define SW_INT_PROTECTION_REG		0x08
 #define SW_INT_NMI_CTRL_REG		0x0c
+
 #define SW_INT_IRQ_PENDING_REG0		0x10
 #define SW_INT_IRQ_PENDING_REG1		0x14
 #define SW_INT_IRQ_PENDING_REG2		0x18
@@ -219,8 +220,6 @@ void
 arm_unmask_irq(uintptr_t nb)
 {
 	uint32_t bit, block, value;
-
-	printf("*** AINT_UNMASK *** 1\n");
 
 	bit = (nb % 32);
 	block = (nb / 32);

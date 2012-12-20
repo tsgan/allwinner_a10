@@ -176,25 +176,15 @@ int
 arm_get_next_irq(int last_irq)
 {
         uint32_t value;
-        int i;
+        int i, b;
 
-        value = aintc_read_4(SW_INT_ENABLE_REG0);
-        for (i = 0; i < 32; i++) {
-                if (value & (1 << i))
-                        return (i);
-        }
-
-        value = aintc_read_4(SW_INT_ENABLE_REG1);
-        for (i = 0; i < 32; i++) {
-                if (value & (1 << i))
-                        return (i + 32);
-        }
-
-        value = aintc_read_4(SW_INT_ENABLE_REG2);
-        for (i = 0; i < 32; i++) {
-                if (value & (1 << i))
-                        return (i + 64);
-        }
+	for (i = 0; i < 3; i++) {
+		value = aintc_read_4(SW_INT_ENABLE_REG(i));
+		for (b = 0; b < 32; b++)
+			if (value & (1 << b)) {
+				return (i * 32 + b);
+			}
+	}
 
         return (-1);
 }

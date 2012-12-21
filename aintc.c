@@ -75,7 +75,10 @@ __FBSDID("$FreeBSD$");
 
 #define SW_INT_IRQNO_ENMI		0
 
-#define SW_INT_ENABLE_REG(_b)		(0x10 + ((_b) * 4))
+#define SW_INT_IRQ_PENDING_REG(_b)	(0x10 + ((_b) * 4))
+#define SW_INT_FIQ_PENDING_REG(_b)	(0x20 + ((_b) * 4))
+#define SW_INT_SELECT_REG(_b)		(0x30 + ((_b) * 4))
+#define SW_INT_ENABLE_REG(_b)		(0x40 + ((_b) * 4))
 #define SW_INT_MASK_REG(_b)		(0x50 + ((_b) * 4))
 
 struct a10_aintc_softc {
@@ -113,7 +116,8 @@ static int
 a10_aintc_attach(device_t dev)
 {
 	struct a10_aintc_softc *sc = device_get_softc(dev);
-
+	int i;
+	
 	sc->sc_dev = dev;
 
 	if (a10_aintc_sc)
@@ -130,21 +134,12 @@ a10_aintc_attach(device_t dev)
 	a10_aintc_sc = sc;
 
 	/* Disable & clear all interrupts */
-	aintc_write_4(SW_INT_ENABLE_REG0, 0);
-	aintc_write_4(SW_INT_ENABLE_REG1, 0);
-	aintc_write_4(SW_INT_ENABLE_REG2, 0);
-
-	aintc_write_4(SW_INT_MASK_REG0, 0xffffffff);
-	aintc_write_4(SW_INT_MASK_REG1, 0xffffffff);
-	aintc_write_4(SW_INT_MASK_REG2, 0xffffffff);
-
-	aintc_write_4(SW_INT_IRQ_PENDING_REG0, 0xffffffff);
-	aintc_write_4(SW_INT_IRQ_PENDING_REG1, 0xffffffff);
-	aintc_write_4(SW_INT_IRQ_PENDING_REG2, 0xffffffff);
-	aintc_write_4(SW_INT_FIQ_PENDING_REG0, 0xffffffff);
-	aintc_write_4(SW_INT_FIQ_PENDING_REG1, 0xffffffff);
-	aintc_write_4(SW_INT_FIQ_PENDING_REG2, 0xffffffff);
-
+	for (i = 0; i < 3; i++) {
+		aintc_write_4(SW_INT_ENABLE_REG(i), 0);
+		aintc_write_4(SW_INT_MASK_REG(i), 0xffffffff);
+		aintc_write_4(SW_INT_IRQ_PENDING_REG(i), 0xffffffff);
+		aintc_write_4(SW_INT_FIQ_PENDING_REG(i), 0xffffffff);
+	}
 	/*enable protection mode*/
 	aintc_write_4(SW_INT_PROTECTION_REG, 0x01);
 
@@ -177,7 +172,7 @@ arm_get_next_irq(int last_irq)
         int i, b;
 
 	for (i = 0; i < 3; i++) {
-		value = aintc_read_4(SW_INT_ENABLE_REG(i));
+		value = aintc_read_4(SW_INT_IRQ_PENDING_REG(i));
 		for (b = 0; b < 32; b++)
 			if (value & (1 << b)) {
 				return (i * 32 + b);
@@ -195,9 +190,9 @@ arm_mask_irq(uintptr_t nb)
 	bit = (nb % 32);
 	block = (nb / 32);
 
-	value = aintc_read_4(SW_INT_ENABLE_REG(block));
+	value = aintc_read_4(SW_INT_IRQ_PENDING_REG(block));
 	value &= ~(1 << bit);
-	aintc_write_4(SW_INT_ENABLE_REG(block), value);
+	aintc_write_4(SW_INT_IRQ_PENDING_REG(block), value);
 
 	value = aintc_read_4(SW_INT_MASK_REG(block));
 	value |= (1 << bit);
@@ -212,14 +207,14 @@ arm_unmask_irq(uintptr_t nb)
 	bit = (nb % 32);
 	block = (nb / 32);
 
-	value = aintc_read_4(SW_INT_ENABLE_REG(block));
+	value = aintc_read_4(SW_INT_IRQ_PENDING_REG(block));
 	value |= (1 << bit);
-	aintc_write_4(SW_INT_ENABLE_REG(block), value);
+	aintc_write_4(SW_INT_IRQ_PENDING_REG(block), value);
 
 	value = aintc_read_4(SW_INT_MASK_REG(block));
 	value &= ~(1 << bit);
 	aintc_write_4(SW_INT_MASK_REG(block), value);
 
 	if(nb == SW_INT_IRQNO_ENMI) /* must clear pending bit when enabled */
-		aintc_write_4(SW_INT_IRQ_PENDING_REG0, (1 << SW_INT_IRQNO_ENMI));
+		aintc_write_4(SW_INT_IRQ_PENDING_REG(0), (1 << SW_INT_IRQNO_ENMI));
 }

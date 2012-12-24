@@ -41,7 +41,6 @@ __FBSDID("$FreeBSD$");
 #include <sys/module.h>
 
 #include <machine/bus.h>
-
 #include <dev/ofw/ofw_bus.h> 
 #include <dev/ofw/ofw_bus_subr.h>
 
@@ -60,9 +59,6 @@ __FBSDID("$FreeBSD$");
 
 #define EHCI_HC_DEVSTR		"Allwinner Integrated USB 2.0 controller"
 
-struct a10_ehci_softc {
-	ehci_softc_t		base;	/* storage for EHCI code */
-};
 
 static device_attach_t a10_ehci_attach;
 static device_detach_t a10_ehci_detach;
@@ -85,8 +81,8 @@ a10_ehci_probe(device_t self)
 static int
 a10_ehci_attach(device_t self)
 {
-	struct a10_ehci_softc *isc = device_get_softc(self);
-	ehci_softc_t *sc = &isc->base;
+	ehci_softc_t *sc = device_get_softc(self);
+	bus_space_handle_t bsh;
 	int err;
 	int rid;
 
@@ -111,14 +107,17 @@ a10_ehci_attach(device_t self)
 	}
 
 	sc->sc_io_tag = rman_get_bustag(sc->sc_io_res);
-	sc->sc_io_hdl = rman_get_bushandle(sc->sc_io_res);
-	sc->sc_io_size = rman_get_size(sc->sc_io_res);
+	bsh = rman_get_bushandle(sc->sc_io_res);
+	sc->sc_io_size = rman_get_size(sc->sc_io_res) - 0x100;
 
-	DELAY(1000);
+        if (bus_space_subregion(sc->sc_io_tag, bsh, 0x100,
+            sc->sc_io_size, &sc->sc_io_hdl) != 0)
+                panic("%s: unable to subregion USB host registers",
+                    device_get_name(self));
 
 	rid = 0;
 	sc->sc_irq_res = bus_alloc_resource_any(self, SYS_RES_IRQ, &rid,
-	    RF_ACTIVE);
+	    RF_SHAREABLE | RF_ACTIVE);
 	if (sc->sc_irq_res == NULL) {
 		device_printf(self, "Could not allocate irq\n");
 		goto error;
@@ -142,6 +141,13 @@ a10_ehci_attach(device_t self)
 		goto error;
 	}
 
+
+	sc->sc_flags |= EHCI_SCFLG_SETMODE;
+        if (bootverbose)
+                device_printf(self, "5.24 GL USB-2 workaround enabled\n");
+
+	sc->sc_flags |= EHCI_SCFLG_DONTRESET | EHCI_SCFLG_NORESTERM;
+
 	err = ehci_init(sc);
 	if (!err) {
 		err = device_probe_and_attach(sc->sc_bus.bdev);
@@ -160,8 +166,7 @@ error:
 static int
 a10_ehci_detach(device_t self)
 {
-	struct a10_ehci_softc *isc = device_get_softc(self);
-	ehci_softc_t *sc = &isc->base;
+	ehci_softc_t *sc = device_get_softc(self);
 	device_t bdev;
 	int err;
 
@@ -217,7 +222,7 @@ static device_method_t ehci_methods[] = {
 static driver_t ehci_driver = {
 	.name = "ehci",
 	.methods = ehci_methods,
-	.size = sizeof(struct a10_ehci_softc),
+	.size = sizeof(ehci_softc_t),
 };
 
 static devclass_t ehci_devclass;

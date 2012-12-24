@@ -42,7 +42,10 @@ __FBSDID("$FreeBSD$");
 
 #include <machine/bus.h>
 
-#include <dev/usb/usb.h>
+#include <dev/ofw/ofw_bus.h> 
+#include <dev/ofw/ofw_bus_subr.h>
+
+#include <dev/usb/usb.h> 
 #include <dev/usb/usbdi.h>
 
 #include <dev/usb/usb_core.h>
@@ -70,6 +73,9 @@ bs_w_1_proto(reversed);
 static int
 a10_ehci_probe(device_t self)
 {
+
+	if (!ofw_bus_is_compatible(self, "a10,usb-ehci")) 
+		return (ENXIO);
 
 	device_set_desc(self, EHCI_HC_DEVSTR);
 

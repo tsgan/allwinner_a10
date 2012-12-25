@@ -70,12 +70,26 @@
 			clock-frequency = < 24000000 >;
 		};
 
-		usb@01c14000 {
+                usb@01c13000 {
                         compatible = "a10,usb-ehci", "usb-ehci";
-			reg = <0x01c14000 0x1000>;
-			interrupts = < 39 >;
+                        reg = <0x01c13000 0x1000>;
+                        interrupts = < 38 >;
                         interrupt-parent = <&AINTC>;
-		};
+                };
+
+                usb@01c14000 {
+                        compatible = "a10,usb-ehci", "usb-ehci";
+                        reg = <0x01c14000 0x1000>;
+                        interrupts = < 39 >;
+                        interrupt-parent = <&AINTC>;
+                };
+
+                usb@01c1c000 {
+                        compatible = "a10,usb-ehci", "usb-ehci";
+                        reg = <0x01c1c000 0x1000>;
+                        interrupts = < 40 >;
+                        interrupt-parent = <&AINTC>;
+                };
 
 		UART0: serial@01c28000 {
 			status = "okay";

@@ -59,6 +59,16 @@ __FBSDID("$FreeBSD$");
 
 #define EHCI_HC_DEVSTR		"Allwinner Integrated USB 2.0 controller"
 
+#define USB1_BASE 		0xe1c14000
+#define CCMU_BASE 		0xe1c20000
+#define CCM_AHB_GATING0		(USB1_BASE - CCMU_BASE + 0x60)	/* relative from USB1 base address */
+#define CCM_USB_CLK		(USB1_BASE - CCMU_BASE + 0xcc)  /* relative from USB1 base address */
+
+#define A10_READ_4(sc, reg) \
+	bus_space_read_4((sc)->sc_io_tag, (sc)->sc_io_hdl, reg)
+
+#define A10_WRITE_4(sc, reg, data) \
+	bus_space_write_4((sc)->sc_io_tag, (sc)->sc_io_hdl, reg, data)
 
 static device_attach_t a10_ehci_attach;
 static device_detach_t a10_ehci_detach;
@@ -85,6 +95,7 @@ a10_ehci_attach(device_t self)
 	bus_space_handle_t bsh;
 	int err;
 	int rid;
+	uint32_t reg_value = 0;
 
 	/* initialise some bus fields */
 	sc->sc_bus.parent = self;
@@ -107,13 +118,17 @@ a10_ehci_attach(device_t self)
 	}
 
 	sc->sc_io_tag = rman_get_bustag(sc->sc_io_res);
+	sc->sc_io_hdl = rman_get_bushandle(sc->sc_io_res);
 	bsh = rman_get_bushandle(sc->sc_io_res);
-	sc->sc_io_size = rman_get_size(sc->sc_io_res) - 0x100;
+/*	sc->sc_io_size = rman_get_size(sc->sc_io_res) - 0x100;	*/
+	sc->sc_io_size = rman_get_size(sc->sc_io_res);
 
+/*
         if (bus_space_subregion(sc->sc_io_tag, bsh, 0x100,
             sc->sc_io_size, &sc->sc_io_hdl) != 0)
                 panic("%s: unable to subregion USB host registers",
                     device_get_name(self));
+*/
 
 	rid = 0;
 	sc->sc_irq_res = bus_alloc_resource_any(self, SYS_RES_IRQ, &rid,
@@ -142,11 +157,27 @@ a10_ehci_attach(device_t self)
 	}
 
 
-	sc->sc_flags |= EHCI_SCFLG_SETMODE;
-        if (bootverbose)
-                device_printf(self, "5.24 GL USB-2 workaround enabled\n");
+/*	sc->sc_flags |= EHCI_SCFLG_SETMODE;	*/
 
 	sc->sc_flags |= EHCI_SCFLG_DONTRESET | EHCI_SCFLG_NORESTERM;
+
+	/* Gating AHB clock for USB_phy0 */
+	reg_value = A10_READ_4(sc, CCM_AHB_GATING0);
+	reg_value |= (1 << 0);	/* AHB clock gate usb0 */
+	A10_WRITE_4(sc, CCM_AHB_GATING0, reg_value);
+
+	reg_value = 10000;
+	while(reg_value--);
+
+	/* Enable module clock for USB phy1 */
+	reg_value = A10_READ_4(sc, CCM_USB_CLK);
+	reg_value |= (1 << 8);
+	reg_value |= (1 << 1); /* disable reset for USB1 */
+	reg_value |= (1 << 4); /* clock source to 48MHz */
+	A10_WRITE_4(sc, CCM_USB_CLK, reg_value);
+
+	reg_value = 10000;
+	while(reg_value--);
 
 	err = ehci_init(sc);
 	if (!err) {
@@ -169,6 +200,7 @@ a10_ehci_detach(device_t self)
 	ehci_softc_t *sc = device_get_softc(self);
 	device_t bdev;
 	int err;
+	uint32_t reg_value = 0;
 
  	if (sc->sc_bus.bdev) {
 		bdev = sc->sc_bus.bdev;
@@ -203,6 +235,24 @@ a10_ehci_detach(device_t self)
 		sc->sc_io_res = NULL;
 	}
 	usb_bus_mem_free_all(&sc->sc_bus, &ehci_iterate_hw_softc);
+
+	/* Gating AHB clock for USB_phy0 */
+	reg_value = A10_READ_4(sc, CCM_AHB_GATING0);
+	reg_value &= ~(1 << 0);	/* AHB clock gate usb0 */
+	A10_WRITE_4(sc, CCM_AHB_GATING0, reg_value);
+
+	reg_value = 10000;
+	while(reg_value--);
+
+	/* Enable module clock for USB phy1 */
+	reg_value = A10_READ_4(sc, CCM_USB_CLK);
+	reg_value &= ~(1 << 8);
+	reg_value &= ~(1 << 1); /* disable reset for USB1 */
+	reg_value &= ~(1 << 4); /* clock source to 48MHz */
+	A10_WRITE_4(sc, CCM_USB_CLK, reg_value);
+
+	reg_value = 10000;
+	while(reg_value--);
 
 	return (0);
 }

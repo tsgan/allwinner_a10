@@ -61,8 +61,8 @@ __FBSDID("$FreeBSD$");
 
 #define USB1_BASE 		0xe1c14000
 #define CCMU_BASE 		0xe1c20000
-#define CCM_AHB_GATING0		(USB1_BASE - CCMU_BASE + 0x60)	/* relative from USB1 base address */
-#define CCM_USB_CLK		(USB1_BASE - CCMU_BASE + 0xcc)  /* relative from USB1 base address */
+#define CCM_AHB_GATING0		(CCMU_BASE - USB1_BASE + 0x60)	/* relative from USB1 base address */
+#define CCM_USB_CLK		(CCMU_BASE - USB1_BASE + 0xcc)  /* relative from USB1 base address */
 
 #define A10_READ_4(sc, reg) \
 	bus_space_read_4((sc)->sc_io_tag, (sc)->sc_io_hdl, reg)

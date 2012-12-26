@@ -57,14 +57,25 @@ __FBSDID("$FreeBSD$");
 #include <dev/usb/controller/ehci.h>
 #include <dev/usb/controller/ehcireg.h>
 
-#define EHCI_HC_DEVSTR		"Allwinner Integrated USB 2.0 controller"
+#define EHCI_HC_DEVSTR			"Allwinner Integrated USB 2.0 controller"
 
-#define USB0_BASE 		0xe1c13000
-#define USB1_BASE 		0xe1c14000
-#define USB2_BASE 		0xe1c1c000
-#define CCMU_BASE 		0xe1c20000
-#define CCM_AHB_GATING0		(CCMU_BASE - USB1_BASE + 0x60)	/* relative from USB0 base address */
-#define CCM_USB_CLK		(CCMU_BASE - USB1_BASE + 0xcc)  /* relative from USB0 base address */
+/*
+#define USB0_BASE	 		0xe1c13000
+#define USB1_BASE 			0xe1c14000
+#define USB2_BASE 			0xe1c1c000
+#define CCMU_BASE 			0xe1c20000
+*/
+//#define CCM_AHB_GATING0			(CCMU_BASE - USB1_BASE + 0x60)	/* relative from USB0 base address */
+//#define CCM_USB_CLK			(CCMU_BASE - USB1_BASE + 0xcc)  /* relative from USB0 base address */
+
+
+#define SW_USB1_BASE			0x01c14000
+#define SW_USB2_BASE			0x01c1c000
+#define SW_USB_EHCI_BASE_OFFSET 	0x00
+#define SW_USB_OHCI_BASE_OFFSET 	0x400
+#define SW_USB_EHCI_LEN  		0x58
+#define SW_USB_OHCI_LEN  		0x58
+#define SW_USB_PMU_IRQ_ENABLE 		0x800
 
 #define A10_READ_4(sc, reg) \
 	bus_space_read_4((sc)->sc_io_tag, (sc)->sc_io_hdl, reg)
@@ -122,10 +133,9 @@ a10_ehci_attach(device_t self)
 	sc->sc_io_tag = rman_get_bustag(sc->sc_io_res);
 	sc->sc_io_hdl = rman_get_bushandle(sc->sc_io_res);
 	bsh = rman_get_bushandle(sc->sc_io_res);
-	sc->sc_io_size = rman_get_size(sc->sc_io_res) - 0x100;
-//	sc->sc_io_size = rman_get_size(sc->sc_io_res);
+	sc->sc_io_size = rman_get_size(sc->sc_io_res);
 
-        if (bus_space_subregion(sc->sc_io_tag, bsh, 0x100,
+        if (bus_space_subregion(sc->sc_io_tag, bsh, 0x00,
             sc->sc_io_size, &sc->sc_io_hdl) != 0)
                 panic("%s: unable to subregion USB host registers",
                     device_get_name(self));
@@ -162,23 +172,19 @@ a10_ehci_attach(device_t self)
 
 	sc->sc_flags |= EHCI_SCFLG_DONTRESET;
 
+	/* maybe totally wrong hack */
+	volatile uint32_t *ccm_ahb_gating = (uint32_t *) 0xe1c20060;
+	volatile uint32_t *ccm_usb_clock = (uint32_t *) 0xe1c200cc;
+
 	/* Gating AHB clock for USB_phy0 */
-	reg_value = A10_READ_4(sc, CCM_AHB_GATING0);
-	reg_value |= (1 << 0);	/* AHB clock gate usb0 */
-	A10_WRITE_4(sc, CCM_AHB_GATING0, reg_value);
+	*ccm_ahb_gating |= (1 << 0);  /* AHB clock gate usb0 */
 
 	reg_value = 10000;
 	while(reg_value--);
 
-	/* Enable module clock for USB phy1 */
-	reg_value = A10_READ_4(sc, CCM_USB_CLK);
-	reg_value |= (1 << 8);
-	reg_value |= (1 << 1); /* disable reset for USB1 */
-	reg_value |= (1 << 4); /* clock source to 48MHz */
-	A10_WRITE_4(sc, CCM_USB_CLK, reg_value);
-
-	reg_value = 10000;
-	while(reg_value--);
+	/* Enable clock for USB */
+	*ccm_usb_clock |= (1 << 8);
+	*ccm_usb_clock |= (1 << 0); /* disable reset for USB0 */
 
 	err = ehci_init(sc);
 	if (!err) {
@@ -237,23 +243,19 @@ a10_ehci_detach(device_t self)
 	}
 	usb_bus_mem_free_all(&sc->sc_bus, &ehci_iterate_hw_softc);
 
-	/* Gating AHB clock for USB_phy0 */
-	reg_value = A10_READ_4(sc, CCM_AHB_GATING0);
-	reg_value &= ~(1 << 0);	/* AHB clock gate usb0 */
-	A10_WRITE_4(sc, CCM_AHB_GATING0, reg_value);
+        /* maybe totally wrong hack */
+        volatile uint32_t *ccm_ahb_gating = (uint32_t *) 0xe1c20060;
+        volatile uint32_t *ccm_usb_clock = (uint32_t *) 0xe1c200cc;
 
-	reg_value = 10000;
-	while(reg_value--);
+        /* Disable AHB clock for USB_phy0 */
+        *ccm_ahb_gating &= ~(1 << 0);  /* AHB clock gate usb0 */
 
-	/* Enable module clock for USB phy1 */
-	reg_value = A10_READ_4(sc, CCM_USB_CLK);
-	reg_value &= ~(1 << 8);
-	reg_value &= ~(1 << 1); /* disable reset for USB1 */
-	reg_value &= ~(1 << 4); /* clock source to 48MHz */
-	A10_WRITE_4(sc, CCM_USB_CLK, reg_value);
+        reg_value = 10000;
+        while(reg_value--);
 
-	reg_value = 10000;
-	while(reg_value--);
+        /* Disable clock for USB */
+        *ccm_usb_clock &= ~(1 << 8);
+        *ccm_usb_clock &= ~(1 << 0); /* disable reset for USB0 */
 
 	return (0);
 }

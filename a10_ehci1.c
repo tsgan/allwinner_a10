@@ -144,9 +144,6 @@ fsl_ehci_attach(device_t self)
 	}
 	iot = rman_get_bustag(sc->sc_res[0]);
 
-	/* TODO: Power/clock enable */
-	/* TODO: basic init */
-
 	/* use 2nd resource */
 	for (i = 1; i < FSL_EHCI_COUNT; i++) {
 		/* No interrupt - no driver */

@@ -203,6 +203,8 @@ fsl_ehci_attach(device_t self)
 		volatile uint32_t *ccm_ahb_gating = (uint32_t *) 0xe1c20060;
 		volatile uint32_t *ccm_usb_clock = (uint32_t *) 0xe1c200cc;
 		volatile uint32_t *usb_reg_pctl = (uint32_t *) 0xe1c13040;
+		volatile uint32_t *usb_reg_iscr = (uint32_t *) 0xe1c13400;
+//		volatile uint32_t *usb_reg_vend0 = (uint32_t *) 0xe1c13043;
 
 	        /* Gating AHB clock for USB_phy0 */
 	        *ccm_ahb_gating |= (1 << 0);  /* AHB clock gate usb0 */
@@ -217,6 +219,11 @@ fsl_ehci_attach(device_t self)
 	        *ccm_usb_clock |= (1 << 0); /* disable reset for USB0 */
 //	        *ccm_usb_clock |= (1 << 1); /* disable reset for USB1 */
 //	        *ccm_usb_clock |= (1 << 4); /* clock source to 48MHz */
+
+		/* ISCR, VEND0 */
+		*usb_reg_iscr |= (1 << 17); /* USBC_BP_ISCR_ID_PULLUP_EN */
+		*usb_reg_iscr |= (1 << 16); /* USBC_BP_ISCR_DPDM_PULLUP_EN */
+//		*usb_reg_vend0 &= 0x00; /* USBC_REG_VEND0 */
 
 		/* Enable power */
 		*usb_reg_pctl |= (1 << 0); /* SUSPEND_EN */

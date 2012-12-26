@@ -209,8 +209,8 @@ fsl_ehci_attach(device_t self)
 
 	        /* Gating AHB clock for USB_phy0 */
 	        *ccm_ahb_gating |= (1 << 0);  /* AHB clock gate usb0 */
-	        *ccm_ahb_gating |= (1 << 1);  /* AHB clock gate ehci0 */
-	        *ccm_ahb_gating |= (1 << 3);  /* AHB clock gate ehci1 */
+//	        *ccm_ahb_gating |= (1 << 1);  /* AHB clock gate ehci0 */
+//	        *ccm_ahb_gating |= (1 << 3);  /* AHB clock gate ehci1 */
 
 	        reg_value = 10000;
 	        while(reg_value--);
@@ -218,16 +218,16 @@ fsl_ehci_attach(device_t self)
 	        /* Enable clock for USB */
 	        *ccm_usb_clock |= (1 << 8);
 	        *ccm_usb_clock |= (1 << 0); /* disable reset for USB0 */
-	        *ccm_usb_clock |= (1 << 1); /* disable reset for USB1 */
-	        *ccm_usb_clock |= (1 << 4); /* clock source to 48MHz */
+//	        *ccm_usb_clock |= (1 << 1); /* disable reset for USB1 */
+//	        *ccm_usb_clock |= (1 << 4); /* clock source to 48MHz */
 
 		/* Enable power */
 		*usb_reg_pctl |= (1 << 0); /* SUSPEND_EN */
 		*usb_reg_pctl |= (1 << 1); /* SUSPEND */
-		*usb_reg_pctl &= ~(1 << 1); /* clear SUSPEND */
+//		*usb_reg_pctl &= ~(1 << 1); /* clear SUSPEND */
 		*usb_reg_pctl |= (1 << 2); /* RESUME */
 		*usb_reg_pctl |= (1 << 3); /* RESET */
-		*usb_reg_pctl &= ~(1 << 3); /* clear RESET */
+//		*usb_reg_pctl &= ~(1 << 3); /* clear RESET */
 		*usb_reg_pctl |= (1 << 4); /* HIGH_SPEED_FLAG */
 		*usb_reg_pctl |= (1 << 5); /* HIGH_SPEED_EN */
 
@@ -235,7 +235,8 @@ fsl_ehci_attach(device_t self)
 	        while(reg_value--);
 
 		/* Set flags */
-		esc->sc_flags |= EHCI_SCFLG_DONTRESET | EHCI_SCFLG_NORESTERM;
+		esc->sc_flags |= EHCI_SCFLG_DONTRESET;
+//		esc->sc_flags |= EHCI_SCFLG_DONTRESET | EHCI_SCFLG_NORESTERM;
 
 		err = ehci_init(esc);
 		if (!err) {
@@ -310,6 +311,34 @@ fsl_ehci_detach(device_t self)
 
 	if (sc->sc_res[0])
 		bus_release_resources(self, a10_ehci_spec, sc->sc_res);
+
+	uint32_t reg_value = 0;
+		
+	/* maybe totally wrong hack */
+	volatile uint32_t *ccm_ahb_gating = (uint32_t *) 0xe1c20060;
+	volatile uint32_t *ccm_usb_clock = (uint32_t *) 0xe1c200cc;
+	volatile uint32_t *usb_reg_pctl = (uint32_t *) 0xe1c13040;
+
+        /* Disable AHB clock for USB_phy0 */
+        *ccm_ahb_gating &= ~(1 << 0);  /* AHB clock gate usb0 */
+
+        reg_value = 10000;
+        while(reg_value--);
+
+        /* Disable clock for USB */
+        *ccm_usb_clock &= ~(1 << 8);
+        *ccm_usb_clock &= ~(1 << 0); /* disable reset for USB0 */
+
+	/* Disable power */
+	*usb_reg_pctl &= ~(1 << 0); /* SUSPEND_EN */
+	*usb_reg_pctl |= (1 << 1); /*  SUSPEND */
+	*usb_reg_pctl &= ~(1 << 2); /* RESUME */
+	*usb_reg_pctl |= (1 << 3); /*  RESET */
+	*usb_reg_pctl &= ~(1 << 4); /* HIGH_SPEED_FLAG */
+	*usb_reg_pctl &= ~(1 << 5); /* HIGH_SPEED_EN */
+
+        reg_value = 10000;
+        while(reg_value--);
 
 	return (0);
 }

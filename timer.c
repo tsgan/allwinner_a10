@@ -148,7 +148,7 @@ a10_timer_attach(device_t dev)
 
 	timer_write_4(sc, SW_TIMER0_INTVAL_REG, TMR_INTER_VAL);
 
-	/* set clock sourch to HOSC, 16 pre-division */
+	/* set clock source to HOSC, 16 pre-division */
 	val = timer_read_4(sc, SW_TIMER0_CTL_REG);
 	val &= ~(0x07<<4);
 	val &= ~(0x03<<2);
@@ -174,16 +174,15 @@ a10_timer_attach(device_t dev)
 		    "err = %d\n", err);
 		return (ENXIO);
 	}
-        /*
-	  node = ofw_bus_get_node(dev);
-	  if (OF_getprop(OF_parent(node), "clock-frequency", &freq,
-	  sizeof(pcell_t)) <= 0) {
-	  bus_release_resources(dev, a10_timer_spec, sc->res);
-	  device_printf(dev, "could not obtain clock frequency\n");
-	  return (ENXIO);
-	  }
-
-	  freq = fdt32_to_cpu(freq);
+	/*
+	node = ofw_bus_get_node(dev);
+	if (OF_getprop(OF_parent(node), "clock-frequency", &freq,
+	    sizeof(pcell_t)) <= 0) {
+		bus_release_resources(dev, a10_timer_spec, sc->res);
+		device_printf(dev, "could not obtain clock frequency\n");
+		return (ENXIO);
+	}
+	freq = fdt32_to_cpu(freq);
 	*/
         freq = fdt32_to_cpu(24000000);
 
@@ -216,9 +215,6 @@ a10_timer_attach(device_t dev)
 
         a10_timer_initialized = 1;
 	
-	/**/
-	timer_write_4(sc, SW_TIMER_INT_STA_REG, 0x1);
-
 	return (0);
 }
 
@@ -240,11 +236,10 @@ a10_timer_timer_start(struct eventtimer *et, struct bintime *first,
 
 	        /* clear */
         	timer_write_4(sc, SW_TIMER0_CNTVAL_REG, 0);
-	        timer_write_4(sc, SW_TIMER0_CTL_REG, 0);
 
-                clo = timer_read_4(sc, SW_TIMER0_CTL_REG);
+                clo = timer_read_4(sc, SW_TIMER0_CNTVAL_REG);
                 clo += count;
-                timer_write_4(sc, SW_TIMER0_CTL_REG, clo);
+                timer_write_4(sc, SW_TIMER0_CNTVAL_REG, clo);
 
                 return (0);
         }
@@ -301,6 +296,9 @@ a10_timer_intr(void *arg)
 	timer_write_4(sc, SW_TIMER0_CTL_REG, val);
 	timer_write_4(sc, SW_TIMER0_CTL_REG, val | 0x1);
 
+	/* pending */
+	timer_write_4(sc, SW_TIMER_INT_STA_REG, 0x1);
+
         if (sc->et.et_active)
                 sc->et.et_event_cb(&sc->et, sc->et.et_arg);
 
@@ -338,27 +336,25 @@ void
 DELAY(int usec)
 {
         uint32_t counter;
-        uint32_t first, last;
-        int val = (a10_timer_timecounter.tc_frequency / 1000000 + 1) * usec;
+        uint32_t last;
 
         /* Timer is not initialized yet */
         if (!a10_timer_initialized) {
                 for (; usec > 0; usec--)
                         for (counter = 100; counter > 0; counter--)
-                                ;
+				/* Prevent optimizing out the loop */
+				cpufunc_nullop();
                 return;
         }
 
-        first = a10_timer_get_timecount(&a10_timer_timecounter);
-        while (val > 0) {
-                last = a10_timer_get_timecount(&a10_timer_timecounter);
-                if (last < first) {
-                        /* Timer rolled over */
-                        last = first;
-                }
+	/* At least 1 count */
+	usec = MAX(1, usec / 100);
 
-                val -= (last - first);
-                first = last;
-        }
+	last = timer_read_4(a10_timer_sc, SW_TIMER0_CNTVAL_REG) + usec;
+
+	while (timer_read_4(a10_timer_sc, SW_TIMER0_CNTVAL_REG) < last) {
+		/* Prevent optimizing out the loop */
+		cpufunc_nullop();
+	}
 }
 

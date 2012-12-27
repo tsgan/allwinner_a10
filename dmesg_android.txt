@@ -1,0 +1,551 @@
+boot0 version : 1.5.0
+dram size =1024
+Succeed in opening nand flash.
+Succeed in reading Boot1 file head.
+The size of Boot1 is 0x00056000.
+The file stored in 0X00000000 of block 2 is perfect.
+Check is correct.
+Ready to disable icache.
+Succeed in loading Boot1.
+Jump to Boot1.
+[       0.177] boot1 version : 1.5.0
+[       0.177] pmu type = 3
+[       0.178] bat vol = 0
+[       0.210] axi:ahb:apb=3:2:2
+[       0.210] set dcdc2=1400, clock=1008 successed
+[       0.212] key
+[       0.225] no key found
+[       0.225] flash init start
+[       3.193] flash init finish
+[       3.196] fs init ok
+[       3.197] fattype FAT16
+[       3.197] fs mount ok
+[       3.203] script finish
+[       3.204] power finish
+[       3.204] storage_type=0
+[       3.216] BootMain start
+[       3.216] 0
+[       3.234] usbdc_vol = 4000, usbdc_cur = 0
+[       3.234] usbpc_vol = 4000, usbpc_cur = 0
+[       3.237] init to usb pc
+[       3.240] set pc
+[       3.334] power_start=0x00000002
+[       3.334] pre sys mode
+[       3.334] startup status = -1
+[       3.337] key value = 0
+[       3.340] recovery key high 6, low 4
+[       3.344] unable to find fastboot_key key_max value
+[       3.352] test for multi os boot with display
+[       3.958] show pic finish
+[       3.958] load kernel start
+[       3.977] load kernel successed
+[       3.977] start address = 0x4a000000
+[       3.979] power exit detect
+[       3.982] usb exit
+
+U-Boot 2011.09-rc1-00013-g3aa33b0-dirty (Dec 22 2011 - 10:33:19) Allwinner Technology
+
+CPU:   A10
+Board: A10-EVB
+DRAM:  512 MiB
+WARNING: Caches not enabled
+NAND:  3896 MiB
+In:    serial
+Out:   serial
+Err:   serial
+--------fastboot partitions--------
+-total partitions:9-
+-name-        -start-       -size-
+bootloader  : 1000000       1000000
+env         : 2000000       1000000
+boot        : 3000000       2000000
+system      : 5000000       20000000
+data        : 25000000      10000000
+misc        : 35000000      1000000
+recovery    : 36000000      2000000
+cache       : 38000000      8000000
+UDISK       : 40000000      b3800000
+-----------------------------------
+Hit any key to stop autoboot:  0
+
+NAND read: device 0 offset 0x3000000, size 0x2000000
+ 33554432 bytes read: OK
+
+Starting kernel ...
+
+[    0.000000] Initializing cgroup subsys cpuset
+[    0.000000] Initializing cgroup subsys cpu
+[    0.000000] Linux version 3.0.42+ (root@ubt) (gcc version 4.4.3 (GCC) ) #15 PREEMPT Fri Nov 2 20:02:18 CST 2012
+[    0.000000] CPU: ARMv7 Processor [413fc082] revision 2 (ARMv7), cr=10c53c7d
+[    0.000000] CPU: VIPT nonaliasing data cache, VIPT aliasing instruction cache
+[    0.000000] Machine: sun4i
+[    0.000000] Total Detected Memory: 1024MB with 2 banks
+[    0.000000] 64 MB reserved for MALI
+[    0.000000] Memory Reserved:
+[    0.000000]  SYS  : 0x43000000 - 0x4300ffff  (  64 kB)
+[    0.000000]  VE   : 0x44000000 - 0x48ffffff  (  80 MB)
+[    0.000000]  G2D  : 0x58000000 - 0x58ffffff  (  16 MB)
+[    0.000000]  LCD  : 0x5a000000 - 0x5bffffff  (  32 MB)
+[    0.000000]  RAMCONSOLE : 0x5be00000 - 0x5bffffff  (   2 MB)
+[    0.000000] Memory policy: ECC disabled, Data cache writeback
+[    0.000000] BROM Ver: 1100 1100 1623
+[    0.000000] On node 0 totalpages: 245248
+[    0.000000] free_area_init_node: node 0, pgdat c0801c14, node_mem_map c105d000
+[    0.000000]   Normal zone: 1280 pages used for memmap
+[    0.000000]   Normal zone: 0 pages reserved
+[    0.000000]   Normal zone: 145664 pages, LIFO batch:31
+[    0.000000]   HighMem zone: 768 pages used for memmap
+[    0.000000]   HighMem zone: 97536 pages, LIFO batch:31
+[    0.000000] pcpu-alloc: s0 r0 d32768 u32768 alloc=1*32768
+[    0.000000] pcpu-alloc: [0] 0
+[    0.000000] Built 1 zonelists in Zone order, mobility grouping on.  Total pages: 243200
+[    0.000000] Kernel command line: console=ttyS0,115200 rw init=/init loglevel=8
+[    0.000000] PID hash table entries: 4096 (order: 2, 16384 bytes)
+[    0.000000] Dentry cache hash table entries: 131072 (order: 7, 524288 bytes)
+[    0.000000] Inode-cache hash table entries: 65536 (order: 6, 262144 bytes)
+[    0.000000] Memory: 446MB 512MB = 958MB total
+[    0.000000] Memory: 832996k/832996k available, 150044k reserved, 393216K highmem
+[    0.000000] Virtual kernel memory layout:
+[    0.000000]     vector  : 0xffff0000 - 0xffff1000   (   4 kB)
+[    0.000000]     fixmap  : 0xfff00000 - 0xfffe0000   ( 896 kB)
+[    0.000000]     DMA     : 0xffc00000 - 0xffe00000   (   2 MB)
+[    0.000000]     vmalloc : 0xe8800000 - 0xf0000000   ( 120 MB)
+[    0.000000]     lowmem  : 0xc0000000 - 0xe8000000   ( 640 MB)
+[    0.000000]     pkmap   : 0xbfe00000 - 0xc0000000   (   2 MB)
+[    0.000000]     modules : 0xbf000000 - 0xbfe00000   (  14 MB)
+[    0.000000]       .init : 0xc0008000 - 0xc0030000   ( 160 kB)
+[    0.000000]       .text : 0xc0030000 - 0xc07be040   (7737 kB)
+[    0.000000]       .data : 0xc07c0000 - 0xc080bb78   ( 303 kB)
+[    0.000000]        .bss : 0xc080bb9c - 0xc09c6538   (1771 kB)
+[    0.000000] SLUB: Genslabs=11, HWalign=64, Order=0-3, MinObjects=0, CPUs=1, Nodes=1
+[    0.000000] NR_IRQS:96
+[    0.000000] timer0: Periodic Mode
+[    0.000000] Console: colour dummy device 80x30
+[    0.000000] Calibrating delay loop... 1001.88 BogoMIPS (lpj=5009408)
+[    0.040000] pid_max: default: 32768 minimum: 301
+[    0.040000] Mount-cache hash table entries: 512
+[    0.040000] Initializing cgroup subsys cpuacct
+[    0.040000] Initializing cgroup subsys devices
+[    0.040000] Initializing cgroup subsys freezer
+[    0.040000] Initializing cgroup subsys blkio
+[    0.040000] CPU: Testing write buffer coherency: ok
+[    0.040000] hw perfevents: enabled with ARMv7 Cortex-A8 PMU driver, 5 counters available
+[    0.040000] devtmpfs: initialized
+[    0.040000] print_constraints: dummy:
+[    0.040000] NET: Registered protocol family 16
+[    0.040000] ram_console: got buffer at 5be00000, size 200000
+[    0.040000] ram_console: no valid data in buffer (sig = 0x21208217)
+[    0.040000] console [ram-1] enabled
+[    0.040000] hw-breakpoint: debug architecture 0x4 unsupported.
+[    0.040000] SOFTWINNER DMA Driver, (c) 2003-2004,2006 Simtec Electronics
+[    0.040000] Initialize DMAC OK
+[    0.040000] bio: create slab <bio-0> at 0
+[    0.040000] SCSI subsystem initialized
+[    0.040000] usbcore: registered new interface driver usbfs
+[    0.040000] usbcore: registered new interface driver hub
+[    0.040000] usbcore: registered new device driver usb
+[    0.040000] Advanced Linux Sound Architecture Driver Version 1.0.24.
+[    0.040000] Bluetooth: Core ver 2.16
+[    0.040000] NET: Registered protocol family 31
+[    0.040000] Bluetooth: HCI device and connection manager initialized
+[    0.040000] Bluetooth: HCI socket layer initialized
+[    0.040000] Bluetooth: L2CAP socket layer initialized
+[    0.040000] Bluetooth: SCO socket layer initialized
+[    0.040000] cfg80211: Calling CRDA to update world regulatory domain
+[    0.040000] Init eGon pin module V2.0
+[    0.040000] Switching to clocksource aw 64bits couter
+[    0.040000] FS-Cache: Loaded
+[    0.040000] CacheFiles: Loaded
+[    0.050000] Switched to NOHz mode on CPU #0
+[    0.050000] [usb_manager]: CONFIG_USB_SW_SUN4I_USB0_OTG
+[    0.050000] [sw_hcd0]: usb host driver initialize........
+[    0.050000] [sw_hcd0]: open_usb_clock
+[    0.060000] [sw_hcd0]: host_init_state = 0
+[    0.060000] [sw_hcd0]: platform is usb host
+[    0.060000] [sw_hcd0]: sw_hcd_init_controller: sw_hcd_host0: USB Host mode controller at f1c13000 using PIO, IRQ 38
+[    0.060000] sw_hcd_host0 sw_hcd_host0: sw_hcd host driver
+[    0.060000] sw_hcd_host0 sw_hcd_host0: new USB bus registered, assigned bus number 1
+[    0.060000] hub 1-0:1.0: USB hub found
+[    0.060000] hub 1-0:1.0: 1 port detected
+[    0.060000] wrn: hcd is not enable, need not start hcd
+[    0.060000] [sw_hcd0]: sw_usb_host0_disable start
+[    0.060000] -------sw_hcd0_soft_disconnect---------
+[    0.060000] [sw_hcd_host0]: Set USB Power OFF
+[    0.060000] wrn: hcd is not enable, need not stop hcd
+[    0.060000] [sw_hcd0]: close_usb_clock
+[    0.060000] [sw_hcd0]: sw_usb_host0_disable end
+[    0.060000] [sw_udc]: udc_init: version 20080411
+[    0.060000] NET: Registered protocol family 2
+[    0.060000] IP route cache hash table entries: 32768 (order: 5, 131072 bytes)
+[    0.060000] TCP established hash table entries: 131072 (order: 8, 1048576 bytes)
+[    0.060000] TCP bind hash table entries: 65536 (order: 6, 262144 bytes)
+[    0.060000] TCP: Hash tables configured (established 131072 bind 65536)
+[    0.060000] TCP reno registered
+[    0.060000] UDP hash table entries: 512 (order: 1, 8192 bytes)
+[    0.060000] UDP-Lite hash table entries: 512 (order: 1, 8192 bytes)
+[    0.060000] NET: Registered protocol family 1
+[    0.070000] RPC: Registered named UNIX socket transport module.
+[    0.070000] RPC: Registered udp transport module.
+[    0.070000] RPC: Registered tcp transport module.
+[    0.070000] RPC: Registered tcp NFSv4.1 backchannel transport module.
+[    0.070000] Trying to unpack rootfs image as initramfs...
+[    0.080000] Freeing initrd memory: 368K
+[    0.080000] [pm]aw_pm_init!
+[    0.080000] audit: initializing netlink socket (disabled)
+[    0.080000] type=2000 audit(0.079:1): initialized
+[    0.090000] highmem bounce pool size: 64 pages
+[    0.090000] ashmem: initialized
+[    0.090000] VFS: Disk quotas dquot_6.5.2
+[    0.090000] Dquot-cache hash table entries: 1024 (order 0, 4096 bytes)
+[    0.090000] NTFS driver 2.1.30 [Flags: R/W].
+[    0.090000] fuse init (API version 7.16)
+[    0.100000] msgmni has been set to 859
+[    0.100000] alg: No test for stdrng (krng)
+[    0.100000] Block layer SCSI generic (bsg) driver version 0.4 loaded (major 253)
+[    0.100000] io scheduler noop registered
+[    0.100000] io scheduler deadline registered
+[    0.100000] io scheduler cfq registered (default)
+[    0.100000] Serial: 8250/16550 driver, 8 ports, IRQ sharing disabled
+[    0.120000] serial8250.0: ttyS0 at MMIO 0x1c28000 (irq = 1) is a U6_16550A
+[    0.800000] console [ttyS0] enabled
+[    0.810000] [uart]: used uart info.: 0x05
+[    0.830000] sunxi-uart.0: ttyS0 at MMIO 0x1c28000 (irq = 1) is a U6_16550A
+[    0.840000] [uart]: serial probe 0, membase   (null) irq 1 mapbase 0x01c28000
+[    0.870000] sunxi-uart.2: ttyS1 at MMIO 0x1c28800 (irq = 3) is a U6_16550A
+[    0.870000] [uart]: serial probe 2, membase   (null) irq 3 mapbase 0x01c28800
+[    0.880000] G2D: drv_g2d_init
+[    0.880000] G2D: g2dmem: g2d_start=58000000, g2d_size=1000000
+[    0.890000] G2D: head:d8000000,tail:d9000000
+[    0.890000] G2D: Module initialized.major:251
+[    0.900000] brd: module loaded
+[    0.900000] loop: module loaded
+[    0.910000] [NAND]nand driver, init.
+[    0.910000] cmu_clk is 480
+[    0.910000] nand clk init end
+[    0.920000] offset 0xc:  0x6040
+[    0.920000] offset 0x14:  0x8200000b
+[    0.920000] [NAND] nand gpio_request
+[    0.930000] [NAND] nand driver version: 0x2 0x9
+[    0.930000] nand interrupte register ok
+[    0.940000] ret of NFC_ChangMode is 0
+[    0.940000] dma_hdle  is 0
+[    0.940000] dma_hdle  is 10000008
+[    0.950000] cmu_clk is 480
+[    0.950000] nand clk init end
+[    0.950000] offset 0xc:  0x6040
+[    0.960000] offset 0x14:  0x82000007
+[    1.010000] The 0 disk name = DEVICE, class name = NAND, disk start = 0, disk size = 7979008
+[    1.020000] The 1 disk name = bootloader, class name = DISK, disk size = 32768
+[    1.030000] The 2 disk name = env, class name = DISK, disk size = 32768
+[    1.030000] The 3 disk name = boot, class name = DISK, disk size = 65536
+[    1.040000] The 4 disk name = system, class name = DISK, disk size = 1048576
+[    1.050000] The 5 disk name = data, class name = DISK, disk size = 524288
+[    1.050000] The 6 disk name = misc, class name = DISK, disk size = 32768
+[    1.060000] The 7 disk name = recovery, class name = DISK, disk size = 65536
+[    1.070000] The 8 disk name = cache, class name = DISK, disk size = 262144
+[    1.070000] The 9 disk name = UDISK, class name = DISK, disk size = 5881856
+[    1.080000] The 9 disk size = 5881856
+[    1.090000] part total count = 10
+[    1.090000]  nand: unknown partition table
+[    1.100000]  nanda:
+[    1.100000]  nandb: unknown partition table
+[    1.110000]  nandc: unknown partition table
+[    1.110000]  nandd: unknown partition table
+[    1.230000]  nande: unknown partition table
+[    1.240000]  nandf: unknown partition table
+[    1.240000]  nandg: unknown partition table
+[    1.250000]  nandh: unknown partition table
+[    1.260000]  nandi:
+[    1.260000] benn: nand probe enter
+[    1.260000] [NAND]nand driver, ok.
+[    1.260000] hello, sun4i_vibrator init
+[    1.270000] sun4i_vibrator_init motor is not used in config
+[    1.270000] sun4i gpio driver init
+[    1.280000] sun4i_gpio_init script_parser_fetch "gpio_para" "gpio_used" error
+[    1.290000] Fixed MDIO Bus: probed
+[    1.290000] tun: Universal TUN/TAP device driver, 1.6
+[    1.290000] tun: (C) 1999-2004 Max Krasnyansky <maxk@qualcomm.com>
+[    1.300000] wemac Ethernet Driver, V1.01 in file:/build/cubieboard/cm/test/kernel/allwinner/common/drivers/net/sun4i/sun4i_wemac.c
+[    1.310000] [EMAC] ahb clk enable
+[    1.320000] [EMAC] ahb gate clk: 0x26040
+[    1.350000] emac MAC isn't valid!
+[    1.350000] ehci_hcd: USB 2.0 'Enhanced' Host Controller (EHCI) Driver
+[    1.360000] ohci_hcd: USB 1.1 'Open' Host Controller (OHCI) Driver
+[    1.360000] [sw-ehci1]: probe, pdev->name: sw-ehci, pdev->id: 1, sw_ehci: 0xc08bc344
+[    1.370000] [sw-ehci1]: open clock
+[    1.390000] [sw-ehci1]: Set USB Power ON
+[    1.400000] sw-ehci sw-ehci.1: SW USB2.0 'Enhanced' Host Controller (EHCI) Driver
+[    1.410000] sw-ehci sw-ehci.1: new USB bus registered, assigned bus number 2
+[    1.410000] sw-ehci sw-ehci.1: irq 39, io mem 0xf1c14000
+[    1.440000] sw-ehci sw-ehci.1: USB 0.0 started, EHCI 1.00
+[    1.440000] hub 2-0:1.0: USB hub found
+[    1.440000] hub 2-0:1.0: 1 port detected
+[    1.450000] [sw-ohci1]: probe, pdev->name: sw-ohci, pdev->id: 1, sw_ohci: 0xc08bc454
+[    1.460000] [sw-ohci1]: open clock
+[    1.480000] sw-ohci sw-ohci.1: SW USB2.0 'Open' Host Controller (OHCI) Driver
+[    1.490000] sw-ohci sw-ohci.1: new USB bus registered, assigned bus number 3
+[    1.490000] sw-ohci sw-ohci.1: irq 64, io mem 0xf1c14400
+[    1.560000] hub 3-0:1.0: USB hub found
+[    1.560000] hub 3-0:1.0: 1 port detected
+[    1.570000] [sw-ehci2]: probe, pdev->name: sw-ehci, pdev->id: 2, sw_ehci: 0xc08bc568
+[    1.580000] [sw-ehci2]: open clock
+[    1.600000] [sw-ehci2]: Set USB Power ON
+[    1.600000] sw-ehci sw-ehci.2: SW USB2.0 'Enhanced' Host Controller (EHCI) Driver
+[    1.610000] sw-ehci sw-ehci.2: new USB bus registered, assigned bus number 4
+[    1.620000] sw-ehci sw-ehci.2: irq 40, io mem 0xf1c1c000
+[    1.640000] sw-ehci sw-ehci.2: USB 0.0 started, EHCI 1.00
+[    1.640000] hub 4-0:1.0: USB hub found
+[    1.640000] hub 4-0:1.0: 1 port detected
+[    1.650000] [sw-ohci2]: probe, pdev->name: sw-ohci, pdev->id: 2, sw_ohci: 0xc08bc678
+[    1.660000] [sw-ohci2]: open clock
+[    1.680000] sw-ohci sw-ohci.2: SW USB2.0 'Open' Host Controller (OHCI) Driver
+[    1.690000] sw-ohci sw-ohci.2: new USB bus registered, assigned bus number 5
+[    1.690000] sw-ohci sw-ohci.2: irq 65, io mem 0xf1c1c400
+[    1.760000] hub 5-0:1.0: USB hub found
+[    1.760000] hub 5-0:1.0: 1 port detected
+[    1.770000] Initializing USB Mass Storage driver...
+[    1.770000] usbcore: registered new interface driver usb-storage
+[    1.780000] USB Mass Storage support registered.
+[    1.780000] usbcore: registered new interface driver ums-alauda
+[    1.790000] usbcore: registered new interface driver ums-cypress
+[    1.800000] usbcore: registered new interface driver ums-datafab
+[    1.800000] usbcore: registered new interface driver ums_eneub6250
+[    1.810000] usbcore: registered new interface driver ums-freecom
+[    1.810000] usbcore: registered new interface driver ums-isd200
+[    1.820000] usbcore: registered new interface driver ums-jumpshot
+[    1.830000] usbcore: registered new interface driver ums-karma
+[    1.830000] usbcore: registered new interface driver ums-onetouch
+[    1.840000] usbcore: registered new interface driver ums-realtek
+[    1.840000] usbcore: registered new interface driver ums-sddr09
+[    1.850000] usbcore: registered new interface driver ums-sddr55
+[    1.860000] usbcore: registered new interface driver ums-usbat
+[    1.860000] ------print_msc_config-----
+[    1.870000] vendor_id             = 0x18d1
+[    1.870000] mass_storage_id       = 0x1
+[    1.870000] adb_id                = 0x2
+[    1.880000] usb_manufacturer_name = USB Developer
+[    1.880000] usb_product_name      = Android
+[    1.890000] usb_serial_number     = 20080411
+[    1.890000] msc_vendor_name       = USB 2.0
+[    1.890000] msc_product_name      = USB Flash Driver
+[    1.900000] msc_release           = 100
+[    1.900000] luns                  = 3
+[    1.910000] ---------------------------
+[    1.910000] [sw_udc]: [sw_usb_udc]: binding gadget driver 'android_usb'
+[    1.920000] [sw_udc]: alloc request: ep(0xc07f02a0, ep0, 64), req(0xe7bb6640)
+[    1.920000] WRN:L2706(/build/cubieboard/cm/test/kernel/allwinner/common/drivers/usb/sun4i_usb/udc/sw_udc.c):ERR: usb device is not active
+[    1.940000] [sw_udc]: sw_udc_pullup, is_on = 0
+[    1.940000] WRN:L2741(/build/cubieboard/cm/test/kernel/allwinner/common/drivers/usb/sun4i_usb/udc/sw_udc.c):ERR: usb device is not active
+[    1.950000] android_usb gadget: Mass Storage Function, version: 2009/09/11
+[    1.960000] android_usb gadget: Number of LUNs=3
+[    1.970000]  lun0: LUN: removable file: (no medium)
+[    1.970000]  lun1: LUN: removable file: (no medium)
+[    1.980000]  lun2: LUN: removable file: (no medium)
+[    1.980000] lun name: lun
+[    1.980000] lun name: lun1
+[    1.990000] lun name: lun2
+[    1.990000] android_usb gadget: android_usb ready
+[    1.990000] mousedev: PS/2 mouse device common for all mice
+[    2.000000] [kpad]: sw keypad init
+[    2.000000] sw keypad fetch keypad uning configuration failed
+[    2.010000] keypad: cannot find using configuration, return without doing anything!
+[    2.020000] input: sun4i-keyboard as /devices/virtual/input/input0
+[    2.020000] input: sun4i-ir as /devices/virtual/input/input1
+[    2.030000] IR Initial OK
+[    2.030000] ===========================hv_keypad_init=====================
+[    2.040000] ========HV Inital ===================
+[    2.040000] tkey_fetch_sysconfig_para: tkey_unused.
+[    2.050000] hv_keypad_init: after fetch_sysconfig_para:  normal_i2c: 0x0. normal_i2c[1]: 0x0
+[    2.060000] sunxi RTC version 0.1
+[    2.060000] sunxi-rtc sunxi-rtc: sunxi_rtc_probe tmp_data = 380248073
+[    2.070000]
+[    2.070000]
+[    2.070000] insmod_device_driver
+[    2.070000]
+[    2.080000] [sw_udc]: sw_usb_device_enable start
+[    2.080000] [sw_udc]: usb_vbase  = 0xf1c13000
+[    2.080000] [sw_udc]: [RTC] ERR: Set LOSC to external failed!!!
+[    2.090000] [RTC] WARNING: Rtc time will be wrong!!
+[    2.100000] sram_vbase = 0xf1c00000
+[    2.100000] [sw_udc]: open_usb_clock
+[    2.110000] using rtc device, rtc, for alarms
+[    2.110000] sunxi-rtc sunxi-rtc: rtc core: registered rtc as rtc0
+[    2.130000] i2c /dev entries driver
+[    2.130000] !!! base_Addr = 0xe88d2c00
+[    2.130000] config i2c gpio with gpio_config api
+[    2.150000] twi0, apb clock = 24000000
+[    2.150000] [sw_udc]: usbd_stop_work
+[    2.150000] [sw_udc]: sw_usb_device_enable end
+[    2.160000] axp_mfd 0-0034: AXP (CHIP ID: 0x41) detected
+[    2.160000] i2c i2c-0: Invalid probe address 0x00
+[    2.170000] I2C: i2c-0: AW16XX I2C adapter
+[    2.170000] **********start************
+[    2.180000] 0x40
+[    2.180000] 0xf8
+[    2.180000] 0x28
+[    2.180000] 0x0
+[    2.180000] 0x0
+[    2.190000] **********end************
+[    2.190000] !!! base_Addr = 0xe88d4000
+[    2.190000] twi1, apb clock = 24000000
+[    2.200000] i2c i2c-1: Invalid probe address 0x00
+[    2.200000] I2C: i2c-1: AW16XX I2C adapter
+[    2.210000] **********start************
+[    2.210000] 0x40
+[    2.210000] 0xf8
+[    2.210000] 0x58
+[    2.220000] 0x0
+[    2.220000] 0x0
+[    2.220000] **********end************
+[    2.220000] !!! base_Addr = 0xe88d6400
+[    2.230000] twi2, apb clock = 24000000
+[    2.230000] i2c i2c-2: Invalid probe address 0x00
+[    2.240000] I2C: i2c-2: AW16XX I2C adapter
+[    2.240000] **********start************
+[    2.240000] 0x40
+[    2.250000] 0xf8
+[    2.250000] 0x58
+[    2.250000] 0x0
+[    2.250000] 0x0
+[    2.250000] **********end************
+[    2.260000] Linux video capture interface: v2.00
+[    2.260000] [cedar dev]: install start!!!
+[    2.270000] [cedar dev]: install end!!!
+[    2.270000] [ace_drv] start!!!
+[    2.270000] [ace_drv] init end!!!
+[    2.280000] [pa_drv] start!!!
+[    2.280000] [pa_drv] init end!!!
+[    2.280000] print_constraints: axp20_ldo1: 1300 mV
+[    2.290000] print_constraints: axp20_ldo2: 1800 <--> 3300 mV at 3000 mV
+[    2.300000] print_constraints: axp20_ldo3: 700 <--> 3500 mV at 2800 mV
+[    2.300000] print_constraints: axp20_ldo4: 1250 <--> 3300 mV at 2800 mV
+[    2.310000] print_constraints: axp20_buck2: 700 <--> 2275 mV at 1400 mV
+[    2.320000] print_constraints: axp20_buck3: 700 <--> 3500 mV at 1250 mV
+[    2.330000] print_constraints: axp20_ldoio0: 1800 <--> 3300 mV at 2800 mV
+[    2.330000] input: axp20-supplyer as /devices/platform/sun4i-i2c.0/i2c-0/0-0034/axp20-supplyer.28/input/input2
+[    2.360000] sunxi_wdt: sunxi WatchDog Timer Driver v1.0
+[    2.360000] sunxi_wdt: initialized (timeout=23s, nowayout=0)
+[    2.370000] device-mapper: uevent: version 1.0.3
+[    2.380000] device-mapper: ioctl: 4.20.0-ioctl (2011-02-02) initialised: dm-devel@redhat.com
+[    2.380000] Bluetooth: Broadcom Blutonium firmware driver ver 1.2
+[    2.390000] usbcore: registered new interface driver bcm203x
+[    2.400000] Bluetooth: Digianswer Bluetooth USB driver ver 0.10
+[    2.400000] usbcore: registered new interface driver bpa10x
+[    2.410000] Bluetooth: BlueFRITZ! USB driver ver 1.2
+[    2.410000] usbcore: registered new interface driver bfusb
+[    2.420000] Bluetooth: Generic Bluetooth USB driver ver 0.6
+[    2.420000] usbcore: registered new interface driver btusb
+[    2.430000] Bluetooth: Atheros AR30xx firmware driver ver 1.0
+[    2.430000] usbcore: registered new interface driver ath3k
+[    2.440000] cpuidle: using governor ladder
+[    2.440000] cpuidle: using governor menu
+[    2.450000] [mmc_pm]: no sdio card used in configuration
+[    2.450000] [mmc]: sunximmc_init
+[    2.460000] [mmc]: sunxi mmc controller using config : 0xb
+[    2.460000] [mmc]: sunxi-mmc.0: pdev->name: sunxi-mmc, pdev->id: 0
+[    2.470000] [mmc]: mmc 0 power off !!
+[    2.470000] [mmc]: mmc0 Probe: base:0xe88e0000 irq:32 dma:0 pdes:0xe7008000, ret 0.
+[    2.480000] [mmc]: sunxi-mmc.1: pdev->name: sunxi-mmc, pdev->id: 1
+[    2.490000] [mmc]: mmc 1 power off !!
+[    2.490000] [mmc]: mmc1 Probe: base:0xe88e2000 irq:33 dma:0 pdes:0xe700c000, ret 0.
+[    2.500000] [mmc]: sunxi-mmc.3: pdev->name: sunxi-mmc, pdev->id: 3
+[    2.500000] [mmc]: mmc 3 power off !!
+[    2.510000] [mmc]: mmc3 Probe: base:0xe88e4000 irq:35 dma:0 pdes:0xe7010000, ret 0.
+[    2.520000] usbcore: registered new interface driver usbhid
+[    2.520000] usbhid: USB HID core driver
+[    2.530000] logger: created 256K log 'log_main'
+[    2.530000] logger: created 256K log 'log_events'
+[    2.540000] logger: created 256K log 'log_radio'
+[    2.540000] logger: created 256K log 'log_system'
+[    2.550000] enter sun4i Audio codec!!!
+[    2.550000] sun4i audio support initialized
+[    2.550000] sun4i Audio codec successfully loaded..
+[    2.560000] asoc: sndhdmi <-> sun4i-hdmiaudio.0 mapping ok
+[    2.570000] [SPDIF]sun4i-spdif cannot find any using configuration for controllers, return directly!
+[    2.580000] [SPDIF]sndspdif cannot find any using configuration for controllers, return directly!
+[    2.580000] [SPDIF]sun4i_sndspdif cannot find any using configuration for controllers, return directly!
+[    2.590000] asoc: sndi2s <-> sun4i-i2s.0 mapping ok
+[    2.600000] ALSA device list:
+[    2.600000]   #0: sun4i-CODEC  Audio Codec
+[    2.610000]   #1: sun4i-sndhdmi
+[    2.610000]   #2: sun4i-sndi2s
+[    2.610000] NF_TPROXY: Transparent proxy support initialized, version 4.1.0
+[    2.620000] NF_TPROXY: Copyright (c) 2006-2007 BalaBit IT Ltd.
+[    2.630000] IPv4 over IPv4 tunneling driver
+[    2.630000] ip_tables: (C) 2000-2006 Netfilter Core Team
+[    2.640000] TCP cubic registered
+[    2.640000] Initializing XFRM netlink socket
+[    2.640000] NET: Registered protocol family 10
+[    2.650000] ip6_tables: (C) 2000-2006 Netfilter Core Team
+[    2.660000] IPv6 over IPv4 tunneling driver
+[    2.660000] NET: Registered protocol family 17
+[    2.660000] NET: Registered protocol family 15
+[    2.670000] Bridge firewalling registered
+[    2.670000] Bluetooth: RFCOMM TTY layer initialized
+[    2.680000] Bluetooth: RFCOMM socket layer initialized
+[    2.680000] Bluetooth: RFCOMM ver 1.11
+[    2.690000] Bluetooth: BNEP (Ethernet Emulation) ver 1.3
+[    2.690000] Bluetooth: BNEP filters: protocol multicast
+[    2.700000] Bluetooth: HIDP (Human Interface Emulation) ver 1.2
+[    2.700000] 802.1Q VLAN Support v1.8
+[    2.710000] [mmc_pm]: No sdio card, please check your config !!
+[    2.710000] VFP support v0.3: implementor 41 architecture 3 part 30 variant c rev 3
+[    2.720000] registered taskstats version 1
+[    2.730000] [LCD] lcd_module_init
+[    2.790000] regulator_init_complete: axp20_buck3: incomplete constraints, leaving on
+[    2.800000] regulator_init_complete: axp20_buck2: incomplete constraints, leaving on
+[    2.810000] regulator_init_complete: axp20_ldo4: incomplete constraints, leaving on
+[    2.820000] regulator_init_complete: axp20_ldo3: incomplete constraints, leaving on
+[    2.820000] regulator_init_complete: axp20_ldo2: incomplete constraints, leaving on
+[    2.830000] regulator_init_complete: axp20_ldo1: incomplete constraints, leaving on
+[    2.840000] ===========================goodix_ts_init=====================
+[    2.850000] ctp_fetch_sysconfig_para.
+[    2.850000] ctp_fetch_sysconfig_para: ctp_unused.
+[    2.860000] goodix_ts_init: err.
+[    2.860000] sunxi-rtc sunxi-rtc: hctosys: unable to read the hardware clock
+[    2.870000] Freeing init memory: 160K
+[    2.870000] init: could not import file /system/etc/init.local.rc
+[    2.880000] init (1): /proc/1/oom_adj is deprecated, please use /proc/1/oom_score_adj instead.
+[    2.940000] init: cannot open '/initlogo.rle'
+[    6.590000] EXT4-fs (nandd): mounted filesystem with ordered data mode. Opts: noauto_da_alloc
+[    6.610000] EXT4-fs (nande): mounted filesystem with ordered data mode. Opts: noauto_da_alloc
+[    6.630000] EXT4-fs (nandh): mounted filesystem with ordered data mode. Opts: noauto_da_alloc
+[    6.640000] init: dont need format /dev/block/nandi[mmc_pm]: No sdio card, please check your config !!
+[    7.020000] init: cannot find '/system/bin/u3gmonitor', disabling 'u3gmonitor'
+[    7.240000] [CSI]Welcome to CSI driver
+[    7.250000] [CSI]csi_init
+[    7.250000] [CSI]registered sub device,input_num = 0
+[    7.260000] [CSI]V4L2 device registered as video0
+[    7.290000] goodix_touch_3F: version magic '3.0.36+ preempt mod_unload ARMv7 ' should be '3.0.42+ preempt mod_unload ARMv7 '
+[    7.350000] UMP<2>: Inserting UMP device driver. Compiled: Nov  2 2012, time: 19:39:24
+[    7.360000] UMP<2>: Using OS memory backend, allocation limit: 134217728
+[    7.370000] UMP: UMP device driver  loaded
+[    7.540000] mali: use config clk_div 3
+[    7.550000] mali: clk_div 3
+[    7.550000] Mali: mali clock set completed, clock is  320000000 Mhz
+[    7.560000] Mali: Mali device driver  loaded
+[    7.570000] android_usb: already disabled
+[    7.580000] ep_matches, wrn: endpoint already claimed, ep(0xc07f02e0, 0xe7bbcc00, ep1-bulk)
+[    7.580000] adb_bind_config
+[    7.590000] ep_matches, wrn: endpoint already claimed, ep(0xc07f02e0, 0xe7bbcc00, ep1-bulk)
+[    7.600000] ep_matches, wrn: endpoint already claimed, ep(0xc07f0320, 0xe7bbcc00, ep2-bulk)
+[    7.600000] ep_matches, wrn: endpoint already claimed, ep(0xc07f02e0, 0xe7bbcc00, ep1-bulk)
+[    7.610000] ep_matches, wrn: endpoint already claimed, ep(0xc07f0320, 0xe7bbcc00, ep2-bulk)
+[    7.620000] ep_matches, wrn: endpoint already claimed, ep(0xc07f0360, 0xe7bb7200, ep3-bulk)
+[    7.630000] [sw_udc]: alloc request: ep(0xc07f03a0, ep4-bulk, 512), req(0xe6f20c00)
+[    7.640000] [sw_udc]: alloc request: ep(0xc07f0360, ep3-bulk, 512), req(0xe6f20c40)
+[    7.640000] [sw_udc]: alloc request: ep(0xc07f0360, ep3-bulk, 512), req(0xe6f20c80)
+[    7.650000] [sw_udc]: alloc request: ep(0xc07f0360, ep3-bulk, 512), req(0xe6f20cc0)
+[    7.660000] [sw_udc]: alloc request: ep(0xc07f0360, ep3-bulk, 512), req(0xe6f20d00)
+[    7.670000] [sw_udc]: sw_udc_pullup, is_on = 1
+[    7.670000] [sw_udc]: CONFIG_USB_GADGET_DUALSPEED
+[    7.680000] [sw_udc]: usbd_start_work
+[    7.690000] adb_open
+/system/bin/sh: No controlling t[    7.740000] [sw_udc]: IRQ: suspend
+[    7.740000] [sw_udc]: ERR: usb speed is unkown
+ty (open /dev/tty: No such device or address)
+/system/bin/sh: warning: won't have full job control
+root@android:/ # [    8.600000] UMP<2>: New session opened
+[    9.310000] UMP<2>: New session opened
+
+

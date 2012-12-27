@@ -65,7 +65,7 @@ __FBSDID("$FreeBSD$");
 #define USB2_BASE 			0xe1c1c000
 #define CCMU_BASE 			0xe1c20000
 */
-//#define CCM_AHB_GATING0			(CCMU_BASE - USB1_BASE + 0x60)	/* relative from USB0 base address */
+//#define CCM_AHB_GATING0		(CCMU_BASE - USB1_BASE + 0x60)	/* relative from USB0 base address */
 //#define CCM_USB_CLK			(CCMU_BASE - USB1_BASE + 0xcc)  /* relative from USB0 base address */
 
 
@@ -166,8 +166,7 @@ a10_ehci_attach(device_t self)
 		goto error;
 	}
 
-
-/*	sc->sc_flags |= EHCI_SCFLG_SETMODE;	*/
+//	sc->sc_flags |= EHCI_SCFLG_SETMODE;
 //	sc->sc_flags |= EHCI_SCFLG_DONTRESET | EHCI_SCFLG_NORESTERM;
 
 	sc->sc_flags |= EHCI_SCFLG_DONTRESET;
@@ -185,6 +184,43 @@ a10_ehci_attach(device_t self)
 	/* Enable clock for USB */
 	*ccm_usb_clock |= (1 << 8);
 	*ccm_usb_clock |= (1 << 0); /* disable reset for USB0 */
+
+        volatile uint32_t *usb_reg_pctl = (uint32_t *) 0xe1c13040;
+        volatile uint32_t *usb_reg_iscr = (uint32_t *) 0xe1c13400;
+
+        /* ISCR */
+        *usb_reg_iscr |= (1 << 17); /* USBC_BP_ISCR_ID_PULLUP_EN */
+        *usb_reg_iscr |= (1 << 16); /* USBC_BP_ISCR_DPDM_PULLUP_EN */
+
+	*usb_reg_iscr |= (0x03 << 12); /* USBC_BP_ISCR_FORCE_VBUS_VALID */
+
+    	uint32_t temp = *usb_reg_iscr;
+
+        temp &= ~(1 << 6);
+       	temp &= ~(1 << 5);
+        temp &= ~(1 << 4);
+        temp |= (1 << 3);
+
+	/*
+	#define  USBC_BP_ISCR_VBUS_CHANGE_DETECT        6
+	#define  USBC_BP_ISCR_ID_CHANGE_DETECT          5
+	#define  USBC_BP_ISCR_DPDM_CHANGE_DETECT        4
+	#define  USBC_BP_ISCR_IRQ_ENABLE                3
+	#define  USBC_BP_ISCR_VBUS_CHANGE_DETECT_EN     2
+	#define  USBC_BP_ISCR_ID_CHANGE_DETECT_EN       1
+	*/
+
+        *usb_reg_iscr = temp;
+
+        /* Enable power */
+        *usb_reg_pctl |= (1 << 0); /* SUSPEND_EN */
+        *usb_reg_pctl |= (1 << 1); /* SUSPEND */
+//      *usb_reg_pctl &= ~(1 << 1); /* clear SUSPEND */
+        *usb_reg_pctl |= (1 << 2); /* RESUME */
+        *usb_reg_pctl |= (1 << 3); /* RESET */
+//      *usb_reg_pctl &= ~(1 << 3); /* clear RESET */
+        *usb_reg_pctl |= (1 << 4); /* HIGH_SPEED_FLAG */
+        *usb_reg_pctl |= (1 << 5); /* HIGH_SPEED_EN */
 
 	err = ehci_init(sc);
 	if (!err) {
@@ -256,6 +292,7 @@ a10_ehci_detach(device_t self)
         /* Disable clock for USB */
         *ccm_usb_clock &= ~(1 << 8);
         *ccm_usb_clock &= ~(1 << 0); /* disable reset for USB0 */
+
 
 	return (0);
 }

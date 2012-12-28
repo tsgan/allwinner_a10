@@ -61,7 +61,7 @@ int sunxi_gpio_set_cfgpin(uint32_t pin, uint32_t val) {
 
 	printf("--------- SET Pin: %d, address: %p -----------, val: %d\n", pin, (&pio->cfg[0] + index), cfg);
 
-//	writel(cfg, &pio->cfg[0] + index);
+	writel(cfg, &pio->cfg[0] + index);
 
 	return 0;
 }

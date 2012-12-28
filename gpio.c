@@ -59,7 +59,7 @@ int sunxi_gpio_set_cfgpin(uint32_t pin, uint32_t val) {
 	cfg &= ~(0xf << offset);
 	cfg |= val << offset;
 
-	printf("--------- SET Pin: %d, address: %p -----------, val: %d\n", pin, (&pio->cfg[0] + index), cfg);
+	printf("--------- SET Pin: %d, address: %p, val: %d, bank: %d, offset: %d, index: %d\n", pin, (&pio->cfg[0] + index), cfg, bank, offset, index);
 
 	writel(cfg, &pio->cfg[0] + index);
 
@@ -76,10 +76,11 @@ int sunxi_gpio_get_cfgpin(uint32_t pin) {
 	struct sunxi_gpio *pio =
 		&((struct sunxi_gpio_reg *)SUNXI_PIO_BASE)->gpio_bank[bank];
 
-	printf("--------- GET Pin: %d, address: %p -----------\n", pin, (&pio->cfg[0] + index));
 
 	cfg = readl(&pio->cfg[0] + index);
 	cfg >>= offset;
+
+	printf("--------- GET Pin: %d, address: %p, val: %d, bank: %d, offset: %d, index: %d\n", pin, (&pio->cfg[0] + index), (cfg & 0xf), bank, offset, index);
 
 	return (cfg & 0xf);
 }

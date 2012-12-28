@@ -173,12 +173,15 @@ a10_ehci_attach(device_t self)
 	/* Enable power in gpio pin for USB */
 
 	/* testing to see addresses of PIO regs */
-        sunxi_gpio_set_cfgpin(SUNXI_GPB(16), SUNXI_GPIO_INPUT);
+//	sunxi_gpio_set_cfgpin(SUNXI_GPB(16), SUNXI_GPIO_OUTPUT);
 
-        sunxi_gpio_set_cfgpin(SUNXI_GPB(9), SUNXI_GPIO_INPUT);
-        sunxi_gpio_set_cfgpin(SUNXI_GPH(6), SUNXI_GPIO_INPUT);
-        sunxi_gpio_set_cfgpin(SUNXI_GPH(3), SUNXI_GPIO_INPUT);
+//	sunxi_gpio_set_cfgpin(SUNXI_GPB(9), SUNXI_GPIO_OUTPUT);
+//	sunxi_gpio_set_cfgpin(SUNXI_GPH(6), SUNXI_GPIO_OUTPUT);
 
+	sunxi_gpio_get_cfgpin(SUNXI_GPH(6));
+	sunxi_gpio_set_cfgpin(SUNXI_GPH(6), SUNXI_GPIO_OUTPUT);
+
+//	sunxi_gpio_set_cfgpin(SUNXI_GPH(3), SUNXI_GPIO_OUTPUT);
 
 	/* maybe totally wrong hack */
 	volatile uint32_t *ccm_ahb_gating = (uint32_t *) 0xe1c20060;

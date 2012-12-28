@@ -57,6 +57,8 @@ __FBSDID("$FreeBSD$");
 #include <dev/usb/controller/ehci.h>
 #include <dev/usb/controller/ehcireg.h>
 
+#include "gpio.h"
+
 #define EHCI_HC_DEVSTR			"Allwinner Integrated USB 2.0 controller"
 
 /*
@@ -166,10 +168,17 @@ a10_ehci_attach(device_t self)
 		goto error;
 	}
 
-//	sc->sc_flags |= EHCI_SCFLG_SETMODE;
-//	sc->sc_flags |= EHCI_SCFLG_DONTRESET | EHCI_SCFLG_NORESTERM;
-
 	sc->sc_flags |= EHCI_SCFLG_DONTRESET;
+
+	/* Enable power in gpio pin for USB */
+
+	/* testing to see addresses of PIO regs */
+        sunxi_gpio_set_cfgpin(SUNXI_GPB(16), SUNXI_GPIO_INPUT);
+
+        sunxi_gpio_set_cfgpin(SUNXI_GPB(9), SUNXI_GPIO_INPUT);
+        sunxi_gpio_set_cfgpin(SUNXI_GPH(6), SUNXI_GPIO_INPUT);
+        sunxi_gpio_set_cfgpin(SUNXI_GPH(3), SUNXI_GPIO_INPUT);
+
 
 	/* maybe totally wrong hack */
 	volatile uint32_t *ccm_ahb_gating = (uint32_t *) 0xe1c20060;
@@ -185,8 +194,8 @@ a10_ehci_attach(device_t self)
 	*ccm_usb_clock |= (1 << 8);
 	*ccm_usb_clock |= (1 << 0); /* disable reset for USB0 */
 
-        volatile uint32_t *usb_reg_pctl = (uint32_t *) 0xe1c13040;
-        volatile uint32_t *usb_reg_iscr = (uint32_t *) 0xe1c13400;
+        volatile uint32_t *usb_reg_pctl = (uint32_t *) 0xe1c14040;
+        volatile uint32_t *usb_reg_iscr = (uint32_t *) 0xe1c14400;
 
         /* ISCR */
         *usb_reg_iscr |= (1 << 17); /* USBC_BP_ISCR_ID_PULLUP_EN */
@@ -215,10 +224,8 @@ a10_ehci_attach(device_t self)
         /* Enable power */
         *usb_reg_pctl |= (1 << 0); /* SUSPEND_EN */
         *usb_reg_pctl |= (1 << 1); /* SUSPEND */
-//      *usb_reg_pctl &= ~(1 << 1); /* clear SUSPEND */
         *usb_reg_pctl |= (1 << 2); /* RESUME */
         *usb_reg_pctl |= (1 << 3); /* RESET */
-//      *usb_reg_pctl &= ~(1 << 3); /* clear RESET */
         *usb_reg_pctl |= (1 << 4); /* HIGH_SPEED_FLAG */
         *usb_reg_pctl |= (1 << 5); /* HIGH_SPEED_EN */
 
@@ -293,6 +300,41 @@ a10_ehci_detach(device_t self)
         *ccm_usb_clock &= ~(1 << 8);
         *ccm_usb_clock &= ~(1 << 0); /* disable reset for USB0 */
 
+        volatile uint32_t *usb_reg_pctl = (uint32_t *) 0xe1c14040;
+        volatile uint32_t *usb_reg_iscr = (uint32_t *) 0xe1c14400;
+
+        /* ISCR */
+        *usb_reg_iscr &= ~(1 << 17); /* USBC_BP_ISCR_ID_PULLUP_EN */
+        *usb_reg_iscr &= ~(1 << 16); /* USBC_BP_ISCR_DPDM_PULLUP_EN */
+
+	*usb_reg_iscr &= ~(0x03 << 12); /* USBC_BP_ISCR_FORCE_VBUS_VALID */
+	*usb_reg_iscr |= (0x02 << 12); /* USBC_BP_ISCR_FORCE_VBUS_VALID */
+
+    	uint32_t temp = *usb_reg_iscr;
+
+        temp |= (1 << 6);
+       	temp |= (1 << 5);
+        temp |= (1 << 4);
+        temp &= ~(1 << 3);
+
+	/*
+	#define  USBC_BP_ISCR_VBUS_CHANGE_DETECT        6
+	#define  USBC_BP_ISCR_ID_CHANGE_DETECT          5
+	#define  USBC_BP_ISCR_DPDM_CHANGE_DETECT        4
+	#define  USBC_BP_ISCR_IRQ_ENABLE                3
+	#define  USBC_BP_ISCR_VBUS_CHANGE_DETECT_EN     2
+	#define  USBC_BP_ISCR_ID_CHANGE_DETECT_EN       1
+	*/
+
+        *usb_reg_iscr = temp;
+
+        /* Disable power */
+        *usb_reg_pctl &= ~(1 << 0); /* SUSPEND_EN */
+        *usb_reg_pctl &= ~(1 << 1); /* SUSPEND */
+        *usb_reg_pctl &= ~(1 << 2); /* RESUME */
+        *usb_reg_pctl &= ~(1 << 3); /* RESET */
+        *usb_reg_pctl &= ~(1 << 4); /* HIGH_SPEED_FLAG */
+        *usb_reg_pctl &= ~(1 << 5); /* HIGH_SPEED_EN */
 
 	return (0);
 }

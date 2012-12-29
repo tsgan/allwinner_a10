@@ -45,24 +45,24 @@
 #define SUNXI_GPIO_I 8
 
 struct sunxi_gpio {
-uint32_t cfg[4];
-uint32_t dat;
-uint32_t drv[2];
-uint32_t pull[2];
+	uint32_t cfg[4];
+	uint32_t dat;
+	uint32_t drv[2];
+	uint32_t pull[2];
 };
 
 /* gpio interrupt control */
 struct sunxi_gpio_int {
-uint32_t cfg[3];
-uint32_t ctl;
-uint32_t sta;
-uint32_t deb;	/* interrupt debounce */
+	uint32_t cfg[3];
+	uint32_t ctl;
+	uint32_t sta;
+	uint32_t deb;	/* interrupt debounce */
 };
 
 struct sunxi_gpio_reg {
-struct sunxi_gpio gpio_bank[9];
-uint8_t res[0xbc];
-struct sunxi_gpio_int gpio_int;
+	struct sunxi_gpio gpio_bank[9];
+	uint8_t res[0xbc];
+	struct sunxi_gpio_int gpio_int;
 };
 
 #define GPIO_BANK(pin) ((pin) >> 5)
@@ -83,18 +83,18 @@ struct sunxi_gpio_int gpio_int;
 #define SUNXI_GPIO_I_NR (32)
 
 #define SUNXI_GPIO_NEXT(__gpio) \
-((__gpio##_START) + (__gpio##_NR) + 0)
+	((__gpio##_START) + (__gpio##_NR) + 0)
 
 enum sunxi_gpio_number {
-SUNXI_GPIO_A_START = 0,
-SUNXI_GPIO_B_START = SUNXI_GPIO_NEXT(SUNXI_GPIO_A),
-SUNXI_GPIO_C_START = SUNXI_GPIO_NEXT(SUNXI_GPIO_B),
-SUNXI_GPIO_D_START = SUNXI_GPIO_NEXT(SUNXI_GPIO_C),
-SUNXI_GPIO_E_START = SUNXI_GPIO_NEXT(SUNXI_GPIO_D),
-SUNXI_GPIO_F_START = SUNXI_GPIO_NEXT(SUNXI_GPIO_E),
-SUNXI_GPIO_G_START = SUNXI_GPIO_NEXT(SUNXI_GPIO_F),
-SUNXI_GPIO_H_START = SUNXI_GPIO_NEXT(SUNXI_GPIO_G),
-SUNXI_GPIO_I_START = SUNXI_GPIO_NEXT(SUNXI_GPIO_H),
+	SUNXI_GPIO_A_START = 0,
+	SUNXI_GPIO_B_START = SUNXI_GPIO_NEXT(SUNXI_GPIO_A),
+	SUNXI_GPIO_C_START = SUNXI_GPIO_NEXT(SUNXI_GPIO_B),
+	SUNXI_GPIO_D_START = SUNXI_GPIO_NEXT(SUNXI_GPIO_C),
+	SUNXI_GPIO_E_START = SUNXI_GPIO_NEXT(SUNXI_GPIO_D),
+	SUNXI_GPIO_F_START = SUNXI_GPIO_NEXT(SUNXI_GPIO_E),
+	SUNXI_GPIO_G_START = SUNXI_GPIO_NEXT(SUNXI_GPIO_F),
+	SUNXI_GPIO_H_START = SUNXI_GPIO_NEXT(SUNXI_GPIO_G),
+	SUNXI_GPIO_I_START = SUNXI_GPIO_NEXT(SUNXI_GPIO_H),
 };
 
 /* SUNXI GPIO number definitions */

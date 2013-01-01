@@ -138,31 +138,31 @@ a10_ehci_attach(device_t self)
         volatile uint32_t *usb_reg_iscr = (uint32_t *) 0xe1c14400;
 */
         /* ISCR bits */
-/*
-        *usb_reg_iscr |= (1 << 17); /* USBC_BP_ISCR_ID_PULLUP_EN */
-        *usb_reg_iscr |= (1 << 16); /* USBC_BP_ISCR_DPDM_PULLUP_EN */
 
-	*usb_reg_iscr |= (0x03 << 12); /* USBC_BP_ISCR_FORCE_VBUS_VALID */
+//	*usb_reg_iscr |= (1 << 17); /* USBC_BP_ISCR_ID_PULLUP_EN */
+//	*usb_reg_iscr |= (1 << 16); /* USBC_BP_ISCR_DPDM_PULLUP_EN */
 
-    	uint32_t temp = *usb_reg_iscr;
+//	*usb_reg_iscr |= (0x03 << 12); /* USBC_BP_ISCR_FORCE_VBUS_VALID */
 
-        temp &= ~(1 << 6); /* USBC_BP_ISCR_VBUS_CHANGE_DETECT */
-       	temp &= ~(1 << 5); /* USBC_BP_ISCR_ID_CHANGE_DETECT */
-        temp &= ~(1 << 4); /* USBC_BP_ISCR_DPDM_CHANGE_DETECT */
-        temp |= (1 << 3);  /* USBC_BP_ISCR_IRQ_ENABLE */
+//    	uint32_t temp = *usb_reg_iscr;
 
-        *usb_reg_iscr = temp;
-*/
+//	temp &= ~(1 << 6); /* USBC_BP_ISCR_VBUS_CHANGE_DETECT */
+//	temp &= ~(1 << 5); /* USBC_BP_ISCR_ID_CHANGE_DETECT */
+//	temp &= ~(1 << 4); /* USBC_BP_ISCR_DPDM_CHANGE_DETECT */
+//	temp |= (1 << 3);  /* USBC_BP_ISCR_IRQ_ENABLE */
+
+//	*usb_reg_iscr = temp;
+
         /* Enable power related bits, disable for now */
-/*
-	*usb_reg_pctl |= (1 << 0); /* SUSPEND_EN */
-	*usb_reg_pctl |= (1 << 1); /* SUSPEND */
 
-	*usb_reg_pctl |= (1 << 2); /* RESUME */
-	*usb_reg_pctl |= (1 << 3); /* RESET */
-	*usb_reg_pctl |= (1 << 4); /* HIGH_SPEED_FLAG */
-	*usb_reg_pctl |= (1 << 5); /* HIGH_SPEED_EN */
-*/
+//	*usb_reg_pctl |= (1 << 0); /* SUSPEND_EN */
+//	*usb_reg_pctl |= (1 << 1); /* SUSPEND */
+
+//	*usb_reg_pctl |= (1 << 2); /* RESUME */
+//	*usb_reg_pctl |= (1 << 3); /* RESET */
+//	*usb_reg_pctl |= (1 << 4); /* HIGH_SPEED_FLAG */
+//	*usb_reg_pctl |= (1 << 5); /* HIGH_SPEED_EN */
+
 
 	/* initialise some bus fields */
 	sc->sc_bus.parent = self;

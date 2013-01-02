@@ -131,8 +131,11 @@ a10_ehci_attach(device_t self)
 	while(reg_value--);
 
 	/* Enable clock for USB */
-	*ccm_usb_clock |= (1 << 8);
+	*ccm_usb_clock |= (1 << 8); /* USBPHY */
 	*ccm_usb_clock |= (1 << 0); /* disable reset for USB0 */
+	*ccm_usb_clock |= (1 << 1); /* disable reset for USB1 */
+	*ccm_usb_clock |= (1 << 4); /* clock source to 48MHz */
+
 /*
         volatile uint32_t *usb_reg_pctl = (uint32_t *) 0xe1c14040;
         volatile uint32_t *usb_reg_iscr = (uint32_t *) 0xe1c14400;
@@ -187,7 +190,16 @@ a10_ehci_attach(device_t self)
 	sc->sc_io_tag = rman_get_bustag(sc->sc_io_res);
 	sc->sc_io_hdl = rman_get_bushandle(sc->sc_io_res);
 	bsh = rman_get_bushandle(sc->sc_io_res);
+
+        /*magic, undocumented initialization*/
+//	bus_space_write_4((sc)->sc_io_tag, bsh, 0x04, 0x106);
+
+//	bus_space_write_4((sc)->sc_io_tag, bsh, 0x40, (3 << 5)|0x2000);
+
+//	DELAY(1000);
+
 	sc->sc_io_size = rman_get_size(sc->sc_io_res);
+//	sc->sc_io_size = 4096;
 
         if (bus_space_subregion(sc->sc_io_tag, bsh, 0x00,
             sc->sc_io_size, &sc->sc_io_hdl) != 0)
@@ -222,6 +234,7 @@ a10_ehci_attach(device_t self)
 
 	sc->sc_flags |= EHCI_SCFLG_DONTRESET;
 
+	breakpoint();
 
 	err = ehci_init(sc);
 	if (!err) {
@@ -291,19 +304,22 @@ a10_ehci_detach(device_t self)
         while(reg_value--);
 
         /* Disable clock for USB */
-        *ccm_usb_clock &= ~(1 << 8);
-        *ccm_usb_clock &= ~(1 << 0); /* disable reset for USB0 */
+        *ccm_usb_clock &= ~(1 << 8); /* USBPHY */
+        *ccm_usb_clock &= ~(1 << 0); /* USB0 */
+        *ccm_usb_clock &= ~(1 << 1); /* USB1 */
+        *ccm_usb_clock &= ~(1 << 4); /* disable clock */
 
+/*
         volatile uint32_t *usb_reg_pctl = (uint32_t *) 0xe1c14040;
         volatile uint32_t *usb_reg_iscr = (uint32_t *) 0xe1c14400;
-
+*/
         /* ISCR */
-        *usb_reg_iscr &= ~(1 << 17); /* USBC_BP_ISCR_ID_PULLUP_EN */
-        *usb_reg_iscr &= ~(1 << 16); /* USBC_BP_ISCR_DPDM_PULLUP_EN */
+//	*usb_reg_iscr &= ~(1 << 17); /* USBC_BP_ISCR_ID_PULLUP_EN */
+//	*usb_reg_iscr &= ~(1 << 16); /* USBC_BP_ISCR_DPDM_PULLUP_EN */
 
-	*usb_reg_iscr &= ~(0x03 << 12); /* USBC_BP_ISCR_FORCE_VBUS_VALID */
-	*usb_reg_iscr |= (0x02 << 12); /* USBC_BP_ISCR_FORCE_VBUS_VALID */
-
+//	*usb_reg_iscr &= ~(0x03 << 12); /* USBC_BP_ISCR_FORCE_VBUS_VALID */
+//	*usb_reg_iscr |= (0x02 << 12); /* USBC_BP_ISCR_FORCE_VBUS_VALID */
+/*
     	uint32_t temp = *usb_reg_iscr;
 
         temp |= (1 << 6);
@@ -311,17 +327,8 @@ a10_ehci_detach(device_t self)
         temp |= (1 << 4);
         temp &= ~(1 << 3);
 
-	/*
-	#define  USBC_BP_ISCR_VBUS_CHANGE_DETECT        6
-	#define  USBC_BP_ISCR_ID_CHANGE_DETECT          5
-	#define  USBC_BP_ISCR_DPDM_CHANGE_DETECT        4
-	#define  USBC_BP_ISCR_IRQ_ENABLE                3
-	#define  USBC_BP_ISCR_VBUS_CHANGE_DETECT_EN     2
-	#define  USBC_BP_ISCR_ID_CHANGE_DETECT_EN       1
-	*/
-
         *usb_reg_iscr = temp;
-
+*/
         /* Disable power */
         *usb_reg_pctl &= ~(1 << 0); /* SUSPEND_EN */
         *usb_reg_pctl &= ~(1 << 1); /* SUSPEND */

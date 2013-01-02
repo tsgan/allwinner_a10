@@ -126,6 +126,7 @@ a10_ehci_attach(device_t self)
 
 	/* Gating AHB clock for USB_phy0 */
 	*ccm_ahb_gating |= (1 << 0);  /* AHB clock gate usb0 */
+	*ccm_ahb_gating |= (1 << 3);  /* AHB clock gate ehci1 */
 
 	reg_value = 10000;
 	while(reg_value--);
@@ -299,6 +300,7 @@ a10_ehci_detach(device_t self)
 
         /* Disable AHB clock for USB_phy0 */
         *ccm_ahb_gating &= ~(1 << 0);  /* AHB clock gate usb0 */
+	*ccm_ahb_gating &= ~(1 << 3);  /* AHB clock gate ehci1 */
 
         reg_value = 10000;
         while(reg_value--);

@@ -329,13 +329,13 @@ a10_ehci_detach(device_t self)
 
         *usb_reg_iscr = temp;
 */
-        /* Disable power */
-        *usb_reg_pctl &= ~(1 << 0); /* SUSPEND_EN */
-        *usb_reg_pctl &= ~(1 << 1); /* SUSPEND */
-        *usb_reg_pctl &= ~(1 << 2); /* RESUME */
-        *usb_reg_pctl &= ~(1 << 3); /* RESET */
-        *usb_reg_pctl &= ~(1 << 4); /* HIGH_SPEED_FLAG */
-        *usb_reg_pctl &= ~(1 << 5); /* HIGH_SPEED_EN */
+	/* Disable power */
+//	*usb_reg_pctl &= ~(1 << 0); /* SUSPEND_EN */
+//	*usb_reg_pctl &= ~(1 << 1); /* SUSPEND */
+//	*usb_reg_pctl &= ~(1 << 2); /* RESUME */
+//	*usb_reg_pctl &= ~(1 << 3); /* RESET */
+//	*usb_reg_pctl &= ~(1 << 4); /* HIGH_SPEED_FLAG */
+//	*usb_reg_pctl &= ~(1 << 5); /* HIGH_SPEED_EN */
 
 	return (0);
 }

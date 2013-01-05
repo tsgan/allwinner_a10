@@ -59,10 +59,29 @@ int sunxi_gpio_set_cfgpin(uint32_t pin, uint32_t val) {
 	cfg &= ~(0xf << offset);
 	cfg |= val << offset;
 
-	printf("--------- SET Pin: %d, address: %p, val: %d, bank: %d, offset: %d, index: %d\n", pin, (&pio->cfg[0] + index), cfg, bank, offset, index);
-	printf("--------- SET mux: %x\n", ((pio->cfg[index] >> offset) & 0x7) | 0x1);
+//	printf("--------- SET Pin: %d, address: %p, cfg: 0x%x, bank: %d, offset: %d, index: %d\n", pin, (&pio->cfg[0] + index), cfg, bank, offset, index);
 
 	writel(cfg, &pio->cfg[0] + index);
+
+//	printf("--------- AFTER SET mux: %x\n", (pio->cfg[index] >> offset) & 0x7);
+
+	index = GPIO_PULL_INDEX(pin);
+	offset = GPIO_PULL_OFFSET(pin);
+
+//	printf("--------- SET offset: %d, index: %d\n", offset, index);
+
+//	printf("--------- SET pull: %x\n", (pio->pull[index] >> offset) & 0x3);
+
+//	cfg = readl(&pio->pull[0] + index);
+//	cfg &= ~(0xf << offset);
+//	cfg |= 0x02 << offset;
+
+//	writel(cfg, &pio->pull[0] + index);
+
+//	printf("--------- AFTER SET pull: %x\n", (pio->pull[index] >> offset) & 0x3);
+
+//	printf("--------- SET drv: %x\n", (pio->drv[index] >> offset) & 0x3);
+//	printf("--------- SET dat: %x\n", (pio->dat >> (pin & 0x1F)) & 0x01);
 
 	return 0;
 }
@@ -81,8 +100,8 @@ int sunxi_gpio_get_cfgpin(uint32_t pin) {
 	cfg = readl(&pio->cfg[0] + index);
 	cfg >>= offset;
 
-	printf("--------- GET Pin: %d, address: %p, val: %d, bank: %d, offset: %d, index: %d\n", pin, (&pio->cfg[0] + index), (cfg & 0xf), bank, offset, index);
-	printf("--------- GET mux: %x\n", (pio->cfg[index] >> offset) & 0x7);
+//	printf("--------- GET Pin: %d, address: %p, cfg: 0x%x, bank: %d, offset: %d, index: %d\n", pin, (&pio->cfg[0] + index), (cfg & 0xf), bank, offset, index);
+//	printf("--------- GET mux: %x\n", (pio->cfg[index] >> offset) & 0x7);
 
 	return (cfg & 0xf);
 }

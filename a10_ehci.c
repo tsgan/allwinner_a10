@@ -57,7 +57,7 @@ __FBSDID("$FreeBSD$");
 #include <dev/usb/controller/ehci.h>
 #include <dev/usb/controller/ehcireg.h>
 
-//#include "gpio.h"
+#include "gpio.h"
 
 #define EHCI_HC_DEVSTR			"Allwinner Integrated USB 2.0 controller"
 
@@ -242,6 +242,9 @@ a10_ehci_attach(device_t self)
 	}
 
 	sc->sc_flags |= EHCI_SCFLG_DONTRESET;
+
+	/* set power */
+	gpio_direction_output(SUNXI_GPH(3), 1);
 
 	err = ehci_init(sc);
 	if (!err) {

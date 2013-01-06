@@ -46,6 +46,8 @@ __FBSDID("$FreeBSD$");
 #include <dev/uart/uart_bus.h>
 #include <dev/uart/uart_cpu.h>
 
+#include "gpio.h"
+
 static int uart_a10_probe(device_t dev);
 
 static device_method_t uart_a10_methods[] = {
@@ -67,6 +69,11 @@ uart_a10_probe(device_t dev)
 {
 	struct	uart_softc *sc;
 	int status;
+
+	/* set gpio config pin for UART0 */
+
+	a10_gpio_set_cfgpin(A10_GPB(22), A10_GPB22_UART0_TX);
+	a10_gpio_set_cfgpin(A10_GPB(23), A10_GPB23_UART0_RX);
 
 	sc = device_get_softc(dev);
 	sc->sc_class = &uart_ns8250_class;

@@ -21,4 +21,7 @@ arm/allwinner/a10_machdep.c		standard
 
 dev/ofw/ofw_iicbus.c			optional	iicbus
 
+#arm/allwinner/uart_bus_a10.c		optional	uart
+#arm/allwinner/uart_cpu_a10.c		optional	uart
+#dev/uart/uart_dev_ns8250.c		optional	uart
 

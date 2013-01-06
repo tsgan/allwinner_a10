@@ -190,9 +190,9 @@ arm_mask_irq(uintptr_t nb)
 	bit = (nb % 32);
 	block = (nb / 32);
 
-	value = aintc_read_4(SW_INT_IRQ_PENDING_REG(block));
+	value = aintc_read_4(SW_INT_ENABLE_REG(block));
 	value &= ~(1 << bit);
-	aintc_write_4(SW_INT_IRQ_PENDING_REG(block), value);
+	aintc_write_4(SW_INT_ENABLE_REG(block), value);
 
 	value = aintc_read_4(SW_INT_MASK_REG(block));
 	value |= (1 << bit);
@@ -207,9 +207,9 @@ arm_unmask_irq(uintptr_t nb)
 	bit = (nb % 32);
 	block = (nb / 32);
 
-	value = aintc_read_4(SW_INT_IRQ_PENDING_REG(block));
+	value = aintc_read_4(SW_INT_ENABLE_REG(block));
 	value |= (1 << bit);
-	aintc_write_4(SW_INT_IRQ_PENDING_REG(block), value);
+	aintc_write_4(SW_INT_ENABLE_REG(block), value);
 
 	value = aintc_read_4(SW_INT_MASK_REG(block));
 	value &= ~(1 << bit);

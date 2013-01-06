@@ -42,134 +42,108 @@ __FBSDID("$FreeBSD$");
 
 #include "gpio.h"
 
-#define readl(reg)		(*(volatile uint32_t *)(reg))
-#define writel(val,reg)		(*(volatile uint32_t *)(reg) = (val))
+#define GPIO_READL(reg)			(*(volatile uint32_t *)(reg))
+#define GPIO_WRITEL(val,reg)		(*(volatile uint32_t *)(reg) = (val))
 
-int sunxi_gpio_set_cfgpin(uint32_t pin, uint32_t val) {
+int a10_gpio_set_cfgpin(uint32_t pin, uint32_t val) {
 
 	uint32_t cfg;
 	uint32_t bank = GPIO_BANK(pin);
 	uint32_t index = GPIO_CFG_INDEX(pin);
 	uint32_t offset = GPIO_CFG_OFFSET(pin);
 
-	struct sunxi_gpio *pio =
-		&((struct sunxi_gpio_reg *)SUNXI_PIO_BASE)->gpio_bank[bank];
+	struct a10_gpio *pio =
+		&((struct a10_gpio_reg *)A10_PIO_BASE)->gpio_bank[bank];
 
-	cfg = readl(&pio->cfg[0] + index);
+	cfg = GPIO_READL(&pio->cfg[0] + index);
 	cfg &= ~(0xf << offset);
 	cfg |= val << offset;
 
-//	printf("--------- SET Pin: %d, address: %p, cfg: 0x%x, bank: %d, offset: %d, index: %d\n", pin, (&pio->cfg[0] + index), cfg, bank, offset, index);
-
-	writel(cfg, &pio->cfg[0] + index);
-
-//	printf("--------- AFTER SET mux: %x\n", (pio->cfg[index] >> offset) & 0x7);
-
-	index = GPIO_PULL_INDEX(pin);
-	offset = GPIO_PULL_OFFSET(pin);
-
-//	printf("--------- SET offset: %d, index: %d\n", offset, index);
-
-//	printf("--------- SET pull: %x\n", (pio->pull[index] >> offset) & 0x3);
-
-//	cfg = readl(&pio->pull[0] + index);
-//	cfg &= ~(0xf << offset);
-//	cfg |= 0x02 << offset;
-
-//	writel(cfg, &pio->pull[0] + index);
-
-//	printf("--------- AFTER SET pull: %x\n", (pio->pull[index] >> offset) & 0x3);
-
-//	printf("--------- SET drv: %x\n", (pio->drv[index] >> offset) & 0x3);
-//	printf("--------- SET dat: %x\n", (pio->dat >> (pin & 0x1F)) & 0x01);
+	GPIO_WRITEL(cfg, &pio->cfg[0] + index);
 
 	return 0;
 }
 
-int sunxi_gpio_get_cfgpin(uint32_t pin) {
+int a10_gpio_get_cfgpin(uint32_t pin) {
 
 	uint32_t cfg;
 	uint32_t bank = GPIO_BANK(pin);
 	uint32_t index = GPIO_CFG_INDEX(pin);
 	uint32_t offset = GPIO_CFG_OFFSET(pin);
 
-	struct sunxi_gpio *pio =
-		&((struct sunxi_gpio_reg *)SUNXI_PIO_BASE)->gpio_bank[bank];
+	struct a10_gpio *pio =
+		&((struct a10_gpio_reg *)A10_PIO_BASE)->gpio_bank[bank];
 
-
-	cfg = readl(&pio->cfg[0] + index);
+	cfg = GPIO_READL(&pio->cfg[0] + index);
 	cfg >>= offset;
-
-//	printf("--------- GET Pin: %d, address: %p, cfg: 0x%x, bank: %d, offset: %d, index: %d\n", pin, (&pio->cfg[0] + index), (cfg & 0xf), bank, offset, index);
-//	printf("--------- GET mux: %x\n", (pio->cfg[index] >> offset) & 0x7);
 
 	return (cfg & 0xf);
 }
 
-int sunxi_gpio_output(uint32_t pin, uint32_t val) {
+int a10_gpio_output(uint32_t pin, uint32_t val) {
 
 	uint32_t dat;
 	uint32_t bank = GPIO_BANK(pin);
 	uint32_t num = GPIO_NUM(pin);
 
-	struct sunxi_gpio *pio =
-		&((struct sunxi_gpio_reg *)SUNXI_PIO_BASE)->gpio_bank[bank];
+	struct a10_gpio *pio =
+		&((struct a10_gpio_reg *)A10_PIO_BASE)->gpio_bank[bank];
 
-	dat = readl(&pio->dat);
+	dat = GPIO_READL(&pio->dat);
 	if(val)
 		dat |= 1 << num;
 	else
 		dat &= ~(1 << num);
 
-	writel(dat, &pio->dat);
+	GPIO_WRITEL(dat, &pio->dat);
 
 	return 0;
 }
 
-int sunxi_gpio_input(uint32_t pin) {
+int a10_gpio_input(uint32_t pin) {
 
 	uint32_t dat;
 	uint32_t bank = GPIO_BANK(pin);
 	uint32_t num = GPIO_NUM(pin);
 
-	struct sunxi_gpio *pio =
-		&((struct sunxi_gpio_reg *)SUNXI_PIO_BASE)->gpio_bank[bank];
+	struct a10_gpio *pio =
+		&((struct a10_gpio_reg *)A10_PIO_BASE)->gpio_bank[bank];
 
-	dat = readl(&pio->dat);
+	dat = GPIO_READL(&pio->dat);
 	dat >>= num;
 
 	return (dat & 0x1);
 }
 
-int gpio_request(unsigned gpio, const char *label) {
+int a10_gpio_request(unsigned gpio, const char *label) {
 
 	return 0;
 }
 
-int gpio_free(unsigned gpio) {
+int a10_gpio_free(unsigned gpio) {
 
 	return 0;
 }
 
-int gpio_direction_input(unsigned gpio) {
+int a10_gpio_direction_input(unsigned gpio) {
 
-	sunxi_gpio_set_cfgpin(gpio, SUNXI_GPIO_INPUT);
-	return sunxi_gpio_input(gpio);
+	a10_gpio_set_cfgpin(gpio, A10_GPIO_INPUT);
+	return a10_gpio_input(gpio);
 }
 
-int gpio_direction_output(unsigned gpio, int value) {
+int a10_gpio_direction_output(unsigned gpio, int value) {
 
-	sunxi_gpio_set_cfgpin(gpio, SUNXI_GPIO_OUTPUT);
-	return sunxi_gpio_output(gpio, value);
+	a10_gpio_set_cfgpin(gpio, A10_GPIO_OUTPUT);
+	return a10_gpio_output(gpio, value);
 }
 
-int gpio_get_value(unsigned gpio) {
+int a10_gpio_get_value(unsigned gpio) {
 
-	return sunxi_gpio_input(gpio);
+	return a10_gpio_input(gpio);
 }
 
-int gpio_set_value(unsigned gpio, int value) {
+int a10_gpio_set_value(unsigned gpio, int value) {
 
-	return sunxi_gpio_output(gpio, value);
+	return a10_gpio_output(gpio, value);
 }
 

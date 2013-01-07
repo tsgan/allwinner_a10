@@ -87,9 +87,9 @@
 		UART0: serial@01c28000 {
 			status = "okay";
 			reg = <0x01c28000 0x400>;
+                        reg-shift = <2>;
 			interrupts = <1>;
                         interrupt-parent = <&AINTC>;
-
 			clock-frequency = < 24000000 >;
 		};
 	};
@@ -100,4 +100,43 @@
 		stdout = "UART0";
 	};
 };
+
+/*
+                uart0: serial@44E09000 {
+                        compatible = "ns16550";
+                        reg = <0x44E09000 0x1000>;
+                        reg-shift = <2>;
+                        interrupts = < 72 >;
+                        interrupt-parent = <&AINTC>;
+                        clock-frequency = < 48000000 >;
+                };
+
+		usb1: usb@01c14000 {
+                        compatible = "a10,usb-ehci", "usb-ehci";
+			reg = <0x01c14000 0x1000>;
+			interrupts = < 39 >;
+                        interrupt-parent = <&AINTC>;
+		};
+
+		usb@01c14000 {
+                        compatible = "a10,usb-ehci", "usb-ehci";
+			reg = <0x01c14000 0x1000>;
+			interrupts = < 39 >;
+                        interrupt-parent = <&AINTC>;
+		};
+
+		usb@01c1c000 {
+                        compatible = "a10,usb-ehci", "usb-ehci";
+			reg = <0x01c1c000 0x1000>;
+			interrupts = < 40 >;
+                        interrupt-parent = <&AINTC>;
+		};
+
+                        hub {
+                                compatible = "usb,hub", "usb,device";
+                                reg = <0x00000001>;
+                                #address-cells = <1>;
+                                #size-cells = <0>;
+                        };
+*/
 

@@ -9,8 +9,8 @@ arm/arm/cpufunc_asm_arm11.S		standard
 arm/arm/cpufunc_asm_armv7.S		standard
 arm/arm/irq_dispatch.S			standard
 
-arm/allwinner/uart_bus_a10.c		optional	uart
-arm/allwinner/uart_cpu_a10.c		optional	uart
+#arm/allwinner/uart_bus_a10.c		optional	uart
+#arm/allwinner/uart_cpu_a10.c		optional	uart
 dev/uart/uart_dev_ns8250.c		optional	uart
 arm/allwinner/timer.c			standard
 arm/allwinner/aintc.c			standard

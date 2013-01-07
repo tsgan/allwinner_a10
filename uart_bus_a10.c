@@ -75,6 +75,25 @@ uart_a10_probe(device_t dev)
 	a10_gpio_set_cfgpin(A10_GPB(22), A10_GPB22_UART0_TX);
 	a10_gpio_set_cfgpin(A10_GPB(23), A10_GPB23_UART0_RX);
 
+        volatile uint32_t *ccm_apb1_gating = (uint32_t *) 0xe1c2006c;
+        volatile uint32_t *ccm_apb1_clk_div_cfg = (uint32_t *) 0xe1c20058;
+        
+        /* config apb1 clock */
+        *ccm_apb1_clk_div_cfg &= ~(1 << 24);
+        *ccm_apb1_clk_div_cfg &= ~(1 << 25);
+        
+        *ccm_apb1_clk_div_cfg &= ~(1 << 16);
+        *ccm_apb1_clk_div_cfg &= ~(1 << 17);
+        
+        *ccm_apb1_clk_div_cfg &= ~(1 << 0);
+        *ccm_apb1_clk_div_cfg &= ~(1 << 1);
+        *ccm_apb1_clk_div_cfg &= ~(1 << 2);
+        *ccm_apb1_clk_div_cfg &= ~(1 << 3);
+        *ccm_apb1_clk_div_cfg &= ~(1 << 4);
+          
+        /* Gating clock for uart0 */
+	*ccm_apb1_gating |= (1 << 16);  /* clock gate uart0 */
+
 	sc = device_get_softc(dev);
 	sc->sc_class = &uart_ns8250_class;
 	status = uart_bus_probe(dev, 2, 24000000, 0, 0);

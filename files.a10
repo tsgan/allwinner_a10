@@ -9,6 +9,9 @@ arm/arm/cpufunc_asm_arm11.S		standard
 arm/arm/cpufunc_asm_armv7.S		standard
 arm/arm/irq_dispatch.S			standard
 
+arm/allwinner/uart_bus_a10.c		optional	uart
+arm/allwinner/uart_cpu_a10.c		optional	uart
+dev/uart/uart_dev_ns8250.c		optional	uart
 arm/allwinner/timer.c			standard
 arm/allwinner/aintc.c			standard
 arm/allwinner/gpio.c			standard
@@ -16,12 +19,8 @@ arm/allwinner/a10_ehci.c		optional	ehci
 #arm/allwinner/a10_ahci.c		standard	ahci
 arm/allwinner/bus_space.c		standard
 arm/allwinner/common.c			standard
-arm/allwinner/console.c			standard
+#arm/allwinner/console.c		standard
 arm/allwinner/a10_machdep.c		standard
 
 dev/ofw/ofw_iicbus.c			optional	iicbus
-
-#arm/allwinner/uart_bus_a10.c		optional	uart
-#arm/allwinner/uart_cpu_a10.c		optional	uart
-#dev/uart/uart_dev_ns8250.c		optional	uart
 

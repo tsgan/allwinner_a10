@@ -143,9 +143,9 @@ a10_timer_attach(device_t dev)
 	sc->sc_dev = dev;
 	sc->sc_bst = rman_get_bustag(sc->res[0]);
 	sc->sc_bsh = rman_get_bushandle(sc->res[0]);
-#if 0
+
 	timer_write_4(sc, SW_TIMER0_INTVAL_REG, TMR_INTER_VAL);
-#endif
+
 	/* set clock source to HOSC, 16 pre-division */
 	val = timer_read_4(sc, SW_TIMER0_CTL_REG);
 	val &= ~(0x07<<4);

@@ -69,9 +69,9 @@ struct a10_ahci_softc {
 	struct resource		*sc_irq_res;
 	void			*sc_irq_cookiep;
         struct {
-                void    (*function)(void *);
-                void    *argument;
-        } sc_interrupt[SATA_CHAN_NUM];
+		void	(*function)(void *);
+		void	*argument;
+	} sc_interrupt[SATA_CHAN_NUM];
 };
 
 

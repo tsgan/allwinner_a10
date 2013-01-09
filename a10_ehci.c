@@ -72,29 +72,21 @@ __FBSDID("$FreeBSD$");
 #define SW_USB_OHCI_LEN  		0x58
 #define SW_USB_PMU_IRQ_ENABLE 		0x800
 
-#define  USBC_BP_ISCR_VBUS_CHANGE_DETECT	6
-#define  USBC_BP_ISCR_ID_CHANGE_DETECT		5
-#define  USBC_BP_ISCR_DPDM_CHANGE_DETECT	4
-#define  USBC_BP_ISCR_IRQ_ENABLE		3
-#define  USBC_BP_ISCR_VBUS_CHANGE_DETECT_EN	2
-#define  USBC_BP_ISCR_ID_CHANGE_DETECT_EN	1
+#define SW_SDRAM_REG_HPCR_USB1		(0x250 + ((1 << 2) * 4))
+#define SW_SDRAM_REG_HPCR_USB2		(0x250 + ((1 << 2) * 5))
+#define SW_SDRAM_BP_HPCR_ACCESS_EN	0
 
-#define SW_SDRAM_REG_HPCR_USB1  	(0x250 + ((1 << 2) * 4))
-#define SW_SDRAM_REG_HPCR_USB2  	(0x250 + ((1 << 2) * 5))
-
-/* HPCR */
-#define SW_SDRAM_BP_HPCR_READ_CNT_EN		31
-#define SW_SDRAM_BP_HPCR_RWRITE_CNT_EN		30
-#define SW_SDRAM_BP_HPCR_COMMAND_NUM		8
-#define SW_SDRAM_BP_HPCR_WAIT_STATE		4
-#define SW_SDRAM_BP_HPCR_PRIORITY_LEVEL		2
-#define SW_SDRAM_BP_HPCR_ACCESS_EN		0
+#define SW_CCM_AHB_GATING		0xe1c20060
+#define SW_CCM_USB_CLOCK		0xe1c200cc
 
 #define A10_READ_4(sc, reg)	\
 	bus_space_read_4((sc)->sc_io_tag, (sc)->sc_io_hdl, reg)
 
 #define A10_WRITE_4(sc, reg, data)	\
 	bus_space_write_4((sc)->sc_io_tag, (sc)->sc_io_hdl, reg, data)
+
+#define REG_READ(reg)			(*(volatile uint32_t *)(reg))
+#define REG_WRITE(reg, val)		(*(volatile uint32_t *)(reg) = (val))
 
 static device_attach_t a10_ehci_attach;
 static device_detach_t a10_ehci_detach;
@@ -105,7 +97,6 @@ bs_w_1_proto(reversed);
 static int
 a10_ehci_probe(device_t self)
 {
-
 	if (!ofw_bus_is_compatible(self, "a10,usb-ehci")) 
 		return (ENXIO);
 
@@ -122,59 +113,6 @@ a10_ehci_attach(device_t self)
 	int err;
 	int rid;
 	uint32_t reg_value = 0;
-
-	/* XXX maybe totally wrong hack */
-	volatile uint32_t *ccm_ahb_gating = (uint32_t *) 0xe1c20060;
-	volatile uint32_t *ccm_usb_clock = (uint32_t *) 0xe1c200cc;
-
-	/* Gating AHB clock for USB_phy0 */
-	*ccm_ahb_gating |= (1 << 0);  /* AHB clock gate usb0 */
-	*ccm_ahb_gating |= (1 << 3);  /* AHB clock gate ehci1 */
-
-	reg_value = 10000;
-	while(reg_value--);
-
-	/* Enable clock for USB */
-	*ccm_usb_clock |= (1 << 8); /* USBPHY */
-	*ccm_usb_clock |= (1 << 0); /* disable reset for USB0 */
-	*ccm_usb_clock |= (1 << 1); /* disable reset for USB1 */
-	*ccm_usb_clock |= (1 << 2); /* disable reset for USB2 */
-	*ccm_usb_clock |= (1 << 4); /* clock source to 48MHz */
-
-//	volatile uint32_t *usb_reg_pctl = (uint32_t *) 0xe1c1c040;
-//	volatile uint32_t *usb_reg_iscr = (uint32_t *) 0xe1c1c400;
-
-	/* ISCR bits */
-
-//	*usb_reg_iscr |= (1 << 17); /* USBC_BP_ISCR_ID_PULLUP_EN */
-//	*usb_reg_iscr |= (1 << 16); /* USBC_BP_ISCR_DPDM_PULLUP_EN */
-
-//	*usb_reg_iscr |= (0x03 << 12); /* USBC_BP_ISCR_FORCE_VBUS_VALID */
-
-//	*usb_reg_iscr &= ~(1 << 6); /* USBC_BP_ISCR_VBUS_CHANGE_DETECT */
-//	*usb_reg_iscr &= ~(1 << 5); /* USBC_BP_ISCR_ID_CHANGE_DETECT */
-//	*usb_reg_iscr &= ~(1 << 4); /* USBC_BP_ISCR_DPDM_CHANGE_DETECT */
-//	*usb_reg_iscr |= (1 << 3);  /* USBC_BP_ISCR_IRQ_ENABLE */
-
-	/* Enable power related bits */
-//	*usb_reg_pctl |= (1 << 0); /* SUSPEND_EN */
-//	*usb_reg_pctl |= (1 << 1); /* SUSPEND */
-//	*usb_reg_pctl |= (1 << 2); /* RESUME */
-//	*usb_reg_pctl |= (1 << 3); /* RESET */
-//	*usb_reg_pctl |= (1 << 4); /* HIGH_SPEED_FLAG */
-//	*usb_reg_pctl |= (1 << 5); /* HIGH_SPEED_EN */
-
-
-	/* enable passby */
-	volatile uint32_t *usb_passby = (uint32_t *) (SW_USB2_BASE + SW_USB_PMU_IRQ_ENABLE);
-	*usb_passby |= (1 << 10); /* AHB Master interface INCR8 enable */
-	*usb_passby |= (1 << 9); /* AHB Master interface burst type INCR4 enable */
-	*usb_passby |= (1 << 8); /* AHB Master interface INCRX align enable */
-	*usb_passby |= (1 << 0); /* ULPI bypass enable */
-
-	/* configure port */
-	volatile uint32_t *usb_hpcr = (uint32_t *) (SW_USB2_BASE + SW_SDRAM_REG_HPCR_USB2);
-	*usb_hpcr |= (1 << SW_SDRAM_BP_HPCR_ACCESS_EN);
 
 	/* initialise some bus fields */
 	sc->sc_bus.parent = self;
@@ -224,7 +162,6 @@ a10_ehci_attach(device_t self)
 
 	sprintf(sc->sc_vendor, "Allwinner");
 
-
 	err = bus_setup_intr(self, sc->sc_irq_res, INTR_TYPE_BIO | INTR_MPSAFE,
 	    NULL, (driver_intr_t *)ehci_interrupt, sc, &sc->sc_intr_hdl);
 	if (err) {
@@ -234,6 +171,34 @@ a10_ehci_attach(device_t self)
 	}
 
 	sc->sc_flags |= EHCI_SCFLG_DONTRESET;
+
+	/* Gating AHB clock for USB */
+	reg_value = REG_READ(SW_CCM_AHB_GATING);
+	reg_value |= (1 << 0); /* AHB clock gate usb0 */
+	reg_value |= (1 << 3); /* AHB clock gate ehci1 */
+	REG_WRITE(SW_CCM_AHB_GATING, reg_value);
+
+	/* Enable clock for USB */
+	reg_value = REG_READ(SW_CCM_USB_CLOCK);
+	reg_value |= (1 << 8); /* USBPHY */
+	reg_value |= (1 << 0); /* disable reset for USB0 */
+	reg_value |= (1 << 1); /* disable reset for USB1 */
+	reg_value |= (1 << 2); /* disable reset for USB2 */
+	reg_value |= (1 << 4); /* clock source to 48MHz */
+	REG_WRITE(SW_CCM_USB_CLOCK, reg_value);
+
+	/* enable passby */
+	reg_value = A10_READ_4(sc, SW_USB_PMU_IRQ_ENABLE);
+	reg_value |= (1 << 10); /* AHB Master interface INCR8 enable */
+	reg_value |= (1 << 9); /* AHB Master interface burst type INCR4 enable */
+	reg_value |= (1 << 8); /* AHB Master interface INCRX align enable */
+	reg_value |= (1 << 0); /* ULPI bypass enable */
+	A10_WRITE_4(sc, SW_USB_PMU_IRQ_ENABLE, reg_value);
+
+	/* configure port */
+	reg_value = A10_READ_4(sc, SW_SDRAM_REG_HPCR_USB2);
+	reg_value |= (1 << SW_SDRAM_BP_HPCR_ACCESS_EN);
+	A10_WRITE_4(sc, SW_SDRAM_REG_HPCR_USB2, reg_value);
 
 	/* set power */
 	a10_gpio_direction_output(A10_GPH(3), 1);
@@ -295,57 +260,33 @@ a10_ehci_detach(device_t self)
 	}
 	usb_bus_mem_free_all(&sc->sc_bus, &ehci_iterate_hw_softc);
 
-	/* XXX maybe totally wrong hack */
-	volatile uint32_t *ccm_ahb_gating = (uint32_t *) 0xe1c20060;
-	volatile uint32_t *ccm_usb_clock = (uint32_t *) 0xe1c200cc;
-
-	/* Disable AHB clock for USB_phy0 */
-	*ccm_ahb_gating &= ~(1 << 0);  /* AHB clock gate usb0 */
-	*ccm_ahb_gating &= ~(1 << 3);  /* AHB clock gate ehci1 */
-
-	reg_value = 10000;
-	while(reg_value--);
-
-	/* Disable clock for USB */
-	*ccm_usb_clock &= ~(1 << 8); /* USBPHY */
-	*ccm_usb_clock &= ~(1 << 0); /* USB0 */
-	*ccm_usb_clock &= ~(1 << 1); /* USB1 */
-	*ccm_usb_clock &= ~(1 << 2); /* USB2 */
-	*ccm_usb_clock &= ~(1 << 4); /* disable clock */
-
-//	volatile uint32_t *usb_reg_pctl = (uint32_t *) 0xe1c1c040;
-//	volatile uint32_t *usb_reg_iscr = (uint32_t *) 0xe1c1c400;
-
-	/* ISCR */
-//	*usb_reg_iscr &= ~(1 << 17); /* USBC_BP_ISCR_ID_PULLUP_EN */
-//	*usb_reg_iscr &= ~(1 << 16); /* USBC_BP_ISCR_DPDM_PULLUP_EN */
-
-//	*usb_reg_iscr &= ~(0x03 << 12); /* USBC_BP_ISCR_FORCE_VBUS_VALID */
-
-//	*usb_reg_iscr |= (1 << 6);
-//	*usb_reg_iscr |= (1 << 5);
-//	*usb_reg_iscr |= (1 << 4);
-//	*usb_reg_iscr &= ~(1 << 3);
-
-	/* Disable power */
-//	*usb_reg_pctl &= ~(1 << 0); /* SUSPEND_EN */
-//	*usb_reg_pctl &= ~(1 << 1); /* SUSPEND */
-//	*usb_reg_pctl &= ~(1 << 2); /* RESUME */
-//	*usb_reg_pctl &= ~(1 << 3); /* RESET */
-//	*usb_reg_pctl &= ~(1 << 4); /* HIGH_SPEED_FLAG */
-//	*usb_reg_pctl &= ~(1 << 5); /* HIGH_SPEED_EN */
+	/* disable configure port */
+	reg_value = A10_READ_4(sc, SW_SDRAM_REG_HPCR_USB2);
+	reg_value &= ~(1 << SW_SDRAM_BP_HPCR_ACCESS_EN);
+	A10_WRITE_4(sc, SW_SDRAM_REG_HPCR_USB2, reg_value);
 
 	/* disable passby */
-	volatile uint32_t *usb_passby = (uint32_t *) (SW_USB2_BASE + SW_USB_PMU_IRQ_ENABLE);
-	*usb_passby &= ~(1 << 10); /* AHB Master interface INCR8 disable */
-	*usb_passby &= ~(1 << 9); /* AHB Master interface burst type INCR4 disable */
-	*usb_passby &= ~(1 << 8); /* AHB Master interface INCRX align disable */
-	*usb_passby &= ~(1 << 0); /* ULPI bypass disable */
+	reg_value = A10_READ_4(sc, SW_USB_PMU_IRQ_ENABLE);
+	reg_value &= ~(1 << 10); /* AHB Master interface INCR8 disable */
+	reg_value &= ~(1 << 9); /* AHB Master interface burst type INCR4 disable */
+	reg_value &= ~(1 << 8); /* AHB Master interface INCRX align disable */
+	reg_value &= ~(1 << 0); /* ULPI bypass disable */
+	A10_WRITE_4(sc, SW_USB_PMU_IRQ_ENABLE, reg_value);
 
-	/* disable configure port */
-	volatile uint32_t *usb_hpcr = (uint32_t *) (SW_USB2_BASE + SW_SDRAM_REG_HPCR_USB2);
-	*usb_hpcr &= ~(1 << SW_SDRAM_BP_HPCR_ACCESS_EN);
+	/* disable clock for USB */
+	reg_value = REG_READ(SW_CCM_USB_CLOCK);
+	reg_value &= ~(1 << 8); /* USBPHY */
+	reg_value &= ~(1 << 0); /* reset for USB0 */
+	reg_value &= ~(1 << 1); /* reset for USB1 */
+	reg_value &= ~(1 << 2); /* reset for USB2 */
+	reg_value &= ~(1 << 4); /* disable clock source to 48MHz */
+	REG_WRITE(SW_CCM_USB_CLOCK, reg_value);
 
+	/* disable gating AHB clock for USB */
+	reg_value = REG_READ(SW_CCM_AHB_GATING);
+	reg_value &= ~(1 << 0); /* AHB clock gate usb0 */
+	reg_value &= ~(1 << 3); /* AHB clock gate ehci1 */
+	REG_WRITE(SW_CCM_AHB_GATING, reg_value);
 
 	return (0);
 }

@@ -57,8 +57,6 @@ __FBSDID("$FreeBSD$");
 #include <dev/usb/controller/ehci.h>
 #include <dev/usb/controller/ehcireg.h>
 
-#include "gpio.h"
-
 #define EHCI_HC_DEVSTR			"Allwinner Integrated USB 2.0 controller"
 
 #define CCMU_BASE 			0xe1c20000
@@ -199,9 +197,6 @@ a10_ehci_attach(device_t self)
 	reg_value = A10_READ_4(sc, SW_SDRAM_REG_HPCR_USB2);
 	reg_value |= (1 << SW_SDRAM_BP_HPCR_ACCESS_EN);
 	A10_WRITE_4(sc, SW_SDRAM_REG_HPCR_USB2, reg_value);
-
-	/* set power */
-	a10_gpio_direction_output(A10_GPH(3), 1);
 
 	err = ehci_init(sc);
 	if (!err) {

@@ -52,31 +52,30 @@ __FBSDID("$FreeBSD$");
 
 #include <sys/kdb.h>
 
+#define SW_VA_TIMERC_IO_BASE	0xe1c20c00
 
-#define SW_VA_TIMERC_IO_BASE              0xe1c20c00
 /**
  * Timer registers addr
  *
  */
-
 #define SW_TIMER_INT_CTL_REG 	0x00
 #define SW_TIMER_INT_STA_REG 	0x04
 #define SW_TIMER0_CTL_REG 	0x10
-#define SW_TIMER0_INTVAL_REG 	0x14
-#define SW_TIMER0_CNTVAL_REG 	0x18
+#define SW_TIMER0_INTVAL_REG	0x14
+#define SW_TIMER0_CNTVAL_REG	0x18
 
-#define SYS_TIMER_SCAL (16) /* timer clock source pre-divsion */
-#define SYS_TIMER_CLKSRC (24000000) /* timer clock source */
-#define TMR_INTER_VAL (SYS_TIMER_CLKSRC/(SYS_TIMER_SCAL*hz))
+#define SYS_TIMER_SCAL		16 /* timer clock source pre-divsion */
+#define SYS_TIMER_CLKSRC	24000000 /* timer clock source */
+#define TMR_INTER_VAL		SYS_TIMER_CLKSRC/(SYS_TIMER_SCAL*hz)
 
-#define CLOCK_TICK_RATE TMR_INTER_VAL 
+#define CLOCK_TICK_RATE		TMR_INTER_VAL 
 
 struct a10_timer_softc {
 	device_t 	sc_dev;
 	struct resource *res[2];
 	bus_space_tag_t sc_bst;
 	bus_space_handle_t sc_bsh;
-	void 		*sc_ih;			/* interrupt handler */
+	void 		*sc_ih;		/* interrupt handler */
 	uint32_t 	sc_period;
 	uint32_t 	clkfreq;
 	struct eventtimer et;
@@ -84,9 +83,9 @@ struct a10_timer_softc {
 
 int a10_timer_get_timerfreq(struct a10_timer_softc *);
 
-#define timer_read_4(sc, reg)				\
+#define timer_read_4(sc, reg)	\
 	bus_space_read_4(sc->sc_bst, sc->sc_bsh, reg)
-#define timer_write_4(sc, reg, val)				\
+#define timer_write_4(sc, reg, val)	\
 	bus_space_write_4(sc->sc_bst, sc->sc_bsh, reg, val)
 
 static u_int	a10_timer_get_timecount(struct timecounter *);
@@ -132,8 +131,7 @@ a10_timer_attach(device_t dev)
 	struct a10_timer_softc *sc;
 	int err;
 	uint32_t val;
-        uint32_t freq;
-/*      phandle_t node;	*/
+	uint32_t freq;
 
 	sc = device_get_softc(dev);
 
@@ -145,9 +143,9 @@ a10_timer_attach(device_t dev)
 	sc->sc_dev = dev;
 	sc->sc_bst = rman_get_bustag(sc->res[0]);
 	sc->sc_bsh = rman_get_bushandle(sc->res[0]);
-
+#if 0
 	timer_write_4(sc, SW_TIMER0_INTVAL_REG, TMR_INTER_VAL);
-
+#endif
 	/* set clock source to HOSC, 16 pre-division */
 	val = timer_read_4(sc, SW_TIMER0_CTL_REG);
 	val &= ~(0x07<<4);
@@ -174,20 +172,10 @@ a10_timer_attach(device_t dev)
 		    "err = %d\n", err);
 		return (ENXIO);
 	}
-	/*
-	node = ofw_bus_get_node(dev);
-	if (OF_getprop(OF_parent(node), "clock-frequency", &freq,
-	    sizeof(pcell_t)) <= 0) {
-		bus_release_resources(dev, a10_timer_spec, sc->res);
-		device_printf(dev, "could not obtain clock frequency\n");
-		return (ENXIO);
-	}
-	freq = fdt32_to_cpu(freq);
-	*/
-        freq = fdt32_to_cpu(24000000);
+	freq = fdt32_to_cpu(SYS_TIMER_CLKSRC);
 
         /* Set desired frequency in event timer and timecounter */
-        sc->et.et_frequency = (uint64_t)freq;
+	sc->et.et_frequency = (uint64_t)freq;
 	sc->clkfreq = (uint64_t)freq;
 	sc->et.et_name = "a10_timer Eventtimer";
 	sc->et.et_flags = ET_FLAGS_ONESHOT | ET_FLAGS_PERIODIC;
@@ -213,7 +201,7 @@ a10_timer_attach(device_t dev)
 
 	device_printf(sc->sc_dev, "timer clock frequency %d\n", sc->clkfreq);
 
-        a10_timer_initialized = 1;
+	a10_timer_initialized = 1;
 	
 	return (0);
 }
@@ -223,26 +211,26 @@ a10_timer_timer_start(struct eventtimer *et, struct bintime *first,
     struct bintime *period)
 {
 	struct a10_timer_softc *sc;
-        uint32_t clo;
-        uint32_t count;
+	uint32_t clo;
+	uint32_t count;
 
 	sc = (struct a10_timer_softc *)et->et_priv;
 
-        if (first != NULL) {
+	if (first != NULL) {
 
-                count = (sc->et.et_frequency * (first->frac >> 32)) >> 32;
-                if (first->sec != 0)
-                        count += sc->et.et_frequency * first->sec;
+		count = (sc->et.et_frequency * (first->frac >> 32)) >> 32;
+		if (first->sec != 0)
+			count += sc->et.et_frequency * first->sec;
 
-	        /* clear */
-        	timer_write_4(sc, SW_TIMER0_CNTVAL_REG, 0);
+		/* clear */
+		timer_write_4(sc, SW_TIMER0_CNTVAL_REG, 0);
 
-                clo = timer_read_4(sc, SW_TIMER0_CNTVAL_REG);
-                clo += count;
-                timer_write_4(sc, SW_TIMER0_CNTVAL_REG, clo);
+		clo = timer_read_4(sc, SW_TIMER0_CNTVAL_REG);
+		clo += count;
+		timer_write_4(sc, SW_TIMER0_CNTVAL_REG, clo);
 
-                return (0);
-        }
+		return (0);
+	}
 
 	return (EINVAL);
 }
@@ -251,7 +239,7 @@ static int
 a10_timer_timer_stop(struct eventtimer *et)
 {
 	struct a10_timer_softc *sc;
-        uint32_t val;
+	uint32_t val;
 
 	sc = (struct a10_timer_softc *)et->et_priv;
 
@@ -299,8 +287,8 @@ a10_timer_intr(void *arg)
 	/* pending */
 	timer_write_4(sc, SW_TIMER_INT_STA_REG, 0x1);
 
-        if (sc->et.et_active)
-                sc->et.et_event_cb(&sc->et, sc->et.et_arg);
+	if (sc->et.et_active)
+		sc->et.et_event_cb(&sc->et, sc->et.et_arg);
 
 	return (FILTER_HANDLED);
 }
@@ -335,17 +323,17 @@ DRIVER_MODULE(a10_timer, simplebus, a10_timer_driver, a10_timer_devclass, 0, 0);
 void
 DELAY(int usec)
 {
-        uint32_t counter;
-        uint32_t last;
+	uint32_t counter;
+	uint32_t last;
 
-        /* Timer is not initialized yet */
-        if (!a10_timer_initialized) {
-                for (; usec > 0; usec--)
-                        for (counter = 100; counter > 0; counter--)
+	/* Timer is not initialized yet */
+	if (!a10_timer_initialized) {
+		for (; usec > 0; usec--)
+			for (counter = 100; counter > 0; counter--)
 				/* Prevent optimizing out the loop */
 				cpufunc_nullop();
-                return;
-        }
+		return;
+	}
 
 	/* At least 1 count */
 	usec = MAX(1, usec / 100);

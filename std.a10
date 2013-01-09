@@ -3,7 +3,7 @@
 
 cpu		CPU_CORTEXA
 machine 	arm armv6
-makeoption      ARM_LITTLE_ENDIAN
+makeoption	ARM_LITTLE_ENDIAN
 
 # Physical memory starts at 0x40200000.  We assume images are loaded at
 # 0x40200000, e.g. from u-boot with 'fatload mmc 0 0x40200000 kernel'

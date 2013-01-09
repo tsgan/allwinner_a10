@@ -161,7 +161,6 @@ enum a10_gpio_number {
 #define A10_GPF4_SDC0_D3	2
 #define A10_GPF4_UART0_RX	4
 
-
 int a10_gpio_set_cfgpin(uint32_t pin, uint32_t val);
 int a10_gpio_get_cfgpin(uint32_t pin);
 int a10_gpio_output(uint32_t pin, uint32_t val);

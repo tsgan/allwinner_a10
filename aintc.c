@@ -97,9 +97,9 @@ static struct resource_spec a10_aintc_spec[] = {
 
 static struct a10_aintc_softc *a10_aintc_sc = NULL;
 
-#define	aintc_read_4(reg)						\
+#define	aintc_read_4(reg)	\
 	bus_space_read_4(a10_aintc_sc->aintc_bst, a10_aintc_sc->aintc_bsh, reg)
-#define	aintc_write_4(reg, val)						\
+#define	aintc_write_4(reg, val)		\
 	bus_space_write_4(a10_aintc_sc->aintc_bst, a10_aintc_sc->aintc_bsh, reg, val)
 
 
@@ -137,13 +137,11 @@ a10_aintc_attach(device_t dev)
 	for (i = 0; i < 3; i++) {
 		aintc_write_4(SW_INT_ENABLE_REG(i), 0);
 		aintc_write_4(SW_INT_MASK_REG(i), 0xffffffff);
-		aintc_write_4(SW_INT_IRQ_PENDING_REG(i), 0xffffffff);
-		aintc_write_4(SW_INT_FIQ_PENDING_REG(i), 0xffffffff);
 	}
-	/*enable protection mode*/
+	/* enable protection mode*/
 	aintc_write_4(SW_INT_PROTECTION_REG, 0x01);
 
-	/*config the external interrupt source type*/
+	/* config the external interrupt source type*/
 	aintc_write_4(SW_INT_NMI_CTRL_REG, 0x00);
 
 	return (0);
@@ -168,8 +166,8 @@ DRIVER_MODULE(aintc, simplebus, a10_aintc_driver, a10_aintc_devclass, 0, 0);
 int
 arm_get_next_irq(int last_irq)
 {
-        uint32_t value;
-        int i, b;
+	uint32_t value;
+	int i, b;
 
 	for (i = 0; i < 3; i++) {
 		value = aintc_read_4(SW_INT_IRQ_PENDING_REG(i));
@@ -179,13 +177,13 @@ arm_get_next_irq(int last_irq)
 			}
 	}
 
-        return (-1);
+	return (-1);
 }
 
 void
 arm_mask_irq(uintptr_t nb)
 {
-        uint32_t bit, block, value;
+	uint32_t bit, block, value;
 	
 	bit = (nb % 32);
 	block = (nb / 32);

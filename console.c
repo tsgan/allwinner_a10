@@ -36,9 +36,8 @@ __FBSDID("$FreeBSD$");
 #include <sys/consio.h>
 #include <sys/kernel.h>
 
-/* Allow it to be predefined, to be able to use another UART for console */
 #ifndef	A10_UART_BASE
-#define	A10_UART_BASE	0xe1c28000 /* UART0 */
+#define	A10_UART_BASE	0xe1c28000 	/* UART0 */
 #endif
 
 int reg_shift = 2;
@@ -61,22 +60,20 @@ int reg_shift = 2;
 static u_int32_t
 uart_getreg(u_int32_t *bas)
 {
-
 	return *((volatile u_int32_t *)(bas)) & 0xff;
 }
 
 static void
 uart_setreg(u_int32_t *bas, u_int32_t val)
 {
-
 	*((volatile u_int32_t *)(bas)) = (u_int32_t)val;
 }
 
 static int
 ub_getc(void)
 {
-
-	while ((uart_getreg((u_int32_t *)(A10_UART_BASE + (UART_LSR << reg_shift))) & UART_LSR_DR) == 0);
+	while ((uart_getreg((u_int32_t *)(A10_UART_BASE + 
+	    (UART_LSR << reg_shift))) & UART_LSR_DR) == 0);
 		__asm __volatile("nop");
 
 	return (uart_getreg((u_int32_t *)A10_UART_BASE) & 0xff);
@@ -85,11 +82,11 @@ ub_getc(void)
 static void
 ub_putc(unsigned char c)
 {
-
 	if (c == '\n')
 		ub_putc('\r');
 
-	while ((uart_getreg((u_int32_t *)(A10_UART_BASE + (UART_LSR << reg_shift))) & UART_LSR_THRE) == 0)
+	while ((uart_getreg((u_int32_t *)(A10_UART_BASE + 
+	    (UART_LSR << reg_shift))) & UART_LSR_THRE) == 0)
 		__asm __volatile("nop");
 
 	uart_setreg((u_int32_t *)A10_UART_BASE, c);
@@ -106,48 +103,43 @@ static cn_ungrab_t	uart_cnungrab;
 static void
 uart_cngrab(struct consdev *cp)
 {
-
 }
 
 static void
 uart_cnungrab(struct consdev *cp)
 {
-
 }
 
 
 static void
 uart_cnprobe(struct consdev *cp)
 {
-
-        sprintf(cp->cn_name, "uart");
-        cp->cn_pri = CN_NORMAL;
+	sprintf(cp->cn_name, "uart");
+	cp->cn_pri = CN_NORMAL;
 }
 
 static void
 uart_cninit(struct consdev *cp)
 {
-	uart_setreg((u_int32_t *)(A10_UART_BASE + (UART_FCR << reg_shift)), 0x06);
+	uart_setreg((u_int32_t *)(A10_UART_BASE + 
+	    (UART_FCR << reg_shift)), 0x06);
 }
 
 void
 uart_cnputc(struct consdev *cp, int c)
 {
-
 	ub_putc(c);
 }
 
 int
 uart_cngetc(struct consdev * cp)
 {
-
 	return ub_getc();
 }
 
 static void
 uart_cnterm(struct consdev * cp)
 {
-
 }
 
 CONSOLE_DRIVER(uart);

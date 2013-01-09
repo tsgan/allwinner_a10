@@ -83,14 +83,14 @@ options	ROOTDEVNAME=\"ufs:/dev/da0s2\"
 #options	ROOTDEVNAME=\"ufs:/dev/da0a\"
 
 # ATA controllers
-#device          ahci            # AHCI-compatible SATA controllers
-#device          ata             # Legacy ATA/SATA controllers
-#options         ATA_CAM         # Handle legacy controllers with CAM
-#options         ATA_STATIC_ID   # Static device numbering
+#device		ahci		# AHCI-compatible SATA controllers
+#device		ata		# Legacy ATA/SATA controllers
+#options	ATA_CAM		# Handle legacy controllers with CAM
+#options	ATA_STATIC_ID	# Static device numbering
 
 # Console and misc
-device		uart
-device		uart_ns8250
+#device		uart
+#device		uart_ns8250
 device		pty
 device		snp
 device		md
@@ -130,7 +130,7 @@ device		bpf
 device		miibus
 
 # Flattened Device Tree
-options         FDT
-options         FDT_DTB_STATIC
-makeoptions     FDT_DTS_FILE=cubieboard.dts
+options		FDT
+options		FDT_DTB_STATIC
+makeoptions	FDT_DTS_FILE=cubieboard.dts
 

@@ -57,7 +57,7 @@ __FBSDID("$FreeBSD$");
 
 #include "ata_if.h"
 
-#define SATA_CHAN_NUM                   1
+#define SATA_CHAN_NUM			1
 
 /* Identification section. */
 struct a10_ahci_softc {
@@ -75,8 +75,10 @@ struct a10_ahci_softc {
 };
 
 
-#define	ahci_readl(base,offset) 	(*((volatile uint32_t *)((base)+(offset))))
-#define ahci_writel(base,offset,val)	(*((volatile uint32_t *)((base)+(offset))) = (val))
+#define	ahci_readl(base,offset)		\
+	(*((volatile uint32_t *)((base)+(offset))))
+#define ahci_writel(base,offset,val)	\
+	(*((volatile uint32_t *)((base)+(offset))) = (val))
 
 #define SW_AHCI_BASE			0xe1c18000
 
@@ -104,7 +106,8 @@ struct a10_ahci_softc {
 #define SW_AHCI_P0PHYCR_OFFSET		0x0178
 #define SW_AHCI_P0PHYSR_OFFSET		0x017C
 
-#define SW_AHCI_ACCESS_LOCK(base,x)	(*((volatile uint32_t *)((base)+SW_AHCI_RWCR_OFFSET)) = (x))
+#define SW_AHCI_ACCESS_LOCK(base,x)	\
+	(*((volatile uint32_t *)((base)+SW_AHCI_RWCR_OFFSET)) = (x))
 
 #define INTC_IRQNO_AHCI			56
 
@@ -115,15 +118,15 @@ struct a10_ahci_softc {
 static int	a10_ahci_probe(device_t dev);
 static int	a10_ahci_attach(device_t dev);
 static int	a10_ahci_detach(device_t dev);
-static void     a10_ahci_intr(void*);
+static void	a10_ahci_intr(void*);
 static struct resource * a10_ahci_alloc_resource(device_t dev, device_t child,
     int type, int *rid, u_long start, u_long end, u_long count, u_int flags);
-static int      a10_ahci_release_resource(device_t dev, device_t child, int type,
+static int	a10_ahci_release_resource(device_t dev, device_t child, int type,
     int rid, struct resource *r);
-static int      a10_ahci_setup_intr(device_t dev, device_t child,
+static int	a10_ahci_setup_intr(device_t dev, device_t child,
     struct resource *irq, int flags, driver_filter_t *filt,
     driver_intr_t *function, void *argument, void **cookiep);
-static int      a10_ahci_teardown_intr(device_t dev, device_t child,
+static int	a10_ahci_teardown_intr(device_t dev, device_t child,
     struct resource *irq, void *cookie);
 
 
@@ -151,7 +154,6 @@ a10_ahci_attach(device_t dev)
 	sc->sc_dev = dev;
 	mem_id = 0;
 	irq_id = 0;
-
 
 	printf("---------- 10 ------------\n");
 
@@ -308,16 +310,16 @@ a10_ahci_attach(device_t dev)
 
 	printf("---------- 1 ------------\n");
 
-        /* Attach channels */
-        for (i = 0; i < SATA_CHAN_NUM; i++) {
-                child = device_add_child(dev, "ahcich", -1);
+	/* Attach channels */
+	for (i = 0; i < SATA_CHAN_NUM; i++) {
+		child = device_add_child(dev, "ahcich", -1);
 
-                if (!child) {
-                        device_printf(dev, "cannot add channel %d.\n", i);
-                        error = ENOMEM;
-                        goto err;
-                }
-        }
+		if (!child) {
+			device_printf(dev, "cannot add channel %d.\n", i);
+			error = ENOMEM;
+			goto err;
+		}
+	}
 
 	printf("---------- 2 ------------\n");
 
@@ -359,34 +361,34 @@ a10_ahci_detach(device_t dev)
 static void
 a10_ahci_intr(void *xsc)
 {
-        struct a10_ahci_softc *sc;
-        int unit;
+	struct a10_ahci_softc *sc;
+	int unit;
 
-        sc = xsc;
+	sc = xsc;
 
-        /*
-         * Behave like ata_generic_intr() for PCI controllers.
-         * Simply invoke ISRs on all channels.
-         */
-        for (unit = 0; unit < SATA_CHAN_NUM; unit++)
-                if (sc->sc_interrupt[unit].function != NULL)
-                        sc->sc_interrupt[unit].function(
-                            sc->sc_interrupt[unit].argument);
+	/*
+	 * Behave like ata_generic_intr() for PCI controllers.
+	 * Simply invoke ISRs on all channels.
+	 */
+	for (unit = 0; unit < SATA_CHAN_NUM; unit++)
+		if (sc->sc_interrupt[unit].function != NULL)
+			sc->sc_interrupt[unit].function(
+				sc->sc_interrupt[unit].argument);
 }
 
 static struct resource *
 a10_ahci_alloc_resource(device_t dev, device_t child, int type, int *rid,
     u_long start, u_long end, u_long count, u_int flags)
 {
-        struct a10_ahci_softc *sc;
+	struct a10_ahci_softc *sc;
 
-        sc = device_get_softc(dev);
+	sc = device_get_softc(dev);
 
-        KASSERT(type == SYS_RES_IRQ && *rid == ATA_IRQ_RID,
-            ("illegal resource request (type %u, rid %u).",
-            type, *rid));
+	KASSERT(type == SYS_RES_IRQ && *rid == ATA_IRQ_RID,
+	    ("illegal resource request (type %u, rid %u).",
+	    type, *rid));
 
-        return (sc->sc_irq_res);
+	return (sc->sc_irq_res);
 }
 
 static int
@@ -394,11 +396,11 @@ a10_ahci_release_resource(device_t dev, device_t child, int type, int rid,
     struct resource *r)
 {
 
-        KASSERT(type == SYS_RES_IRQ && rid == ATA_IRQ_RID,
-            ("strange type %u and/or rid %u while releasing resource.", type,
-            rid));
+	KASSERT(type == SYS_RES_IRQ && rid == ATA_IRQ_RID,
+	    ("strange type %u and/or rid %u while releasing resource.", type,
+	    rid));
 
-        return (0);
+	return (0);
 }
 
 static int
@@ -406,38 +408,38 @@ a10_ahci_setup_intr(device_t dev, device_t child, struct resource *irq, int flag
     driver_filter_t *filt, driver_intr_t *function, void *argument,
     void **cookiep)
 {
-        struct a10_ahci_softc *sc;
-        struct ata_channel *ch;
+	struct a10_ahci_softc *sc;
+	struct ata_channel *ch;
 
-        sc = device_get_softc(dev);
-        ch = device_get_softc(child);
+	sc = device_get_softc(dev);
+	ch = device_get_softc(child);
 
-        if (filt != NULL) {
-                device_printf(dev, "filter interrupts are not supported.\n");
-                return (EINVAL);
-        }
+	if (filt != NULL) {
+		device_printf(dev, "filter interrupts are not supported.\n");
+		return (EINVAL);
+	}
 
-        sc->sc_interrupt[ch->unit].function = function;
-        sc->sc_interrupt[ch->unit].argument = argument;
-        *cookiep = sc;
+	sc->sc_interrupt[ch->unit].function = function;
+	sc->sc_interrupt[ch->unit].argument = argument;
+	*cookiep = sc;
 
-        return (0);
+	return (0);
 }
 
 static int
 a10_ahci_teardown_intr(device_t dev, device_t child, struct resource *irq,
     void *cookie)
 {
-        struct a10_ahci_softc *sc;
-        struct ata_channel *ch;
+	struct a10_ahci_softc *sc;
+	struct ata_channel *ch;
 
-        sc = device_get_softc(dev);
-        ch = device_get_softc(child);
+	sc = device_get_softc(dev);
+	ch = device_get_softc(child);
 
-        sc->sc_interrupt[ch->unit].function = NULL;
-        sc->sc_interrupt[ch->unit].argument = NULL;
+	sc->sc_interrupt[ch->unit].function = NULL;
+	sc->sc_interrupt[ch->unit].argument = NULL;
 
-        return (0);
+	return (0);
 }
 
 static device_method_t a10_ahci_methods[] = {
@@ -449,12 +451,12 @@ static device_method_t a10_ahci_methods[] = {
 	DEVMETHOD(device_suspend,	bus_generic_suspend),
 	DEVMETHOD(device_resume,	bus_generic_resume),
 
-        DEVMETHOD(bus_alloc_resource,           a10_ahci_alloc_resource),
-        DEVMETHOD(bus_release_resource,         a10_ahci_release_resource),
-        DEVMETHOD(bus_activate_resource,        bus_generic_activate_resource),
-        DEVMETHOD(bus_deactivate_resource,      bus_generic_deactivate_resource),
-        DEVMETHOD(bus_setup_intr,               a10_ahci_setup_intr),
-        DEVMETHOD(bus_teardown_intr,            a10_ahci_teardown_intr),
+	DEVMETHOD(bus_alloc_resource,		a10_ahci_alloc_resource),
+	DEVMETHOD(bus_release_resource,		a10_ahci_release_resource),
+	DEVMETHOD(bus_activate_resource,	bus_generic_activate_resource),
+	DEVMETHOD(bus_deactivate_resource,	bus_generic_deactivate_resource),
+	DEVMETHOD(bus_setup_intr,		a10_ahci_setup_intr),
+	DEVMETHOD(bus_teardown_intr,		a10_ahci_teardown_intr),
 
 	DEVMETHOD_END
 };

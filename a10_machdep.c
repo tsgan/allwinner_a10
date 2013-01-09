@@ -49,6 +49,8 @@ __FBSDID("$FreeBSD$");
 
 #include <dev/fdt/fdt_common.h>
 
+#include "gpio.h"
+
 /* Start of address space used for bootstrap map */
 #define DEVMAP_BOOTSTRAP_MAP_START      0xE0000000
 
@@ -58,8 +60,8 @@ vm_offset_t
 initarm_lastaddr(void)
 {
 
-        a10_cpu_reset = NULL;
-        return (DEVMAP_BOOTSTRAP_MAP_START - ARM_NOCACHE_KVA_SIZE);
+	a10_cpu_reset = NULL;
+	return (DEVMAP_BOOTSTRAP_MAP_START - ARM_NOCACHE_KVA_SIZE);
 }
 
 void
@@ -72,9 +74,9 @@ initarm_late_init(void)
 {
 }
 
-#define FDT_DEVMAP_MAX  (1 + 2 + 1 + 1)             // FIXME
+#define FDT_DEVMAP_MAX		(1 + 2 + 1 + 1)
 static struct pmap_devmap fdt_devmap[FDT_DEVMAP_MAX] = {
-        { 0, 0, 0, 0, 0, }
+	{ 0, 0, 0, 0, 0, }
 };
 
 /*
@@ -83,41 +85,40 @@ static struct pmap_devmap fdt_devmap[FDT_DEVMAP_MAX] = {
 int
 platform_devmap_init(void)
 {
-        int i = 0;
-        fdt_devmap[i].pd_va =   0xE1C00000;
-        fdt_devmap[i].pd_pa =   0x01C00000;
-        fdt_devmap[i].pd_size = 0x00400000;       /* 4 MB */
-        fdt_devmap[i].pd_prot = VM_PROT_READ | VM_PROT_WRITE;
-        fdt_devmap[i].pd_cache = PTE_DEVICE;
+	int i = 0;
 
-        i++;
+	fdt_devmap[i].pd_va =   0xE1C00000;
+	fdt_devmap[i].pd_pa =   0x01C00000;
+	fdt_devmap[i].pd_size = 0x00400000;	/* 4 MB */
+	fdt_devmap[i].pd_prot = VM_PROT_READ | VM_PROT_WRITE;
+	fdt_devmap[i].pd_cache = PTE_DEVICE;
 
-        pmap_devmap_bootstrap_table = &fdt_devmap[0];
+	i++;
 
-        return (0);
+	pmap_devmap_bootstrap_table = &fdt_devmap[0];
+
+	return (0);
 }
 
 struct arm32_dma_range *
 bus_dma_get_range(void)
 {
-
-        return (NULL);
+	return (NULL);
 }
 
 int
 bus_dma_get_range_nb(void)
 {
-
-        return (0);
+	return (0);
 }
 
 void
 cpu_reset()
 {
-        if (a10_cpu_reset)
-                (*a10_cpu_reset)();
-        else
-                printf("no cpu_reset implementation\n");
-        printf("Reset failed!\n");
-        while (1);
+	if (a10_cpu_reset)
+		(*a10_cpu_reset)();
+	else
+		printf("no cpu_reset implementation\n");
+	printf("Reset failed!\n");
+	while (1);
 }

@@ -58,15 +58,15 @@ __FBSDID("$FreeBSD$");
  * Timer registers addr
  *
  */
-#define SW_TIMER_INT_CTL_REG 	0x00
-#define SW_TIMER_INT_STA_REG 	0x04
-#define SW_TIMER0_CTL_REG 	0x10
-#define SW_TIMER0_INTVAL_REG	0x14
-#define SW_TIMER0_CNTVAL_REG	0x18
+#define SW_TIMER_IRQ_EN_REG 	0x00
+#define SW_TIMER_IRQ_STA_REG 	0x04
+#define SW_TIMER0_CTRL_REG 	0x10
+#define SW_TIMER0_INT_VALUE_REG	0x14
+#define SW_TIMER0_CUR_VALUE_REG	0x18
 
 #define SYS_TIMER_SCAL		16 /* timer clock source pre-divsion */
 #define SYS_TIMER_CLKSRC	24000000 /* timer clock source */
-#define TMR_INTER_VAL		SYS_TIMER_CLKSRC/(SYS_TIMER_SCAL*hz)
+#define TMR_INTER_VAL		SYS_TIMER_CLKSRC/(SYS_TIMER_SCAL * 1000)
 
 #define CLOCK_TICK_RATE		TMR_INTER_VAL 
 
@@ -144,24 +144,25 @@ a10_timer_attach(device_t dev)
 	sc->sc_bst = rman_get_bustag(sc->res[0]);
 	sc->sc_bsh = rman_get_bushandle(sc->res[0]);
 
-	timer_write_4(sc, SW_TIMER0_INTVAL_REG, TMR_INTER_VAL);
+	/* set interval */
+	timer_write_4(sc, SW_TIMER0_INT_VALUE_REG, TMR_INTER_VAL);
 
 	/* set clock source to HOSC, 16 pre-division */
-	val = timer_read_4(sc, SW_TIMER0_CTL_REG);
+	val = timer_read_4(sc, SW_TIMER0_CTRL_REG);
 	val &= ~(0x07<<4);
 	val &= ~(0x03<<2);
 	val |= (4<<4) | (1<<2);
-	timer_write_4(sc, SW_TIMER0_CTL_REG, val);
+	timer_write_4(sc, SW_TIMER0_CTRL_REG, val);
 
 	/* set mode to auto reload */
-	val = timer_read_4(sc, SW_TIMER0_CTL_REG);
+	val = timer_read_4(sc, SW_TIMER0_CTRL_REG);
 	val |= (1<<1);
-	timer_write_4(sc, SW_TIMER0_CTL_REG, val);
+	timer_write_4(sc, SW_TIMER0_CTRL_REG, val);
 
-	/* Enable timer0 interrupt */
-	val = timer_read_4(sc, SW_TIMER_INT_CTL_REG);
+	/* Enable timer0 */
+	val = timer_read_4(sc, SW_TIMER_IRQ_EN_REG);
 	val |= (1<<0);
-	timer_write_4(sc, SW_TIMER_INT_CTL_REG, val);
+	timer_write_4(sc, SW_TIMER_IRQ_EN_REG, val);
 
 	/* Setup and enable the timer interrupt */
 	err = bus_setup_intr(dev, sc->res[1], INTR_TYPE_CLK, a10_timer_intr,
@@ -211,23 +212,18 @@ a10_timer_timer_start(struct eventtimer *et, struct bintime *first,
     struct bintime *period)
 {
 	struct a10_timer_softc *sc;
-	uint32_t clo;
-	uint32_t count;
+	uint32_t clo, count;
 
 	sc = (struct a10_timer_softc *)et->et_priv;
 
 	if (first != NULL) {
-
 		count = (sc->et.et_frequency * (first->frac >> 32)) >> 32;
 		if (first->sec != 0)
 			count += sc->et.et_frequency * first->sec;
 
-		/* clear */
-		timer_write_4(sc, SW_TIMER0_CNTVAL_REG, 0);
-
-		clo = timer_read_4(sc, SW_TIMER0_CNTVAL_REG);
+		clo = timer_read_4(sc, SW_TIMER0_CUR_VALUE_REG);
 		clo += count;
-		timer_write_4(sc, SW_TIMER0_CNTVAL_REG, clo);
+		timer_write_4(sc, SW_TIMER0_CUR_VALUE_REG, clo);
 
 		return (0);
 	}
@@ -244,13 +240,13 @@ a10_timer_timer_stop(struct eventtimer *et)
 	sc = (struct a10_timer_softc *)et->et_priv;
 
 	/* clear */
-	timer_write_4(sc, SW_TIMER0_CNTVAL_REG, 0);
-	timer_write_4(sc, SW_TIMER0_CTL_REG, 0);
+	timer_write_4(sc, SW_TIMER0_CUR_VALUE_REG, 0);
 
 	/* disable */
-	val = timer_read_4(sc, SW_TIMER0_CTL_REG);
+	val = timer_read_4(sc, SW_TIMER0_CTRL_REG);
 	val &= ~(1<<0); /* Disable timer0 */
-	timer_write_4(sc, SW_TIMER0_CTL_REG, val);
+	timer_write_4(sc, SW_TIMER0_CTRL_REG, val);
+
 	sc->sc_period = 0;
 
 	return (0);
@@ -273,22 +269,14 @@ static int
 a10_timer_intr(void *arg)
 {
 	struct a10_timer_softc *sc;
-	uint32_t val;
 
 	sc = (struct a10_timer_softc *)arg;
 
-	/* clear any pending before continue */
-	val = timer_read_4(sc, SW_TIMER0_CTL_REG);
-	timer_write_4(sc, SW_TIMER0_CNTVAL_REG, val);
-	val |= (1<<1);
-	timer_write_4(sc, SW_TIMER0_CTL_REG, val);
-	timer_write_4(sc, SW_TIMER0_CTL_REG, val | 0x1);
-
-	/* pending */
-	timer_write_4(sc, SW_TIMER_INT_STA_REG, 0x1);
-
 	if (sc->et.et_active)
 		sc->et.et_event_cb(&sc->et, sc->et.et_arg);
+
+	/* pending */
+	timer_write_4(sc, SW_TIMER_IRQ_STA_REG, 0x1);
 
 	return (FILTER_HANDLED);
 }
@@ -300,7 +288,7 @@ a10_timer_get_timecount(struct timecounter *tc)
 	if (a10_timer_sc == NULL)
 		return (0);
 
-	return (timer_read_4(a10_timer_sc, SW_TIMER0_CNTVAL_REG));
+	return (timer_read_4(a10_timer_sc, SW_TIMER0_CUR_VALUE_REG));
 }
 
 static device_method_t a10_timer_methods[] = {
@@ -329,7 +317,7 @@ DELAY(int usec)
 	/* Timer is not initialized yet */
 	if (!a10_timer_initialized) {
 		for (; usec > 0; usec--)
-			for (counter = 100; counter > 0; counter--)
+			for (counter = 200; counter > 0; counter--)
 				/* Prevent optimizing out the loop */
 				cpufunc_nullop();
 		return;
@@ -338,11 +326,12 @@ DELAY(int usec)
 	/* At least 1 count */
 	usec = MAX(1, usec / 100);
 
-	last = timer_read_4(a10_timer_sc, SW_TIMER0_CNTVAL_REG) + usec;
+	last = timer_read_4(a10_timer_sc, SW_TIMER0_CUR_VALUE_REG) + usec;
 
-	while (timer_read_4(a10_timer_sc, SW_TIMER0_CNTVAL_REG) < last) {
+	while (timer_read_4(a10_timer_sc, SW_TIMER0_CUR_VALUE_REG) < last) {
 		/* Prevent optimizing out the loop */
 		cpufunc_nullop();
 	}
+
 }
 

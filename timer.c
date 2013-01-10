@@ -221,6 +221,8 @@ a10_timer_timer_start(struct eventtimer *et, struct bintime *first,
 		if (first->sec != 0)
 			count += sc->et.et_frequency * first->sec;
 
+		/* clear */
+		timer_write_4(sc, SW_TIMER0_CUR_VALUE_REG, 0);
 		clo = timer_read_4(sc, SW_TIMER0_CUR_VALUE_REG);
 		clo += count;
 		timer_write_4(sc, SW_TIMER0_CUR_VALUE_REG, clo);

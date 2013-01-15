@@ -42,8 +42,6 @@ __FBSDID("$FreeBSD$");
 #include <dev/ofw/ofw_bus.h>
 #include <dev/ofw/ofw_bus_subr.h>
 
-/* SW_VA_INT_IO_BASE                 0xe1c20400 */
-
 /**
  * Interrupt controller registers
  *
@@ -83,17 +81,11 @@ __FBSDID("$FreeBSD$");
 
 struct a10_aintc_softc {
 	device_t		sc_dev;
-	struct resource *	aintc_res[3];
+	struct resource *	aintc_res;
 	bus_space_tag_t		aintc_bst;
 	bus_space_handle_t	aintc_bsh;
 	uint8_t			ver;
 };
-
-static struct resource_spec a10_aintc_spec[] = {
-	{ SYS_RES_MEMORY,	0,	RF_ACTIVE },
-	{ -1, 0 }
-};
-
 
 static struct a10_aintc_softc *a10_aintc_sc = NULL;
 
@@ -101,7 +93,6 @@ static struct a10_aintc_softc *a10_aintc_sc = NULL;
 	bus_space_read_4(a10_aintc_sc->aintc_bst, a10_aintc_sc->aintc_bsh, reg)
 #define	aintc_write_4(reg, val)		\
 	bus_space_write_4(a10_aintc_sc->aintc_bst, a10_aintc_sc->aintc_bsh, reg, val)
-
 
 static int
 a10_aintc_probe(device_t dev)
@@ -116,6 +107,7 @@ static int
 a10_aintc_attach(device_t dev)
 {
 	struct a10_aintc_softc *sc = device_get_softc(dev);
+	int rid = 0;
 	int i;
 	
 	sc->sc_dev = dev;
@@ -123,13 +115,14 @@ a10_aintc_attach(device_t dev)
 	if (a10_aintc_sc)
 		return (ENXIO);
 
-	if (bus_alloc_resources(dev, a10_aintc_spec, sc->aintc_res)) {
-		device_printf(dev, "could not allocate resources\n");
+	sc->aintc_res = bus_alloc_resource_any(dev, SYS_RES_MEMORY, &rid, RF_ACTIVE);
+	if (!sc->aintc_res) {
+		device_printf(dev, "could not allocate resource\n");
 		return (ENXIO);
 	}
 
-	sc->aintc_bst = rman_get_bustag(sc->aintc_res[0]);
-	sc->aintc_bsh = rman_get_bushandle(sc->aintc_res[0]);
+	sc->aintc_bst = rman_get_bustag(sc->aintc_res);
+	sc->aintc_bsh = rman_get_bushandle(sc->aintc_res);
 
 	a10_aintc_sc = sc;
 

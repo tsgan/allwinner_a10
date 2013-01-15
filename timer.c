@@ -52,8 +52,6 @@ __FBSDID("$FreeBSD$");
 
 #include <sys/kdb.h>
 
-#define SW_VA_TIMERC_IO_BASE	0xe1c20c00
-
 /**
  * Timer registers addr
  *
@@ -69,6 +67,7 @@ __FBSDID("$FreeBSD$");
 #define TMR_INTER_VAL		SYS_TIMER_CLKSRC/(SYS_TIMER_SCAL * 1000)
 
 #define CLOCK_TICK_RATE		TMR_INTER_VAL 
+#define INITIAL_TIMECOUNTER	(0xffffffff)
 
 struct a10_timer_softc {
 	device_t 	sc_dev;
@@ -173,7 +172,7 @@ a10_timer_attach(device_t dev)
 		    "err = %d\n", err);
 		return (ENXIO);
 	}
-	freq = fdt32_to_cpu(SYS_TIMER_CLKSRC);
+	freq = SYS_TIMER_CLKSRC;
 
         /* Set desired frequency in event timer and timecounter */
 	sc->et.et_frequency = (uint64_t)freq;
@@ -314,7 +313,8 @@ void
 DELAY(int usec)
 {
 	uint32_t counter;
-	uint32_t last;
+	uint32_t val, val_temp;
+	int32_t nticks;
 
 	/* Timer is not initialized yet */
 	if (!a10_timer_initialized) {
@@ -325,15 +325,17 @@ DELAY(int usec)
 		return;
 	}
 
-	/* At least 1 count */
-	usec = MAX(1, usec / 100);
+	val = timer_read_4(a10_timer_sc, SW_TIMER0_CUR_VALUE_REG) + usec;
+        nticks = ((SYS_TIMER_CLKSRC / 1000000 + 1) * usec);
 
-	last = timer_read_4(a10_timer_sc, SW_TIMER0_CUR_VALUE_REG) + usec;
+        while (nticks > 0) {
+                val_temp = timer_read_4(a10_timer_sc, SW_TIMER0_CUR_VALUE_REG);
+                if (val > val_temp)
+                        nticks -= (val - val_temp);
+                else
+                        nticks -= (val + (INITIAL_TIMECOUNTER - val_temp));
 
-	while (timer_read_4(a10_timer_sc, SW_TIMER0_CUR_VALUE_REG) < last) {
-		/* Prevent optimizing out the loop */
-		cpufunc_nullop();
-	}
-
+                val = val_temp;
+        }
 }
 

@@ -49,8 +49,6 @@ __FBSDID("$FreeBSD$");
 
 #include <dev/fdt/fdt_common.h>
 
-#include "gpio.h"
-
 /* Start of address space used for bootstrap map */
 #define DEVMAP_BOOTSTRAP_MAP_START      0xE0000000
 

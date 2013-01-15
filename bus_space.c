@@ -1,5 +1,5 @@
 /*-
- * Copyright (C) 2012 Ganbold Tsagaankhuu <ganbold@gmail.com>
+ * Copyright (C) 2012 FreeBSD Foundation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -28,7 +28,7 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: head/sys/arm/allwinner/bus_space.c 245450 2013-01-15 08:26:16Z ganbold $");
+__FBSDID("$FreeBSD: head/sys/arm/allwinner/bus_space.c 245455 2013-01-15 09:56:20Z ganbold $");
 
 #include <sys/param.h>
 #include <sys/systm.h>

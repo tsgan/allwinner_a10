@@ -1,8 +1,6 @@
 /*-
- * Copyright (c) 2012 Ganbold Tsagaankhuu
+ * Copyright (c) 2012 Ganbold Tsagaankhuu <ganbold@gmail.com>
  * All rights reserved.
- *
- * Developed by Ganbold Tsagaankhuu <ganbold@gmail.com>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -16,7 +14,7 @@
  * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
  * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
  * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
  * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
@@ -27,7 +25,7 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: head/sys/arm/allwinner/common.c 245450 2013-01-15 08:26:16Z ganbold $");
+__FBSDID("$FreeBSD: head/sys/arm/allwinner/common.c 245454 2013-01-15 09:39:11Z ganbold $");
 
 #include <sys/param.h>
 #include <sys/systm.h>

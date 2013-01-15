@@ -182,7 +182,6 @@ a10_ehci_attach(device_t self)
 	reg_value |= (1 << 0); /* disable reset for USB0 */
 	reg_value |= (1 << 1); /* disable reset for USB1 */
 	reg_value |= (1 << 2); /* disable reset for USB2 */
-	reg_value |= (1 << 4); /* clock source to 48MHz */
 	REG_WRITE(SW_CCM_USB_CLOCK, reg_value);
 
 	/* enable passby */
@@ -274,7 +273,6 @@ a10_ehci_detach(device_t self)
 	reg_value &= ~(1 << 0); /* reset for USB0 */
 	reg_value &= ~(1 << 1); /* reset for USB1 */
 	reg_value &= ~(1 << 2); /* reset for USB2 */
-	reg_value &= ~(1 << 4); /* disable clock source to 48MHz */
 	REG_WRITE(SW_CCM_USB_CLOCK, reg_value);
 
 	/* disable gating AHB clock for USB */

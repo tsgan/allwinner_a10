@@ -325,8 +325,8 @@ DELAY(int usec)
 		return;
 	}
 
-	val = timer_read_4(a10_timer_sc, SW_TIMER0_CUR_VALUE_REG) + usec;
-        nticks = ((SYS_TIMER_CLKSRC / 1000000 + 1) * usec);
+	val = timer_read_4(a10_timer_sc, SW_TIMER0_CUR_VALUE_REG);
+        nticks = ((a10_timer_sc->clkfreq / 1000000 + 1) * usec);
 
         while (nticks > 0) {
                 val_temp = timer_read_4(a10_timer_sc, SW_TIMER0_CUR_VALUE_REG);

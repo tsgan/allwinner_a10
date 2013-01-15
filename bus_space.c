@@ -28,7 +28,7 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD$");
+__FBSDID("$FreeBSD: head/sys/arm/allwinner/bus_space.c 245450 2013-01-15 08:26:16Z ganbold $");
 
 #include <sys/param.h>
 #include <sys/systm.h>

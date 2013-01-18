@@ -176,21 +176,44 @@ a10_timer_attach(device_t dev)
 		return (ENXIO);
 	}
 
+	/* set interval */
+	timer_write_4(sc, SW_TIMER0_INT_VALUE_REG, TMR_INTER_VAL);
+
 	/*
 	 *  Set clock source to 24mhz, 16 pre-division, one-shot mode, not
 	 *  enabled yet (a10_timer_timer_start will enable).
 	 */
-	val = 1 << 7; /* One-shot mode */
-	val = 4 << 4; /* prescalar = 16 */
-	val = 1 << 2; /* oscillator = 24mhz */
-	timer_write_4(sc, SW_TIMER0_CTRL_REG, val);
+//	val = 1 << 7; /* One-shot mode */
+//	val |= (4 << 4); /* prescalar = 16 */
+//	val |= (1 << 2); /* oscillator = 24mhz */
+//	timer_write_4(sc, SW_TIMER0_CTRL_REG, val);
  
+        /* set clock source to HOSC, 16 pre-division */
+        val = timer_read_4(sc, SW_TIMER0_CTRL_REG);
+        val &= ~(0x07<<4);
+        val &= ~(0x03<<2);
+        val |= (4<<4) | (1<<2);
+        timer_write_4(sc, SW_TIMER0_CTRL_REG, val);
 
-	sc->timer0_freq = SYS_TIMER_CLKSRC / SYS_TIMER_SCAL;
+        /* set mode to auto reload */
+        val = timer_read_4(sc, SW_TIMER0_CTRL_REG);
+        val |= (1<<1);
+        timer_write_4(sc, SW_TIMER0_CTRL_REG, val);
+
+        /* Enable timer0 */
+        val = timer_read_4(sc, SW_TIMER_IRQ_EN_REG);
+        val |= (1<<0);
+        timer_write_4(sc, SW_TIMER_IRQ_EN_REG, val);
+
+
+	sc->timer0_freq = SYS_TIMER_CLKSRC;
+//	sc->timer0_freq = SYS_TIMER_CLKSRC / SYS_TIMER_SCAL;
+//	sc->timer0_freq = fdt32_to_cpu(SYS_TIMER_CLKSRC);
  
 	/* Set desired frequency in event timer and timecounter */
 	sc->et.et_frequency = sc->timer0_freq;
 	sc->et.et_name = "a10_timer Eventtimer";
+//	sc->et.et_flags = ET_FLAGS_ONESHOT | ET_FLAGS_PERIODIC;
 	sc->et.et_flags = ET_FLAGS_ONESHOT;
 	sc->et.et_quality = 1000;
 	sc->et.et_min_period.sec = 0;
@@ -207,7 +230,8 @@ a10_timer_attach(device_t dev)
 	if (device_get_unit(dev) == 0)
 		a10_timer_sc = sc;
  
-	a10_timer_timecounter.tc_frequency = SYS_TIMER_CLKSRC;
+//	a10_timer_timecounter.tc_frequency = SYS_TIMER_CLKSRC;
+	a10_timer_timecounter.tc_frequency = sc->timer0_freq;
 	tc_init(&a10_timer_timecounter);
  
 	device_printf(sc->sc_dev, "clock: hz=%d stathz = %d\n", hz, stathz);
@@ -237,10 +261,16 @@ a10_timer_timer_start(struct eventtimer *et, struct bintime *first,
 		if (first->sec != 0)
 			count += sc->et.et_frequency * first->sec;
 
-		timer_write_4(sc, SW_TIMER0_CUR_VALUE_REG, count);
-		val = timer_read_4(sc, SW_TIMER0_CTRL_REG);
-		val |= 0x03; /* Start + reload */
-		timer_write_4(sc, SW_TIMER0_CTRL_REG, val);
+//		timer_write_4(sc, SW_TIMER0_CUR_VALUE_REG, count);
+//		val = timer_read_4(sc, SW_TIMER0_CTRL_REG);
+//		val |= 0x03; /* Start + reload */
+//		timer_write_4(sc, SW_TIMER0_CTRL_REG, val);
+
+                /* clear */
+                timer_write_4(sc, SW_TIMER0_CUR_VALUE_REG, 0);
+                val = timer_read_4(sc, SW_TIMER0_CUR_VALUE_REG);
+                val += count;
+                timer_write_4(sc, SW_TIMER0_CUR_VALUE_REG, val);
 
 		return (0);
 	}

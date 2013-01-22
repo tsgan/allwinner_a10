@@ -169,7 +169,6 @@ static void
 ns8250_setlcr(struct uart_softc *sc, uint8_t val)
 {
         struct uart_bas *bas;
-//        uint8_t lcr;
 
         bas = &sc->sc_bas;
         uart_lock(sc->sc_hwmtx);
@@ -181,6 +180,7 @@ ns8250_setlcr(struct uart_softc *sc, uint8_t val)
         uart_unlock(sc->sc_hwmtx);
 }
 */
+
 /*
  * Clear pending interrupts. THRE is cleared by reading IIR. Data
  * that may have been received gets lost here.
@@ -189,7 +189,6 @@ static void
 ns8250_clrint(struct uart_bas *bas)
 {
 	uint8_t iir;//, lsr;
-//	uint8_t lcr;
 
 	iir = uart_getreg(bas, REG_IIR);
         while ((iir & IIR_NOPEND) == 0) {
@@ -202,7 +201,6 @@ ns8250_clrint(struct uart_bas *bas)
                         (void)uart_getreg(bas, REG_MSR);
                 else if (iir == IIR_BUSY) {
                         (void) uart_getreg(bas, REG_USR);
-//                        lcr = uart_getreg(bas, REG_LCR);
                         (void) uart_setreg(bas, REG_LCR, last_lcr);
 		}
                 uart_barrier(bas);
@@ -219,11 +217,7 @@ ns8250_clrint(struct uart_bas *bas)
 			(void)uart_getreg(bas, REG_DATA);
 		else if (iir == IIR_MLSC)
 			(void)uart_getreg(bas, REG_MSR);
-                else if (iir == IIR_BUSY) {
-                        (void) uart_getreg(bas, REG_USR);
-//                        lcr = uart_getreg(bas, REG_LCR);
-//                        (void) uart_setreg(bas, REG_LCR, lcr);
-		}
+
 		uart_barrier(bas);
 		iir = uart_getreg(bas, REG_IIR);
 	}
@@ -829,7 +823,6 @@ ns8250_bus_ipend(struct uart_softc *sc)
 	struct ns8250_softc *ns8250;
 	int ipend;
 	uint8_t iir, lsr;
-//	uint8_t lcr;
 
 	ns8250 = (struct ns8250_softc *)sc;
 	bas = &sc->sc_bas;
@@ -868,10 +861,11 @@ ns8250_bus_ipend(struct uart_softc *sc)
         
                 } else if (iir == IIR_BUSY) {
                         (void) uart_getreg(bas, REG_USR);
-//			lcr = uart_getreg(bas, REG_LCR);
                         (void) uart_setreg(bas, REG_LCR, last_lcr);
 
-		} 
+		} else
+			ipend |= SER_INT_SIGCHG;
+	
         }
 
 /*
@@ -893,8 +887,6 @@ ns8250_bus_ipend(struct uart_softc *sc)
 		if (iir & IIR_TXRDY) {
 			ipend |= SER_INT_TXIDLE;
 			uart_setreg(bas, REG_IER, ns8250->ier);
-                } else if (iir & IIR_BUSY) {
-                        (void) uart_getreg(bas, REG_USR);
 		} else
 			ipend |= SER_INT_SIGCHG;
 	}

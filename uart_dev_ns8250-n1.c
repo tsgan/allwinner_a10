@@ -158,7 +158,7 @@ __FBSDID("$FreeBSD: head/sys/dev/uart/uart_dev_ns8250.c 227032 2011-11-02 20:45:
 //static void ns8250_setlcr(struct uart_softc *sc, uint8_t val);
 //static void ns8250_setlcr(struct uart_bas *bas, uint8_t val);
 
-static uint8_t last_lcr = 0x0;
+volatile uint8_t last_lcr = 0x0;
 
 /*
  * Loop reading LSR until LSR_THRE is asserted and then set LCR.

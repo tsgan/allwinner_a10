@@ -175,17 +175,17 @@ a10_timer_attach(device_t dev)
 		return (ENXIO);
 	}
 
-	/* set interval */
+	/* Set interval */
 	timer_write_4(sc, SW_TIMER0_INT_VALUE_REG, TMR_INTER_VAL);
 
-        /* set clock source to HOSC, 16 pre-division */
+        /* Set clock source to HOSC, 16 pre-division */
         val = timer_read_4(sc, SW_TIMER0_CTRL_REG);
         val &= ~(0x07<<4);
         val &= ~(0x03<<2);
         val |= (4<<4) | (1<<2);
         timer_write_4(sc, SW_TIMER0_CTRL_REG, val);
 
-        /* set mode to auto reload */
+        /* Set mode to auto reload */
         val = timer_read_4(sc, SW_TIMER0_CTRL_REG);
         val |= (1<<1);
         timer_write_4(sc, SW_TIMER0_CTRL_REG, val);
@@ -237,7 +237,6 @@ a10_timer_timer_start(struct eventtimer *et, struct bintime *first,
 {
 	struct a10_timer_softc *sc;
 	uint32_t count;
-	uint32_t val;
  
 	sc = (struct a10_timer_softc *)et->et_priv;
 
@@ -253,11 +252,8 @@ a10_timer_timer_start(struct eventtimer *et, struct bintime *first,
                         count += sc->et.et_frequency * first->sec;
         }
 
-        /* clear and update timer */
-        timer_write_4(sc, SW_TIMER0_CUR_VALUE_REG, 0);
-        val = timer_read_4(sc, SW_TIMER0_CUR_VALUE_REG);
-        val += count;
-        timer_write_4(sc, SW_TIMER0_CUR_VALUE_REG, val);
+        /* Update timer */
+        timer_write_4(sc, SW_TIMER0_CUR_VALUE_REG, count);
  
 	return (0);
 }
@@ -270,9 +266,9 @@ a10_timer_timer_stop(struct eventtimer *et)
  
 	sc = (struct a10_timer_softc *)et->et_priv;
  
-	/* disable */
+	/* Disable timer0 */
 	val = timer_read_4(sc, SW_TIMER0_CTRL_REG);
-	val &= ~0x01; /* Disable timer0 */
+	val &= ~0x01;
 	timer_write_4(sc, SW_TIMER0_CTRL_REG, val);
  
 	sc->sc_period = 0;

@@ -296,11 +296,14 @@ a10_timer_hardclock(void *arg)
 
 	sc = (struct a10_timer_softc *)arg;
 
-	if (sc->et.et_active)
-		sc->et.et_event_cb(&sc->et, sc->et.et_arg);
-
 	/* Clear interrupt pending bit. */
 	timer_write_4(sc, SW_TIMER_IRQ_STA_REG, 0x1);
+
+	/* Update timer */
+	timer_write_4(sc, SW_TIMER0_CUR_VALUE_REG, sc->sc_period);
+
+	if (sc->et.et_active)
+		sc->et.et_event_cb(&sc->et, sc->et.et_arg);
 
 	return (FILTER_HANDLED);
 }
@@ -345,7 +348,7 @@ DELAY(int usec)
 	}
 
 	now = timer_read_counter64();
-	end = now + (a10_timer_sc->timer0_freq * (usec + 1)) / 1000000;
+	end = now + (a10_timer_sc->timer0_freq / 1000000) * (usec + 1);
 
 	while (now < end)
 		now = timer_read_counter64();

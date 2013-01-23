@@ -185,12 +185,9 @@ a10_timer_attach(device_t dev)
   //timer_write_4(sc, SW_TIMER0_CTRL_REG, val);
 
   /* Enable timer0 */
-  // zovhon start deer l enable hiine busad yed hereggui baih
-  /*
   val = timer_read_4(sc, SW_TIMER_IRQ_EN_REG);
   val |= (1<<0);
   timer_write_4(sc, SW_TIMER_IRQ_EN_REG, val);
-  */
 
   sc->timer0_freq = SYS_TIMER_CLKSRC;
 
@@ -274,11 +271,6 @@ a10_timer_timer_start(struct eventtimer *et, struct bintime *first,
   val |= (1<<0);
   timer_write_4(sc, SW_TIMER0_CTRL_REG, val);
 
-  // end zovhon timer iig enable hiiv. init deer auto reload hiisen baigaa.
-  val = timer_read_4(sc, SW_TIMER_IRQ_EN_REG);
-  val |= (1<<0);
-  timer_write_4(sc, SW_TIMER_IRQ_EN_REG, val);
-
   return (0);
 }
 
@@ -335,9 +327,8 @@ a10_timer_hardclock(void *arg)
     timer_write_4(sc, SW_TIMER0_CTRL_REG, val);
 
     // enable again
-    val = timer_read_4(sc, SW_TIMER_IRQ_EN_REG);
     val |= (1<<0);
-    timer_write_4(sc, SW_TIMER_IRQ_EN_REG, val);
+    timer_write_4(sc, SW_TIMER0_CTRL_REG, val);
   }
 
   if (sc->et.et_active)

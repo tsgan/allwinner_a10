@@ -258,6 +258,7 @@ a10_timer_timer_start(struct eventtimer *et, struct bintime *first,
   // ehleed value aa bichchiheed daraa ni enable hiisen ni deer baih
   /* Update timer */
   timer_write_4(sc, SW_TIMER0_INT_VALUE_REG, count);
+  timer_write_4(sc, SW_TIMER0_CUR_VALUE_REG, count);
   
   val = timer_read_4(sc, SW_TIMER0_CTRL_REG);
   if (first == NULL) {
@@ -320,13 +321,12 @@ a10_timer_hardclock(void *arg)
   // oneshot timer mortloo sc_period > 0 baih yum bol first tei interrupt ajilsan gesen ug
   // odoo jinhene period toi ni dahiad enable bol
   if ((val & (1<<1)) == 0 && sc->sc_period > 0) {
+    // update timer
     timer_write_4(sc, SW_TIMER0_INT_VALUE_REG, sc->sc_period);
+    timer_write_4(sc, SW_TIMER0_CUR_VALUE_REG, sc->sc_period);
 
-    // make periodic
+    // make periodic and enable
     val |= (1<<1);
-    timer_write_4(sc, SW_TIMER0_CTRL_REG, val);
-
-    // enable again
     val |= (1<<0);
     timer_write_4(sc, SW_TIMER0_CTRL_REG, val);
   }

@@ -58,9 +58,9 @@ __FBSDID("$FreeBSD: head/sys/arm/allwinner/timer.c 245454 2013-01-15 09:39:11Z g
 #define SW_TIMER0_INT_VALUE_REG	0x14
 #define SW_TIMER0_CUR_VALUE_REG	0x18
 
-#define SW_COUNTER64LO_REG	0xA4
-#define SW_COUNTER64HI_REG	0xA8
-#define CNT64_CTRL_REG		0xA0
+#define SW_COUNTER64LO_REG	0xa4
+#define SW_COUNTER64HI_REG	0xa8
+#define CNT64_CTRL_REG		0xa0
 
 #define SYS_TIMER_SCAL		16 /* clock source pre-division */
 #define SYS_TIMER_CLKSRC	24000000 /* clock source */
@@ -69,13 +69,13 @@ __FBSDID("$FreeBSD: head/sys/arm/allwinner/timer.c 245454 2013-01-15 09:39:11Z g
 #define CLOCK_TICK_RATE		TMR_INTER_VAL
 
 struct a10_timer_softc {
-	device_t	sc_dev;
-	struct resource	*res[2];
-	bus_space_tag_t	sc_bst;
+	device_t          sc_dev;
+	struct resource   *res[2];
+	bus_space_tag_t   sc_bst;
 	bus_space_handle_t sc_bsh;
-	void		*sc_ih; /* interrupt handler */
-	uint32_t	sc_period;
-	uint32_t	timer0_freq;
+	void              *sc_ih; /* interrupt handler */
+	uint32_t          sc_period;
+	uint32_t          timer0_freq;
 	struct eventtimer et;
 };
 
@@ -125,7 +125,7 @@ timer_read_counter64(void)
 		continue;
 
 	hi = timer_read_4(a10_timer_sc, SW_COUNTER64HI_REG);
-	lo  = timer_read_4(a10_timer_sc, SW_COUNTER64LO_REG);
+	lo = timer_read_4(a10_timer_sc, SW_COUNTER64LO_REG);
 
 	return (((uint64_t)hi << 32) | lo);
 }
@@ -344,4 +344,3 @@ DELAY(int usec)
 	while (now < end)
 		now = timer_read_counter64();
 }
-

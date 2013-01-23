@@ -231,6 +231,7 @@ a10_timer_timer_start(struct eventtimer *et, struct bintime *first,
 {
 	struct a10_timer_softc *sc;
 	uint32_t count;
+	uint32_t val;
 
 	sc = (struct a10_timer_softc *)et->et_priv;
 
@@ -245,6 +246,11 @@ a10_timer_timer_start(struct eventtimer *et, struct bintime *first,
 		if (first->sec != 0)
 			count += sc->et.et_frequency * first->sec;
 	}
+
+	/* Enable timer0 */
+	val = timer_read_4(sc, SW_TIMER0_CTRL_REG);
+	val |= 0x03; /* Start + reload */
+	timer_write_4(sc, SW_TIMER0_CTRL_REG, val);
 
 	/* Update timer */
 	timer_write_4(sc, SW_TIMER0_CUR_VALUE_REG, count);

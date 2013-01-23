@@ -120,7 +120,7 @@ static struct resource_spec a10_timer_spec[] = {
 };
 
 
-static inline uint64_t
+static uint64_t
 timer_read_counter64(void)
 {
         uint32_t lo, hi;

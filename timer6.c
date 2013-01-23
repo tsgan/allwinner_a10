@@ -62,11 +62,7 @@ __FBSDID("$FreeBSD: head/sys/arm/allwinner/timer.c 245454 2013-01-15 09:39:11Z g
 #define SW_COUNTER64HI_REG	0xa8
 #define CNT64_CTRL_REG		0xa0
 
-#define SYS_TIMER_SCAL		16 /* clock source pre-division */
 #define SYS_TIMER_CLKSRC	24000000 /* clock source */
-#define TMR_INTER_VAL		SYS_TIMER_CLKSRC/(SYS_TIMER_SCAL * 1000)
-
-#define CLOCK_TICK_RATE		TMR_INTER_VAL
 
 struct a10_timer_softc {
 	device_t          sc_dev;
@@ -169,19 +165,11 @@ a10_timer_attach(device_t dev)
 		return (ENXIO);
 	}
 
-	/* Set interval */
-	timer_write_4(sc, SW_TIMER0_INT_VALUE_REG, TMR_INTER_VAL);
-
 	/* Set clock source to HOSC, 16 pre-division */
 	val = timer_read_4(sc, SW_TIMER0_CTRL_REG);
 	val &= ~(0x07<<4);
 	val &= ~(0x03<<2);
 	val |= (4<<4) | (1<<2);
-	timer_write_4(sc, SW_TIMER0_CTRL_REG, val);
-
-	/* Set mode to auto reload */
-	val = timer_read_4(sc, SW_TIMER0_CTRL_REG);
-	val |= (1<<1);
 	timer_write_4(sc, SW_TIMER0_CTRL_REG, val);
 
 	/* Enable timer0 */
@@ -194,7 +182,7 @@ a10_timer_attach(device_t dev)
 	/* Set desired frequency in event timer and timecounter */
 	sc->et.et_frequency = sc->timer0_freq;
 	sc->et.et_name = "a10_timer Eventtimer";
-	sc->et.et_flags = ET_FLAGS_PERIODIC;
+	sc->et.et_flags = ET_FLAGS_PERIODIC | ET_FLAGS_ONESHOT;
 	sc->et.et_quality = 1000;
 	sc->et.et_min_period.sec = 0;
 	sc->et.et_min_period.frac =
@@ -235,9 +223,11 @@ a10_timer_timer_start(struct eventtimer *et, struct bintime *first,
 
 	sc = (struct a10_timer_softc *)et->et_priv;
 
+	sc->sc_period = 0;
+
 	if (period != NULL) {
-		sc->sc_period = (sc->et.et_frequency * (first->frac >> 32)) >> 32;
-		sc->sc_period += sc->et.et_frequency * first->sec;
+		sc->sc_period = (sc->et.et_frequency * (period->frac >> 32)) >> 32;
+		sc->sc_period += sc->et.et_frequency * period->sec;
 	}
 	if (first == NULL)
 		count = sc->sc_period;
@@ -247,13 +237,21 @@ a10_timer_timer_start(struct eventtimer *et, struct bintime *first,
 			count += sc->et.et_frequency * first->sec;
 	}
 
-	/* Enable timer0 */
-	val = timer_read_4(sc, SW_TIMER0_CTRL_REG);
-	val |= 0x03; /* Start + reload */
-	timer_write_4(sc, SW_TIMER0_CTRL_REG, val);
-
-	/* Update timer */
+	/* Update timer values */
+	timer_write_4(sc, SW_TIMER0_INT_VALUE_REG, count);
 	timer_write_4(sc, SW_TIMER0_CUR_VALUE_REG, count);
+
+	val = timer_read_4(sc, SW_TIMER0_CTRL_REG);
+	if (first == NULL) {
+		/* periodic */
+		val |= (1<<1);
+	} else {
+		/* oneshot */
+		val &= ~(1<<1);
+	}
+	/* Enable timer0 */
+	val |= (1<<0);
+	timer_write_4(sc, SW_TIMER0_CTRL_REG, val);
 
 	return (0);
 }
@@ -293,14 +291,28 @@ static int
 a10_timer_hardclock(void *arg)
 {
 	struct a10_timer_softc *sc;
+	uint32_t val;
 
 	sc = (struct a10_timer_softc *)arg;
 
 	/* Clear interrupt pending bit. */
 	timer_write_4(sc, SW_TIMER_IRQ_STA_REG, 0x1);
 
-	/* Update timer */
-	timer_write_4(sc, SW_TIMER0_CUR_VALUE_REG, sc->sc_period);
+	val = timer_read_4(sc, SW_TIMER0_CTRL_REG);
+	/*
+	 * Disabled autoreload and sc_period > 0 means 
+	 * timer_start was called with non NULL first value.
+	 * Now we will set periodic timer with the given period 
+	 * value.
+	 */
+	if ((val & (1<<1)) == 0 && sc->sc_period > 0) {
+		/* Update timer */
+		timer_write_4(sc, SW_TIMER0_CUR_VALUE_REG, sc->sc_period);
+
+		/* Make periodic and enable */
+		val |= 0x03;
+		timer_write_4(sc, SW_TIMER0_CTRL_REG, val);
+	}
 
 	if (sc->et.et_active)
 		sc->et.et_event_cb(&sc->et, sc->et.et_arg);

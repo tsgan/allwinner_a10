@@ -62,6 +62,13 @@ __FBSDID("$FreeBSD: head/sys/arm/allwinner/timer.c 245454 2013-01-15 09:39:11Z g
 #define SW_COUNTER64HI_REG	0xa8
 #define CNT64_CTRL_REG		0xa0
 
+#define CNT64_RL_EN		0x02 /* read latch enable */
+
+#define TIMER_ENABLE		(1<<0)
+#define TIMER_AUTORELOAD	(1<<1)
+#define TIMER_OSC24M		(1<<2) /* oscillator = 24mhz */
+#define TIMER_PRESCALAR		(4<<4) /* prescalar = 16 */
+
 #define SYS_TIMER_CLKSRC	24000000 /* clock source */
 
 struct a10_timer_softc {
@@ -116,8 +123,8 @@ timer_read_counter64(void)
 	uint32_t lo, hi;
 
 	/* Latch counter, wait for it to be ready to read. */
-	timer_write_4(a10_timer_sc, CNT64_CTRL_REG, 0x02);
-	while (timer_read_4(a10_timer_sc, CNT64_CTRL_REG) & 0x02)
+	timer_write_4(a10_timer_sc, CNT64_CTRL_REG, CNT64_RL_EN);
+	while (timer_read_4(a10_timer_sc, CNT64_CTRL_REG) & CNT64_RL_EN)
 		continue;
 
 	hi = timer_read_4(a10_timer_sc, SW_COUNTER64HI_REG);
@@ -129,7 +136,6 @@ timer_read_counter64(void)
 static int
 a10_timer_probe(device_t dev)
 {
-
 	if (!ofw_bus_is_compatible(dev, "a10,timers"))
 		return (ENXIO);
 
@@ -165,16 +171,14 @@ a10_timer_attach(device_t dev)
 		return (ENXIO);
 	}
 
-	/* Set clock source to HOSC, 16 pre-division */
+	/* Set clock source to OSC24M, 16 pre-division */
 	val = timer_read_4(sc, SW_TIMER0_CTRL_REG);
-	val &= ~(0x07<<4);
-	val &= ~(0x03<<2);
-	val |= (4<<4) | (1<<2);
+	val |= TIMER_PRESCALAR | TIMER_OSC24M;
 	timer_write_4(sc, SW_TIMER0_CTRL_REG, val);
 
 	/* Enable timer0 */
 	val = timer_read_4(sc, SW_TIMER_IRQ_EN_REG);
-	val |= (1<<0);
+	val |= TIMER_ENABLE;
 	timer_write_4(sc, SW_TIMER_IRQ_EN_REG, val);
 
 	sc->timer0_freq = SYS_TIMER_CLKSRC;
@@ -201,13 +205,14 @@ a10_timer_attach(device_t dev)
 	a10_timer_timecounter.tc_frequency = sc->timer0_freq;
 	tc_init(&a10_timer_timecounter);
 
-	device_printf(sc->sc_dev, "clock: hz=%d stathz = %d\n", hz, stathz);
+	if (bootverbose) {
+		device_printf(sc->sc_dev, "clock: hz=%d stathz = %d\n", hz, stathz);
 
-	device_printf(sc->sc_dev, "event timer clock frequency %u\n", 
-	    sc->timer0_freq);
-	device_printf(sc->sc_dev, "timecounter clock frequency %lld\n", 
-	    a10_timer_timecounter.tc_frequency);
-
+		device_printf(sc->sc_dev, "event timer clock frequency %u\n", 
+		    sc->timer0_freq);
+		device_printf(sc->sc_dev, "timecounter clock frequency %lld\n", 
+		    a10_timer_timecounter.tc_frequency);
+	}
 	a10_timer_initialized = 1;
 
 	return (0);
@@ -238,19 +243,19 @@ a10_timer_timer_start(struct eventtimer *et, struct bintime *first,
 	}
 
 	/* Update timer values */
-	timer_write_4(sc, SW_TIMER0_INT_VALUE_REG, count);
+	timer_write_4(sc, SW_TIMER0_INT_VALUE_REG, sc->sc_period);
 	timer_write_4(sc, SW_TIMER0_CUR_VALUE_REG, count);
 
 	val = timer_read_4(sc, SW_TIMER0_CTRL_REG);
 	if (first == NULL) {
 		/* periodic */
-		val |= (1<<1);
+		val |= TIMER_AUTORELOAD;
 	} else {
 		/* oneshot */
-		val &= ~(1<<1);
+		val &= ~TIMER_AUTORELOAD;
 	}
 	/* Enable timer0 */
-	val |= (1<<0);
+	val |= TIMER_ENABLE;
 	timer_write_4(sc, SW_TIMER0_CTRL_REG, val);
 
 	return (0);
@@ -266,7 +271,7 @@ a10_timer_timer_stop(struct eventtimer *et)
 
 	/* Disable timer0 */
 	val = timer_read_4(sc, SW_TIMER0_CTRL_REG);
-	val &= ~0x01;
+	val &= ~TIMER_ENABLE;
 	timer_write_4(sc, SW_TIMER0_CTRL_REG, val);
 
 	sc->sc_period = 0;
@@ -277,7 +282,6 @@ a10_timer_timer_stop(struct eventtimer *et)
 int
 a10_timer_get_timerfreq(struct a10_timer_softc *sc)
 {
-
 	return (sc->timer0_freq);
 }
 
@@ -310,7 +314,7 @@ a10_timer_hardclock(void *arg)
 		timer_write_4(sc, SW_TIMER0_CUR_VALUE_REG, sc->sc_period);
 
 		/* Make periodic and enable */
-		val |= 0x03;
+		val |= TIMER_AUTORELOAD | TIMER_ENABLE;
 		timer_write_4(sc, SW_TIMER0_CTRL_REG, val);
 	}
 
@@ -323,7 +327,6 @@ a10_timer_hardclock(void *arg)
 u_int
 a10_timer_get_timecount(struct timecounter *tc)
 {
-
 	if (a10_timer_sc == NULL)
 		return (0);
 

@@ -25,7 +25,7 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: head/sys/arm/allwinner/timer.c 245876 2013-01-24 09:36:50Z ganbold $");
+__FBSDID("$FreeBSD: head/sys/arm/allwinner/timer.c 245900 2013-01-25 07:21:22Z ganbold $");
 
 #include <sys/param.h>
 #include <sys/systm.h>
@@ -141,7 +141,7 @@ static int
 a10_timer_probe(device_t dev)
 {
 
-	if (!ofw_bus_is_compatible(dev, "a10,timers"))
+	if (!ofw_bus_is_compatible(dev, "allwinner,sun4i-timer"))
 		return (ENXIO);
 
 	device_set_desc(dev, "Allwinner A10 timer");

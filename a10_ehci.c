@@ -78,7 +78,7 @@ __FBSDID("$FreeBSD$");
 #define SW_CCM_AHB_GATING		0xe1c20060
 #define SW_CCM_USB_CLOCK		0xe1c200cc
 
-#define A10_READ_4(sc, reg)	\
+#define A10_READ_4(sc, reg)		\
 	bus_space_read_4((sc)->sc_io_tag, (sc)->sc_io_hdl, reg)
 
 #define A10_WRITE_4(sc, reg, data)	\
@@ -96,7 +96,7 @@ bs_w_1_proto(reversed);
 static int
 a10_ehci_probe(device_t self)
 {
-	if (!ofw_bus_is_compatible(self, "a10,usb-ehci")) 
+	if (!ofw_bus_is_compatible(self, "allwinner,usb-ehci")) 
 		return (ENXIO);
 
 	device_set_desc(self, EHCI_HC_DEVSTR);
@@ -185,7 +185,7 @@ a10_ehci_attach(device_t self)
 	reg_value |= (1 << 2); /* disable reset for USB2 */
 	REG_WRITE(SW_CCM_USB_CLOCK, reg_value);
 
-	/* enable passby */
+	/* Enable passby */
 	reg_value = A10_READ_4(sc, SW_USB_PMU_IRQ_ENABLE);
 	reg_value |= (1 << 10); /* AHB Master interface INCR8 enable */
 	reg_value |= (1 << 9); /* AHB Master interface burst type INCR4 enable */
@@ -193,7 +193,7 @@ a10_ehci_attach(device_t self)
 	reg_value |= (1 << 0); /* ULPI bypass enable */
 	A10_WRITE_4(sc, SW_USB_PMU_IRQ_ENABLE, reg_value);
 
-	/* configure port */
+	/* Configure port */
 	reg_value = A10_READ_4(sc, SW_SDRAM_REG_HPCR_USB2);
 	reg_value |= (1 << SW_SDRAM_BP_HPCR_ACCESS_EN);
 	A10_WRITE_4(sc, SW_SDRAM_REG_HPCR_USB2, reg_value);
@@ -255,12 +255,12 @@ a10_ehci_detach(device_t self)
 	}
 	usb_bus_mem_free_all(&sc->sc_bus, &ehci_iterate_hw_softc);
 
-	/* disable configure port */
+	/* Disable configure port */
 	reg_value = A10_READ_4(sc, SW_SDRAM_REG_HPCR_USB2);
 	reg_value &= ~(1 << SW_SDRAM_BP_HPCR_ACCESS_EN);
 	A10_WRITE_4(sc, SW_SDRAM_REG_HPCR_USB2, reg_value);
 
-	/* disable passby */
+	/* Disable passby */
 	reg_value = A10_READ_4(sc, SW_USB_PMU_IRQ_ENABLE);
 	reg_value &= ~(1 << 10); /* AHB Master interface INCR8 disable */
 	reg_value &= ~(1 << 9); /* AHB Master interface burst type INCR4 disable */
@@ -268,7 +268,7 @@ a10_ehci_detach(device_t self)
 	reg_value &= ~(1 << 0); /* ULPI bypass disable */
 	A10_WRITE_4(sc, SW_USB_PMU_IRQ_ENABLE, reg_value);
 
-	/* disable clock for USB */
+	/* Disable clock for USB */
 	reg_value = REG_READ(SW_CCM_USB_CLOCK);
 	reg_value &= ~(1 << 8); /* USBPHY */
 	reg_value &= ~(1 << 0); /* reset for USB0 */
@@ -276,7 +276,7 @@ a10_ehci_detach(device_t self)
 	reg_value &= ~(1 << 2); /* reset for USB2 */
 	REG_WRITE(SW_CCM_USB_CLOCK, reg_value);
 
-	/* disable gating AHB clock for USB */
+	/* Disable gating AHB clock for USB */
 	reg_value = REG_READ(SW_CCM_AHB_GATING);
 	reg_value &= ~(1 << 0); /* AHB clock gate usb0 */
 	reg_value &= ~(1 << 3); /* AHB clock gate ehci1 */

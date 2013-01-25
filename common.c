@@ -25,7 +25,7 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: head/sys/arm/allwinner/common.c 245454 2013-01-15 09:39:11Z ganbold $");
+__FBSDID("$FreeBSD: head/sys/arm/allwinner/common.c 245900 2013-01-25 07:21:22Z ganbold $");
 
 #include <sys/param.h>
 #include <sys/systm.h>
@@ -47,7 +47,7 @@ static int
 fdt_aintc_decode_ic(phandle_t node, pcell_t *intr, int *interrupt, int *trig,
     int *pol)
 {
-	if (!fdt_is_compatible(node, "a10,aintc"))
+	if (!fdt_is_compatible(node, "allwinner,sun4i-ic"))
 		return (ENXIO);
 
 	*interrupt = fdt32_to_cpu(intr[0]);

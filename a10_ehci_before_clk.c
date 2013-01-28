@@ -58,33 +58,34 @@ __FBSDID("$FreeBSD$");
 #include <dev/usb/controller/ehci.h>
 #include <dev/usb/controller/ehcireg.h>
 
-#include "a10_clk.h"
-
 #define EHCI_HC_DEVSTR			"Allwinner Integrated USB 2.0 controller"
+
+#define CCMU_BASE 			0xe1c20000
 
 #define SW_USB0_BASE			0xe1c13000
 #define SW_USB1_BASE			0xe1c14000
 #define SW_USB2_BASE			0xe1c1c000
-#define SW_USB_EHCI_BASE_OFFSET		0x00
-#define SW_USB_OHCI_BASE_OFFSET		0x400
-#define SW_USB_EHCI_LEN			0x58
-#define SW_USB_OHCI_LEN			0x58
-#define SW_USB_PMU_IRQ_ENABLE		0x800
+#define SW_USB_EHCI_BASE_OFFSET 	0x00
+#define SW_USB_OHCI_BASE_OFFSET 	0x400
+#define SW_USB_EHCI_LEN  		0x58
+#define SW_USB_OHCI_LEN  		0x58
+#define SW_USB_PMU_IRQ_ENABLE 		0x800
 
 #define SW_SDRAM_REG_HPCR_USB1		(0x250 + ((1 << 2) * 4))
 #define SW_SDRAM_REG_HPCR_USB2		(0x250 + ((1 << 2) * 5))
-#define SW_SDRAM_BP_HPCR_ACCESS		(1 << 0)
+#define SW_SDRAM_BP_HPCR_ACCESS_EN	0
 
-#define SW_ULPI_BYPASS			(1 << 0)
-#define SW_AHB_INCRX_ALIGN		(1 << 8)
-#define	SW_AHB_INCR4			(1 << 9)
-#define SW_AHB_INCR8			(1 << 10)
+#define SW_CCM_AHB_GATING		0xe1c20060
+#define SW_CCM_USB_CLOCK		0xe1c200cc
 
 #define A10_READ_4(sc, reg)		\
 	bus_space_read_4((sc)->sc_io_tag, (sc)->sc_io_hdl, reg)
 
 #define A10_WRITE_4(sc, reg, data)	\
 	bus_space_write_4((sc)->sc_io_tag, (sc)->sc_io_hdl, reg, data)
+
+#define REG_READ(reg)			(*(volatile uint32_t *)(reg))
+#define REG_WRITE(reg, val)		(*(volatile uint32_t *)(reg) = (val))
 
 static device_attach_t a10_ehci_attach;
 static device_detach_t a10_ehci_detach;
@@ -170,20 +171,31 @@ a10_ehci_attach(device_t self)
 
 	sc->sc_flags |= EHCI_SCFLG_DONTRESET;
 
+	/* Gating AHB clock for USB */
+	reg_value = REG_READ(SW_CCM_AHB_GATING);
+	reg_value |= (1 << 0); /* AHB clock gate usb0 */
+	reg_value |= (1 << 3); /* AHB clock gate ehci1 */
+	REG_WRITE(SW_CCM_AHB_GATING, reg_value);
+
 	/* Enable clock for USB */
-	a10_clk_usb_activate();
+	reg_value = REG_READ(SW_CCM_USB_CLOCK);
+	reg_value |= (1 << 8); /* USBPHY */
+	reg_value |= (1 << 0); /* disable reset for USB0 */
+	reg_value |= (1 << 1); /* disable reset for USB1 */
+	reg_value |= (1 << 2); /* disable reset for USB2 */
+	REG_WRITE(SW_CCM_USB_CLOCK, reg_value);
 
 	/* Enable passby */
 	reg_value = A10_READ_4(sc, SW_USB_PMU_IRQ_ENABLE);
-	reg_value |= SW_AHB_INCR8; /* AHB INCR8 enable */
-	reg_value |= SW_AHB_INCR4; /* AHB burst type INCR4 enable */
-	reg_value |= SW_AHB_INCRX_ALIGN; /* AHB INCRX align enable */
-	reg_value |= SW_ULPI_BYPASS; /* ULPI bypass enable */
+	reg_value |= (1 << 10); /* AHB Master interface INCR8 enable */
+	reg_value |= (1 << 9); /* AHB Master interface burst type INCR4 enable */
+	reg_value |= (1 << 8); /* AHB Master interface INCRX align enable */
+	reg_value |= (1 << 0); /* ULPI bypass enable */
 	A10_WRITE_4(sc, SW_USB_PMU_IRQ_ENABLE, reg_value);
 
 	/* Configure port */
 	reg_value = A10_READ_4(sc, SW_SDRAM_REG_HPCR_USB2);
-	reg_value |= SW_SDRAM_BP_HPCR_ACCESS;
+	reg_value |= (1 << SW_SDRAM_BP_HPCR_ACCESS_EN);
 	A10_WRITE_4(sc, SW_SDRAM_REG_HPCR_USB2, reg_value);
 
 	err = ehci_init(sc);
@@ -209,7 +221,7 @@ a10_ehci_detach(device_t self)
 	int err;
 	uint32_t reg_value = 0;
 
-	if (sc->sc_bus.bdev) {
+ 	if (sc->sc_bus.bdev) {
 		bdev = sc->sc_bus.bdev;
 		device_detach(bdev);
 		device_delete_child(self, bdev);
@@ -217,7 +229,7 @@ a10_ehci_detach(device_t self)
 	/* during module unload there are lots of children leftover */
 	device_delete_children(self);
 
-	if (sc->sc_irq_res && sc->sc_intr_hdl) {
+ 	if (sc->sc_irq_res && sc->sc_intr_hdl) {
 		/*
 		 * only call ehci_detach() after ehci_init()
 		 */
@@ -232,7 +244,7 @@ a10_ehci_detach(device_t self)
 		sc->sc_intr_hdl = NULL;
 	}
 
-	if (sc->sc_irq_res) {
+ 	if (sc->sc_irq_res) {
 		bus_release_resource(self, SYS_RES_IRQ, 0, sc->sc_irq_res);
 		sc->sc_irq_res = NULL;
 	}
@@ -245,19 +257,30 @@ a10_ehci_detach(device_t self)
 
 	/* Disable configure port */
 	reg_value = A10_READ_4(sc, SW_SDRAM_REG_HPCR_USB2);
-	reg_value &= ~SW_SDRAM_BP_HPCR_ACCESS;
+	reg_value &= ~(1 << SW_SDRAM_BP_HPCR_ACCESS_EN);
 	A10_WRITE_4(sc, SW_SDRAM_REG_HPCR_USB2, reg_value);
 
 	/* Disable passby */
 	reg_value = A10_READ_4(sc, SW_USB_PMU_IRQ_ENABLE);
-	reg_value &= ~SW_AHB_INCR8; /* AHB INCR8 disable */
-	reg_value &= ~SW_AHB_INCR4; /* AHB burst type INCR4 disable */
-	reg_value &= ~SW_AHB_INCRX_ALIGN; /* AHB INCRX align disable */
-	reg_value &= ~SW_ULPI_BYPASS; /* ULPI bypass disable */
+	reg_value &= ~(1 << 10); /* AHB Master interface INCR8 disable */
+	reg_value &= ~(1 << 9); /* AHB Master interface burst type INCR4 disable */
+	reg_value &= ~(1 << 8); /* AHB Master interface INCRX align disable */
+	reg_value &= ~(1 << 0); /* ULPI bypass disable */
 	A10_WRITE_4(sc, SW_USB_PMU_IRQ_ENABLE, reg_value);
 
 	/* Disable clock for USB */
-	a10_clk_usb_deactivate();
+	reg_value = REG_READ(SW_CCM_USB_CLOCK);
+	reg_value &= ~(1 << 8); /* USBPHY */
+	reg_value &= ~(1 << 0); /* reset for USB0 */
+	reg_value &= ~(1 << 1); /* reset for USB1 */
+	reg_value &= ~(1 << 2); /* reset for USB2 */
+	REG_WRITE(SW_CCM_USB_CLOCK, reg_value);
+
+	/* Disable gating AHB clock for USB */
+	reg_value = REG_READ(SW_CCM_AHB_GATING);
+	reg_value &= ~(1 << 0); /* AHB clock gate usb0 */
+	reg_value &= ~(1 << 3); /* AHB clock gate ehci1 */
+	REG_WRITE(SW_CCM_AHB_GATING, reg_value);
 
 	return (0);
 }

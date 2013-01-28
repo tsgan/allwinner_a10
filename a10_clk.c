@@ -55,14 +55,9 @@ __FBSDID("$FreeBSD$");
 #include "a10_clk.h"
 
 struct a10_ccm_softc {
-	struct resource		*res[2];
+	struct resource		*res;
 	bus_space_tag_t		bst;
 	bus_space_handle_t	bsh;
-};
-
-static struct resource_spec a10_ccm_spec[] = {
-	{ SYS_RES_MEMORY,	0,	RF_ACTIVE },
-	{ -1, 0 }
 };
 
 static struct a10_ccm_softc *a10_ccm_sc = NULL;
@@ -76,7 +71,7 @@ static int
 a10_ccm_probe(device_t dev)
 {
 	if (ofw_bus_is_compatible(dev, "allwinner,sun4i-ccm")) {
-		device_set_desc(dev, "Allwinner Simple Clock Management");
+		device_set_desc(dev, "Allwinner Clock Control Module");
 		return(BUS_PROBE_DEFAULT);
 	}
 
@@ -87,17 +82,19 @@ static int
 a10_ccm_attach(device_t dev)
 {
 	struct a10_ccm_softc *sc = device_get_softc(dev);
+	int rid = 0;
 
 	if (a10_ccm_sc)
 		return (ENXIO);
 
-	if (bus_alloc_resources(dev, a10_ccm_spec, sc->res)) {
-		device_printf(dev, "could not allocate resources\n");
+	sc->res = bus_alloc_resource_any(dev, SYS_RES_MEMORY, &rid, RF_ACTIVE);
+	if (!sc->res) {
+		device_printf(dev, "could not allocate resource\n");
 		return (ENXIO);
 	}
 
-	sc->bst = rman_get_bustag(sc->res[0]);
-	sc->bsh = rman_get_bushandle(sc->res[0]);
+	sc->bst = rman_get_bustag(sc->res);
+	sc->bsh = rman_get_bushandle(sc->res);
 
 	a10_ccm_sc = sc;
 
@@ -131,16 +128,16 @@ a10_clk_usb_activate(void)
 
 	/* Gating AHB clock for USB */
 	reg_value = ccm_read_4(CCM_AHB_GATING0);
-	reg_value |= (1 << 0); /* AHB clock gate usb0 */
-	reg_value |= (1 << 3); /* AHB clock gate ehci1 */
+	reg_value |= CCM_AHB_GATING_USB0; /* AHB clock gate usb0 */
+	reg_value |= CCM_AHB_GATING_EHCI1; /* AHB clock gate ehci1 */
 	ccm_write_4(CCM_AHB_GATING0, reg_value);
 
 	/* Enable clock for USB */
 	reg_value = ccm_read_4(CCM_USB_CLK);
-	reg_value |= (1 << 8); /* USBPHY */
-	reg_value |= (1 << 0); /* disable reset for USB0 */
-	reg_value |= (1 << 1); /* disable reset for USB1 */
-	reg_value |= (1 << 2); /* disable reset for USB2 */
+	reg_value |= CCM_USB_PHY; /* USBPHY */
+	reg_value |= CCM_USB0_RESET; /* disable reset for USB0 */
+	reg_value |= CCM_USB1_RESET; /* disable reset for USB1 */
+	reg_value |= CCM_USB2_RESET; /* disable reset for USB2 */
 	ccm_write_4(CCM_USB_CLK, reg_value);
 
 	return (0);
@@ -157,17 +154,18 @@ a10_clk_usb_deactivate(void)
 
 	/* Disable clock for USB */
 	reg_value = ccm_read_4(CCM_USB_CLK);
-	reg_value &= ~(1 << 8); /* USBPHY */
-	reg_value &= ~(1 << 0); /* reset for USB0 */
-	reg_value &= ~(1 << 1); /* reset for USB1 */
-	reg_value &= ~(1 << 2); /* reset for USB2 */
+	reg_value &= ~CCM_USB_PHY; /* USBPHY */
+	reg_value &= ~CCM_USB0_RESET; /* reset for USB0 */
+	reg_value &= ~CCM_USB1_RESET; /* reset for USB1 */
+	reg_value &= ~CCM_USB2_RESET; /* reset for USB2 */
 	ccm_write_4(CCM_USB_CLK, reg_value);
 
 	/* Disable gating AHB clock for USB */
 	reg_value = ccm_read_4(CCM_AHB_GATING0);
-	reg_value &= ~(1 << 0); /* AHB clock gate usb0 */
-	reg_value &= ~(1 << 3); /* AHB clock gate ehci1 */
+	reg_value &= ~CCM_AHB_GATING_USB0; /* disable AHB clock gate usb0 */
+	reg_value &= ~CCM_AHB_GATING_EHCI1; /* disable AHB clock gate ehci1 */
 	ccm_write_4(CCM_AHB_GATING0, reg_value);
 
 	return (0);
 }
+

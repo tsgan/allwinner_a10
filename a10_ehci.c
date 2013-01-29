@@ -29,7 +29,7 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD$");
+__FBSDID("$FreeBSD: head/sys/arm/allwinner/a10_ehci.c 246057 2013-01-29 07:21:50Z ganbold $");
 
 #include "opt_bus.h"
 

@@ -62,13 +62,6 @@ __FBSDID("$FreeBSD$");
 
 #define EHCI_HC_DEVSTR			"Allwinner Integrated USB 2.0 controller"
 
-#define SW_USB0_BASE			0xe1c13000
-#define SW_USB1_BASE			0xe1c14000
-#define SW_USB2_BASE			0xe1c1c000
-#define SW_USB_EHCI_BASE_OFFSET		0x00
-#define SW_USB_OHCI_BASE_OFFSET		0x400
-#define SW_USB_EHCI_LEN			0x58
-#define SW_USB_OHCI_LEN			0x58
 #define SW_USB_PMU_IRQ_ENABLE		0x800
 
 #define SW_SDRAM_REG_HPCR_USB1		(0x250 + ((1 << 2) * 4))

@@ -43,29 +43,6 @@ __FBSDID("$FreeBSD: head/sys/dev/uart/uart_dev_ns8250.c 227032 2011-11-02 20:45:
 
 #define	DEFAULT_RCLK	1843200
 
-volatile uint8_t last_lcr = 0x0;
-
-/*
- * Loop reading LSR until LSR_THRE is asserted and then set LCR.
- */
-/*
-static void
-//ns8250_setlcr(struct uart_bas *bas, uint8_t val)
-ns8250_setlcr(struct uart_softc *sc, uint8_t val)
-{
-        struct uart_bas *bas;
-//        uint8_t lcr;
-
-        bas = &sc->sc_bas;
-        uart_lock(sc->sc_hwmtx);
-
-        while ((uart_getreg(bas, REG_LSR) & LSR_THRE) == 0)
-                ;
-
-        uart_setreg(bas, REG_LCR, val);
-        uart_unlock(sc->sc_hwmtx);
-}
-*/
 /*
  * Clear pending interrupts. THRE is cleared by reading IIR. Data
  * that may have been received gets lost here.
@@ -74,7 +51,6 @@ static void
 ns8250_clrint(struct uart_bas *bas)
 {
 	uint8_t iir;//, lsr;
-//	uint8_t lcr;
 
 	iir = uart_getreg(bas, REG_IIR);
         while ((iir & IIR_NOPEND) == 0) {
@@ -85,34 +61,11 @@ ns8250_clrint(struct uart_bas *bas)
                         (void)uart_getreg(bas, REG_DATA);
                 else if (iir == IIR_MLSC)
                         (void)uart_getreg(bas, REG_MSR);
-                else if (iir == IIR_BUSY) {
+                else if (iir == IIR_BUSY)
                         (void) uart_getreg(bas, REG_USR);
-//                        lcr = uart_getreg(bas, REG_LCR);
-                        (void) uart_setreg(bas, REG_LCR, last_lcr);
-		}
                 uart_barrier(bas);
                 iir = uart_getreg(bas, REG_IIR);
         }
-/*
-	while ((iir & IIR_NOPEND) == 0) {
-		iir &= IIR_IMASK;
-		if (iir == IIR_RLS) {
-			lsr = uart_getreg(bas, REG_LSR);
-			if (lsr & (LSR_BI|LSR_FE|LSR_PE))
-				(void)uart_getreg(bas, REG_DATA);
-		} else if (iir == IIR_RXRDY || iir == IIR_RXTOUT)
-			(void)uart_getreg(bas, REG_DATA);
-		else if (iir == IIR_MLSC)
-			(void)uart_getreg(bas, REG_MSR);
-                else if (iir == IIR_BUSY) {
-                        (void) uart_getreg(bas, REG_USR);
-//                        lcr = uart_getreg(bas, REG_LCR);
-//                        (void) uart_setreg(bas, REG_LCR, lcr);
-		}
-		uart_barrier(bas);
-		iir = uart_getreg(bas, REG_IIR);
-	}
-*/
 }
 
 static int
@@ -123,15 +76,11 @@ ns8250_delay(struct uart_bas *bas)
 
 	lcr = uart_getreg(bas, REG_LCR);
 	uart_setreg(bas, REG_LCR, lcr | LCR_DLAB);
-	last_lcr = lcr | LCR_DLAB;
-//	ns8250_setlcr(bas, lcr | LCR_DLAB);
 
 	uart_barrier(bas);
 	divisor = uart_getreg(bas, REG_DLL) | (uart_getreg(bas, REG_DLH) << 8);
 	uart_barrier(bas);
 	uart_setreg(bas, REG_LCR, lcr);
-	last_lcr = lcr;
-//	ns8250_setlcr(bas, lcr);
 	uart_barrier(bas);
 
 	/* 1/10th the time to transmit 1 character (estimate). */
@@ -254,8 +203,6 @@ ns8250_param(struct uart_bas *bas, int baudrate, int databits, int stopbits,
 		if (divisor == 0)
 			return (EINVAL);
 		uart_setreg(bas, REG_LCR, lcr | LCR_DLAB);
-		last_lcr = lcr | LCR_DLAB;
-//		ns8250_setlcr(bas, lcr | LCR_DLAB);
 		uart_barrier(bas);
 		uart_setreg(bas, REG_DLL, divisor & 0xff);
 		uart_setreg(bas, REG_DLH, (divisor >> 8) & 0xff);
@@ -264,8 +211,6 @@ ns8250_param(struct uart_bas *bas, int baudrate, int databits, int stopbits,
 
 	/* Set LCR and clear DLAB. */
 	uart_setreg(bas, REG_LCR, lcr);
-	last_lcr = lcr;
-//	ns8250_setlcr(bas, lcr);
 	uart_barrier(bas);
 	return (0);
 }
@@ -580,16 +525,12 @@ ns8250_bus_ioctl(struct uart_softc *sc, int request, intptr_t data)
 		else
 			lcr &= ~LCR_SBREAK;
 		uart_setreg(bas, REG_LCR, lcr);
-		last_lcr = lcr;
-//		ns8250_setlcr(sc, lcr);
 		uart_barrier(bas);
 		break;
 	case UART_IOCTL_IFLOW:
 		lcr = uart_getreg(bas, REG_LCR);
 		uart_barrier(bas);
 		uart_setreg(bas, REG_LCR, 0xbf);
-		last_lcr = lcr | 0xbf;
-//		ns8250_setlcr(sc, 0xbf);
 		uart_barrier(bas);
 		efr = uart_getreg(bas, REG_EFR);
 		if (data)
@@ -599,16 +540,12 @@ ns8250_bus_ioctl(struct uart_softc *sc, int request, intptr_t data)
 		uart_setreg(bas, REG_EFR, efr);
 		uart_barrier(bas);
 		uart_setreg(bas, REG_LCR, lcr);
-		last_lcr = lcr;
-//		ns8250_setlcr(sc, lcr);
 		uart_barrier(bas);
 		break;
 	case UART_IOCTL_OFLOW:
 		lcr = uart_getreg(bas, REG_LCR);
 		uart_barrier(bas);
 		uart_setreg(bas, REG_LCR, 0xbf);
-		last_lcr = lcr | 0xbf;
-//		ns8250_setlcr(sc, 0xbf);
 		uart_barrier(bas);
 		efr = uart_getreg(bas, REG_EFR);
 		if (data)
@@ -618,22 +555,16 @@ ns8250_bus_ioctl(struct uart_softc *sc, int request, intptr_t data)
 		uart_setreg(bas, REG_EFR, efr);
 		uart_barrier(bas);
 		uart_setreg(bas, REG_LCR, lcr);
-		last_lcr = lcr;
-//		ns8250_setlcr(sc, lcr);
 		uart_barrier(bas);
 		break;
 	case UART_IOCTL_BAUD:
 		lcr = uart_getreg(bas, REG_LCR);
 		uart_setreg(bas, REG_LCR, lcr | LCR_DLAB);
-		last_lcr = lcr | LCR_DLAB;
-//		ns8250_setlcr(sc, lcr | LCR_DLAB);
 		uart_barrier(bas);
 		divisor = uart_getreg(bas, REG_DLL) |
 		    (uart_getreg(bas, REG_DLH) << 8);
 		uart_barrier(bas);
 		uart_setreg(bas, REG_LCR, lcr);
-		last_lcr = lcr;
-//		ns8250_setlcr(sc, lcr);
 		uart_barrier(bas);
 		baudrate = (divisor > 0) ? bas->rclk / divisor / 16 : 0;
 		if (baudrate > 0)
@@ -656,7 +587,6 @@ ns8250_bus_ipend(struct uart_softc *sc)
 	struct ns8250_softc *ns8250;
 	int ipend;
 	uint8_t iir, lsr;
-//	uint8_t lcr;
 
 	ns8250 = (struct ns8250_softc *)sc;
 	bas = &sc->sc_bas;
@@ -695,37 +625,10 @@ ns8250_bus_ipend(struct uart_softc *sc)
         
                 } else if (iir == IIR_BUSY) {
                         (void) uart_getreg(bas, REG_USR);
-//			lcr = uart_getreg(bas, REG_LCR);
-                        (void) uart_setreg(bas, REG_LCR, last_lcr);
 
 		} 
         }
 
-/*
-	iir = uart_getreg(bas, REG_IIR);
-	if (iir & IIR_NOPEND) {
-		uart_unlock(sc->sc_hwmtx);
-		return (0);
-	}
-
-	if (iir & IIR_RXRDY) {
-		lsr = uart_getreg(bas, REG_LSR);
-		if (lsr & LSR_OE)
-			ipend |= SER_INT_OVERRUN;
-		if (lsr & LSR_BI)
-			ipend |= SER_INT_BREAK;
-		if (lsr & LSR_RXRDY)
-			ipend |= SER_INT_RXREADY;
-	} else {
-		if (iir & IIR_TXRDY) {
-			ipend |= SER_INT_TXIDLE;
-			uart_setreg(bas, REG_IER, ns8250->ier);
-                } else if (iir & IIR_BUSY) {
-                        (void) uart_getreg(bas, REG_USR);
-		} else
-			ipend |= SER_INT_SIGCHG;
-	}
-*/
 	if (ipend == 0)
 		ns8250_clrint(bas);
 	uart_unlock(sc->sc_hwmtx);

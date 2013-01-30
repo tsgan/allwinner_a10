@@ -50,7 +50,7 @@ __FBSDID("$FreeBSD: head/sys/dev/uart/uart_dev_ns8250.c 227032 2011-11-02 20:45:
 static void
 ns8250_clrint(struct uart_bas *bas)
 {
-	uint8_t iir;//, lsr;
+	uint8_t iir;
 
 	iir = uart_getreg(bas, REG_IIR);
         while ((iir & IIR_NOPEND) == 0) {
@@ -62,6 +62,10 @@ ns8250_clrint(struct uart_bas *bas)
                 else if (iir == IIR_MLSC)
                         (void)uart_getreg(bas, REG_MSR);
                 else if (iir == IIR_BUSY)
+			/*
+			 * If busy interrupt is detected 
+			 * UART status register should be read.
+			 */ 
                         (void) uart_getreg(bas, REG_USR);
                 uart_barrier(bas);
                 iir = uart_getreg(bas, REG_IIR);
@@ -76,7 +80,6 @@ ns8250_delay(struct uart_bas *bas)
 
 	lcr = uart_getreg(bas, REG_LCR);
 	uart_setreg(bas, REG_LCR, lcr | LCR_DLAB);
-
 	uart_barrier(bas);
 	divisor = uart_getreg(bas, REG_DLL) | (uart_getreg(bas, REG_DLH) << 8);
 	uart_barrier(bas);
@@ -285,7 +288,6 @@ ns8250_init(struct uart_bas *bas, int baudrate, int databits, int stopbits,
 	uart_barrier(bas);
 
 	ns8250_clrint(bas);
-
 }
 
 static void
@@ -591,15 +593,12 @@ ns8250_bus_ipend(struct uart_softc *sc)
 	ns8250 = (struct ns8250_softc *)sc;
 	bas = &sc->sc_bas;
 	uart_lock(sc->sc_hwmtx);
-
-	ipend = 0;
-
-        iir = uart_getreg(bas, REG_IIR) & IIR_IMASK;
+	iir = uart_getreg(bas, REG_IIR) & IIR_IMASK;
 	if (iir == IIR_NOPEND) {
 		uart_unlock(sc->sc_hwmtx);
 		return (0);
 	}
-
+	ipend = 0;
         if (iir != IIR_NOPEND) {
                         
                 if (iir == IIR_RLS) {
@@ -624,8 +623,11 @@ ns8250_bus_ipend(struct uart_softc *sc)
                         ipend |= SER_INT_SIGCHG;
         
                 } else if (iir == IIR_BUSY) {
+			/*
+			 * If busy interrupt is detected 
+			 * UART status register should be read.
+			 */ 
                         (void) uart_getreg(bas, REG_USR);
-
 		} 
         }
 
@@ -888,12 +890,12 @@ ns8250_bus_transmit(struct uart_softc *sc)
 		uart_barrier(bas);
 	}
 
-//	sc->sc_txbusy = 1;
-
+	/* 
+	 * Broken txfifo case when TX idle interrupt gets lost.
+	 * Spin wait TX to happen and then send interrupt.
+	 */
 	ns8250_drain(bas, UART_DRAIN_TRANSMITTER);
-
 	uart_unlock(sc->sc_hwmtx);
-
 	uart_sched_softih(sc, SER_INT_TXIDLE);
 
 	return (0);

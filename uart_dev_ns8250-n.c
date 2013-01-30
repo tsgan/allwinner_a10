@@ -25,7 +25,7 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: head/sys/dev/uart/uart_dev_ns8250.c 227032 2011-11-02 20:45:44Z cognet $");
+__FBSDID("$FreeBSD$");
 
 #include <sys/param.h>
 #include <sys/systm.h>
@@ -37,11 +37,13 @@ __FBSDID("$FreeBSD: head/sys/dev/uart/uart_dev_ns8250.c 227032 2011-11-02 20:45:
 #include <dev/uart/uart_cpu.h>
 #include <dev/uart/uart_bus.h>
 
-#include <dev/ic/ns16550-n.h>
+#include <dev/ic/ns16550.h>
 
 #include "uart_if.h"
 
 #define	DEFAULT_RCLK	1843200
+
+#define	A10_REG_USR	31
 
 /*
  * Clear pending interrupts. THRE is cleared by reading IIR. Data
@@ -53,23 +55,24 @@ ns8250_clrint(struct uart_bas *bas)
 	uint8_t iir;
 
 	iir = uart_getreg(bas, REG_IIR);
-        while ((iir & IIR_NOPEND) == 0) {
-                iir &= IIR_IMASK;
-                if (iir == IIR_RLS)
-                        (void)uart_getreg(bas, REG_LSR);
-                else if (iir == IIR_RXRDY || iir == IIR_RXTOUT)
-                        (void)uart_getreg(bas, REG_DATA);
-                else if (iir == IIR_MLSC)
-                        (void)uart_getreg(bas, REG_MSR);
-                else if (iir == IIR_BUSY)
+	while ((iir & IIR_NOPEND) == 0) {
+		iir &= IIR_IMASK;
+		if (iir == IIR_RLS)
+			(void)uart_getreg(bas, REG_LSR);
+		else if (iir == IIR_RXRDY || iir == IIR_RXTOUT)
+			(void)uart_getreg(bas, REG_DATA);
+		else if (iir == IIR_MLSC)
+			(void)uart_getreg(bas, REG_MSR);
+		else if (iir == IIR_BUSY) {
 			/*
-			 * If busy interrupt is detected 
+			 * If busy interrupt is detected
 			 * UART status register should be read.
-			 */ 
-                        (void) uart_getreg(bas, REG_USR);
-                uart_barrier(bas);
-                iir = uart_getreg(bas, REG_IIR);
-        }
+			 */
+			(void) uart_getreg(bas, A10_REG_USR);
+		}
+		uart_barrier(bas);
+		iir = uart_getreg(bas, REG_IIR);
+	}
 }
 
 static int
@@ -349,7 +352,7 @@ struct ns8250_softc {
 	uint8_t		fcr;
 	uint8_t		ier;
 	uint8_t		mcr;
-	
+
 	uint8_t		ier_mask;
 	uint8_t		ier_rxbits;
 };
@@ -420,19 +423,19 @@ ns8250_bus_attach(struct uart_softc *sc)
 			ns8250->fcr |= FCR_RX_MEDH;
 	} else 
 		ns8250->fcr |= FCR_RX_MEDH;
-	
+
 	/* Get IER mask */
 	ivar = 0xf0;
 	resource_int_value("uart", device_get_unit(sc->sc_dev), "ier_mask",
 	    &ivar);
 	ns8250->ier_mask = (uint8_t)(ivar & 0xff);
-	
+
 	/* Get IER RX interrupt bits */
 	ivar = IER_EMSC | IER_ERLS | IER_ERXRDY;
 	resource_int_value("uart", device_get_unit(sc->sc_dev), "ier_rxbits",
 	    &ivar);
 	ns8250->ier_rxbits = (uint8_t)(ivar & 0xff);
-	
+
 	uart_setreg(bas, REG_FCR, ns8250->fcr);
 	uart_barrier(bas);
 	ns8250_bus_flush(sc, UART_FLUSH_RECEIVER|UART_FLUSH_TRANSMITTER);
@@ -599,37 +602,31 @@ ns8250_bus_ipend(struct uart_softc *sc)
 		return (0);
 	}
 	ipend = 0;
-        if (iir != IIR_NOPEND) {
-                        
-                if (iir == IIR_RLS) {
-                        lsr = uart_getreg(bas, REG_LSR);
-                        if (lsr & LSR_OE)
-                                ipend |= SER_INT_OVERRUN;
-                        if (lsr & LSR_BI)
-                                ipend |= SER_INT_BREAK;
-                        if (lsr & LSR_RXRDY)
-                                ipend |= SER_INT_RXREADY;
-
-                } else if (iir == IIR_RXRDY) {
-                        ipend |= SER_INT_RXREADY;
-
-                } else if (iir == IIR_RXTOUT) {
-                        ipend |= SER_INT_RXREADY;
-        
-                } else if (iir == IIR_TXRDY) {
-                        ipend |= SER_INT_TXIDLE;
-
-                } else if (iir == IIR_MLSC) {
-                        ipend |= SER_INT_SIGCHG;
-        
-                } else if (iir == IIR_BUSY) {
+	if (iir != IIR_NOPEND) {
+		if (iir == IIR_RLS) {
+			lsr = uart_getreg(bas, REG_LSR);
+			if (lsr & LSR_OE)
+				ipend |= SER_INT_OVERRUN;
+			if (lsr & LSR_BI)
+				ipend |= SER_INT_BREAK;
+			if (lsr & LSR_RXRDY)
+				ipend |= SER_INT_RXREADY;
+		} else if (iir == IIR_RXRDY) {
+			ipend |= SER_INT_RXREADY;
+		} else if (iir == IIR_RXTOUT) {
+			ipend |= SER_INT_RXREADY;
+		} else if (iir == IIR_TXRDY) {
+			ipend |= SER_INT_TXIDLE;
+		} else if (iir == IIR_MLSC) {
+			ipend |= SER_INT_SIGCHG;
+		} else if (iir == IIR_BUSY) {
 			/*
-			 * If busy interrupt is detected 
+			 * If busy interrupt is detected
 			 * UART status register should be read.
-			 */ 
-                        (void) uart_getreg(bas, REG_USR);
-		} 
-        }
+			 */
+			(void) uart_getreg(bas, A10_REG_USR);
+		}
+	}
 
 	if (ipend == 0)
 		ns8250_clrint(bas);
@@ -824,20 +821,20 @@ ns8250_bus_receive(struct uart_softc *sc)
 		uart_rx_put(sc, xc);
 		lsr = uart_getreg(bas, REG_LSR);
 	}
-        /* Discard everything left in the Rx FIFO. */
-        /*
-         * First do a dummy read/discard anyway, in case the UART was lying to us.
-         * This problem was seen on board, when IIR said RBR, but LSR said no RXRDY
-         * Results in a stuck ipend loop.
-         */
-        (void)uart_getreg(bas, REG_DATA);
-        while (lsr & LSR_RXRDY) {
-                (void)uart_getreg(bas, REG_DATA);
-                uart_barrier(bas);
-                lsr = uart_getreg(bas, REG_LSR);
-        }
+	/* Discard everything left in the Rx FIFO. */
+	/*
+	 * First do a dummy read/discard anyway, in case the UART was lying to us.
+	 * This problem was seen on board, when IIR said RBR, but LSR said no RXRDY
+	 * Results in a stuck ipend loop.
+	 */
+	(void)uart_getreg(bas, REG_DATA);
+	while (lsr & LSR_RXRDY) {
+		(void)uart_getreg(bas, REG_DATA);
+		uart_barrier(bas);
+		lsr = uart_getreg(bas, REG_LSR);
+	}
 	uart_unlock(sc->sc_hwmtx);
- 	return (0);
+	return (0);
 }
 
 static int
@@ -890,7 +887,7 @@ ns8250_bus_transmit(struct uart_softc *sc)
 		uart_barrier(bas);
 	}
 
-	/* 
+	/*
 	 * Broken txfifo case when TX idle interrupt gets lost.
 	 * Spin wait TX to happen and then send interrupt.
 	 */

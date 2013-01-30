@@ -41,120 +41,31 @@ __FBSDID("$FreeBSD: head/sys/dev/uart/uart_dev_ns8250.c 227032 2011-11-02 20:45:
 
 #include "uart_if.h"
 
-#include "/usr/src/sys/arm/allwinner/gpio.h"
-
 #define	DEFAULT_RCLK	1843200
-//#define	DEFAULT_RCLK	24000000
 
-#define         A10UART_RBR_REG                 0x00 /* UART Receiver Buffer Register */
-#define         A10UART_THR_REG                 0x00 /* UART Transmit Holding Register */
+volatile uint8_t last_lcr = 0x0;
 
-#define         A10UART_DLL_REG                 0x00 /* UART Divisor Latch Low Register */
-#define         A10UART_DLH_REG                 0x04 /* UART Divisor Latch High Register */
+/*
+ * Loop reading LSR until LSR_THRE is asserted and then set LCR.
+ */
+/*
+static void
+//ns8250_setlcr(struct uart_bas *bas, uint8_t val)
+ns8250_setlcr(struct uart_softc *sc, uint8_t val)
+{
+        struct uart_bas *bas;
+//        uint8_t lcr;
 
-#define         A10UART_IER_REG                 0x04 /* UART Interrupt Enable Register */
-#define         A10UART_IER_PTIME               (1 << 7)
-#define         A10UART_IER_EDSSI               (1 << 3)
-#define         A10UART_IER_ELSI                (1 << 2)
-#define         A10UART_IER_ETBEI               (1 << 1)
-#define         A10UART_IER_ERBFI               (1 << 0)
+        bas = &sc->sc_bas;
+        uart_lock(sc->sc_hwmtx);
 
-#define         A10UART_IIR_REG                 0x08 /* UART Interrupt Identity Register */
-#define         A10UART_IIR_FEFLAG              (1 << 7) | (1 << 6)
-#define         A10UART_IIR_IIDCTIMEO           (1 << 3) | (1 << 2)
-#define         A10UART_IIR_IIDBUSYD            (1 << 2) | (1 << 1) | (1<< 0)
-#define         A10UART_IIR_IIDRLS              (1 << 2) | (1 >> 1)
-#define         A10UART_IIR_IIDRDA              (1 << 2)
-#define         A10UART_IIR_IIDTHRE             (1 << 1)
-#define         A10UART_IIR_IIDNIP              (1 << 0)
-#define         A10UART_IIR_IIDMS               0x0
+        while ((uart_getreg(bas, REG_LSR) & LSR_THRE) == 0)
+                ;
 
-#define         A10UART_FCR_REG                 0x08 /* UART FIFO Control Register */
-#define         A10UART_FCR_RT2                 (1 << 7) | (1 << 6)
-#define         A10UART_FCR_RTH                 (1 << 7)
-#define         A10UART_FCR_RTQ                 (1 << 6)
-
-#define         A10UART_FCR_TFTH                (1 << 5) | (1 << 4)
-#define         A10UART_FCR_TFTQ                (1 << 5)
-#define         A10UART_FCR_TFT2                (1 << 4)
-
-#define         A10UART_FCR_DMAM1               (1 << 3)
-
-#define         A10UART_FCR_FIFOE               (1 << 0)
-
-#define         A10UART_LCR_REG                 0x0c /* UART Line control Register */
-#define         A10UART_LCR_DLAB                (1 << 7)
-#define         A10UART_LCR_BC                  (1 << 6)
-#define         A10UART_LCR_EPS                 (1 << 4)
-#define         A10UART_LCR_PEN                 (1 << 3)
-#define         A10UART_LCR_STOP                (1 << 2)
-#define         A10UART_LCR_DLS8                (1 << 1) | (1 << 0)
-#define         A10UART_LCR_DLS7                (1 << 1)
-#define         A10UART_LCR_DLS6                (1 << 0)
-#define         A10UART_LCR_DLS5                0x0
-
-#define         A10UART_MCR_REG                 0x10 /* UART Modem Control Register */
-#define         A10UART_MCR_SIRE                (1 << 6)
-#define         A10UART_MCR_AFCE                (1 << 5)
-#define         A10UART_MCR_LOOP                (1 << 4)
-#define         A10UART_MCR_RTS                 (1 << 1)
-#define         A10UART_MCR_DTR                 (1 << 0)
-
-#define         A10UART_LSR_REG                 0x14 /* UART Line Status Register */
-#define         A10UART_LSR_FIFOERR             (1 << 7)
-#define         A10UART_LSR_TEMT                (1 << 6)
-#define         A10UART_LSR_THRE                (1 << 5)
-#define         A10UART_LSR_BI                  (1 << 4)
-#define         A10UART_LSR_FE                  (1 << 3)
-#define         A10UART_LSR_PE                  (1 << 2)
-#define         A10UART_LSR_OE                  (1 << 1)
-#define         A10UART_LSR_DR                  (1 << 0)
-
-#define         A10UART_MSR_REG                 0x18 /* UART Modem Status Register */
-#define         A10UART_MSR_DCD                 (1 << 7)
-#define         A10UART_MSR_RI                  (1 << 6)
-#define         A10UART_MSR_DSR                 (1 << 5)
-#define         A10UART_MSR_CTS                 (1 << 4)
-#define         A10UART_MSR_DDCD                (1 << 3)
-#define         A10UART_MSR_TERI                (1 << 2)
-#define         A10UART_MSR_DDSR                (1 << 1)
-#define         A10UART_MSR_DCTS                (1 << 0)
-
-#define         A10UART_SCH_REG                 0x1c /* UART Scratch Register */
-
-#define         A10UART_USR_REG                 0x7c /* UART Status Register */
-#define         A10UART_USR_RFF                 (1 << 4)
-#define         A10UART_USR_RFNE                (1 << 3)
-#define         A10UART_USR_TFE                 (1 << 2)
-#define         A10UART_USR_TFNF                (1 << 1)
-#define         A10UART_USR_BUSY                (1 << 0)
-
-#define         A10UART_TFL_REG                 0x80 /* UART Transmit FIFO Level Register */
-#define         A10UART_RFL_REG                 0x84 /* UART Receive FIFO Level Register */
-
-#define         A10UART_HAL_REG                 0xA4 /* UART Halt TX Register */
-#define         A10UART_HAL_TXEN                (1 << 0)
-
-
-#define REG(_r)         A10UART_ ## _r ## _REG
-#define FLD(_r, _v)     A10UART_ ## _r ## _ ## _v
-
-#define GETREG(bas, reg)                                                \
-                bus_space_read_4((bas)->bst, (bas)->bsh, (reg))
-#define SETREG(bas, reg, value)                                         \
-                bus_space_write_4((bas)->bst, (bas)->bsh, (reg), (value))
-
-#define CLR(_bas, _r, _b)                                               \
-                SETREG((_bas), (_r), GETREG((_bas), (_r)) & ~(_b))
-#define SET(_bas, _r, _b)                                               \
-                SETREG((_bas), (_r), GETREG((_bas), (_r)) | (_b))
-#define IS_SET(_bas, _r, _b)                                            \
-                ((GETREG((_bas), (_r)) & (_b)) ? 1 : 0)
-
-#define ENA(_bas, _r, _b)       SET((_bas), REG(_r), FLD(_r, _b))
-#define DIS(_bas, _r, _b)       CLR((_bas), REG(_r), FLD(_r, _b))
-#define IS(_bas, _r, _b)        IS_SET((_bas), REG(_r), FLD(_r, _b))
-
+        uart_setreg(bas, REG_LCR, val);
+        uart_unlock(sc->sc_hwmtx);
+}
+*/
 /*
  * Clear pending interrupts. THRE is cleared by reading IIR. Data
  * that may have been received gets lost here.
@@ -163,7 +74,7 @@ static void
 ns8250_clrint(struct uart_bas *bas)
 {
 	uint8_t iir;//, lsr;
-	uint8_t lcr;
+//	uint8_t lcr;
 
 	iir = uart_getreg(bas, REG_IIR);
         while ((iir & IIR_NOPEND) == 0) {
@@ -176,8 +87,8 @@ ns8250_clrint(struct uart_bas *bas)
                         (void)uart_getreg(bas, REG_MSR);
                 else if (iir == IIR_BUSY) {
                         (void) uart_getreg(bas, REG_USR);
-                        lcr = uart_getreg(bas, REG_LCR);
-                        (void) uart_setreg(bas, REG_LCR, lcr);
+//                        lcr = uart_getreg(bas, REG_LCR);
+                        (void) uart_setreg(bas, REG_LCR, last_lcr);
 		}
                 uart_barrier(bas);
                 iir = uart_getreg(bas, REG_IIR);
@@ -212,10 +123,15 @@ ns8250_delay(struct uart_bas *bas)
 
 	lcr = uart_getreg(bas, REG_LCR);
 	uart_setreg(bas, REG_LCR, lcr | LCR_DLAB);
+	last_lcr = lcr | LCR_DLAB;
+//	ns8250_setlcr(bas, lcr | LCR_DLAB);
+
 	uart_barrier(bas);
 	divisor = uart_getreg(bas, REG_DLL) | (uart_getreg(bas, REG_DLH) << 8);
 	uart_barrier(bas);
 	uart_setreg(bas, REG_LCR, lcr);
+	last_lcr = lcr;
+//	ns8250_setlcr(bas, lcr);
 	uart_barrier(bas);
 
 	/* 1/10th the time to transmit 1 character (estimate). */
@@ -338,6 +254,8 @@ ns8250_param(struct uart_bas *bas, int baudrate, int databits, int stopbits,
 		if (divisor == 0)
 			return (EINVAL);
 		uart_setreg(bas, REG_LCR, lcr | LCR_DLAB);
+		last_lcr = lcr | LCR_DLAB;
+//		ns8250_setlcr(bas, lcr | LCR_DLAB);
 		uart_barrier(bas);
 		uart_setreg(bas, REG_DLL, divisor & 0xff);
 		uart_setreg(bas, REG_DLH, (divisor >> 8) & 0xff);
@@ -346,6 +264,8 @@ ns8250_param(struct uart_bas *bas, int baudrate, int databits, int stopbits,
 
 	/* Set LCR and clear DLAB. */
 	uart_setreg(bas, REG_LCR, lcr);
+	last_lcr = lcr;
+//	ns8250_setlcr(bas, lcr);
 	uart_barrier(bas);
 	return (0);
 }
@@ -411,48 +331,6 @@ ns8250_init(struct uart_bas *bas, int baudrate, int databits, int stopbits,
 	uart_setreg(bas, REG_IER, ier);
 	uart_barrier(bas);
 
-        /* set gpio config pin for UART0 */
-/*
-        a10_gpio_set_cfgpin(A10_GPB(22), A10_GPB22_UART0_TX);
-        a10_gpio_set_cfgpin(A10_GPB(23), A10_GPB23_UART0_RX);
-
-        volatile uint32_t *ccm_apb1_gating = (uint32_t *) 0xe1c2006c;
-        volatile uint32_t *ccm_apb1_clk_div_cfg = (uint32_t *) 0xe1c20058;
-*/        
-        /* config apb1 clock */
-/* 
-        *ccm_apb1_clk_div_cfg &= ~(1 << 24);
-        *ccm_apb1_clk_div_cfg &= ~(1 << 25);
-        
-        *ccm_apb1_clk_div_cfg &= ~(1 << 16);
-        *ccm_apb1_clk_div_cfg &= ~(1 << 17);
-        
-        *ccm_apb1_clk_div_cfg &= ~(1 << 0);
-        *ccm_apb1_clk_div_cfg &= ~(1 << 1);
-        *ccm_apb1_clk_div_cfg &= ~(1 << 2);
-        *ccm_apb1_clk_div_cfg &= ~(1 << 3);
-        *ccm_apb1_clk_div_cfg &= ~(1 << 4);
-*/          
-        /* Gating clock for uart0 */
-//	*ccm_apb1_gating |= (1 << 16);  /* clock gate uart0 */
-
-//      uart_getreg(bas, REG_LSR);
-//      uart_getreg(bas, REG_DATA);
-//      uart_getreg(bas, REG_IIR);
-//      uart_getreg(bas, REG_MSR);
-
-        /* init uart */
-//      uart_setreg(bas, REG_LCR, A10UART_LCR_DLS8);
-//	uart_barrier(bas);
-
-	/* disable to hold interrupts */
-//	uart_setreg(bas, REG_IER, 0x0);
-//	uart_barrier(bas);
-
-        /* ACK all interrupts */
-//	uart_setreg(bas, REG_IER, A10UART_IER_PTIME | A10UART_IER_EDSSI | A10UART_IER_ELSI | A10UART_IER_ETBEI | A10UART_IER_ERBFI);
-//	uart_barrier(bas);
-
 	/* Disable the FIFO (if present). */
 	uart_setreg(bas, REG_FCR, 0);
 	uart_barrier(bas);
@@ -463,10 +341,6 @@ ns8250_init(struct uart_bas *bas, int baudrate, int databits, int stopbits,
 
 	ns8250_clrint(bas);
 
-//      uart_getreg(bas, REG_LSR);
-//      uart_getreg(bas, REG_DATA);
-//      uart_getreg(bas, REG_IIR);
-//      uart_getreg(bas, REG_MSR);
 }
 
 static void
@@ -628,18 +502,6 @@ ns8250_bus_attach(struct uart_softc *sc)
 	uart_setreg(bas, REG_IER, ns8250->ier);
 	uart_barrier(bas);
 
-	/* disable to hold interrupts */
-//	uart_setreg(bas, REG_IER, 0x0);
-//	uart_barrier(bas);
-
-        /* ACK all interrupts */
-//	uart_setreg(bas, REG_IER, A10UART_IER_PTIME | A10UART_IER_EDSSI | A10UART_IER_ELSI | A10UART_IER_ETBEI | A10UART_IER_ERBFI);
-//	uart_barrier(bas);
-
-	/* Disable the FIFO (if present). */
-//	uart_setreg(bas, REG_FCR, 0);
-//	uart_barrier(bas);
-	
 	return (0);
 }
 
@@ -718,12 +580,16 @@ ns8250_bus_ioctl(struct uart_softc *sc, int request, intptr_t data)
 		else
 			lcr &= ~LCR_SBREAK;
 		uart_setreg(bas, REG_LCR, lcr);
+		last_lcr = lcr;
+//		ns8250_setlcr(sc, lcr);
 		uart_barrier(bas);
 		break;
 	case UART_IOCTL_IFLOW:
 		lcr = uart_getreg(bas, REG_LCR);
 		uart_barrier(bas);
 		uart_setreg(bas, REG_LCR, 0xbf);
+		last_lcr = lcr | 0xbf;
+//		ns8250_setlcr(sc, 0xbf);
 		uart_barrier(bas);
 		efr = uart_getreg(bas, REG_EFR);
 		if (data)
@@ -733,12 +599,16 @@ ns8250_bus_ioctl(struct uart_softc *sc, int request, intptr_t data)
 		uart_setreg(bas, REG_EFR, efr);
 		uart_barrier(bas);
 		uart_setreg(bas, REG_LCR, lcr);
+		last_lcr = lcr;
+//		ns8250_setlcr(sc, lcr);
 		uart_barrier(bas);
 		break;
 	case UART_IOCTL_OFLOW:
 		lcr = uart_getreg(bas, REG_LCR);
 		uart_barrier(bas);
 		uart_setreg(bas, REG_LCR, 0xbf);
+		last_lcr = lcr | 0xbf;
+//		ns8250_setlcr(sc, 0xbf);
 		uart_barrier(bas);
 		efr = uart_getreg(bas, REG_EFR);
 		if (data)
@@ -748,16 +618,22 @@ ns8250_bus_ioctl(struct uart_softc *sc, int request, intptr_t data)
 		uart_setreg(bas, REG_EFR, efr);
 		uart_barrier(bas);
 		uart_setreg(bas, REG_LCR, lcr);
+		last_lcr = lcr;
+//		ns8250_setlcr(sc, lcr);
 		uart_barrier(bas);
 		break;
 	case UART_IOCTL_BAUD:
 		lcr = uart_getreg(bas, REG_LCR);
 		uart_setreg(bas, REG_LCR, lcr | LCR_DLAB);
+		last_lcr = lcr | LCR_DLAB;
+//		ns8250_setlcr(sc, lcr | LCR_DLAB);
 		uart_barrier(bas);
 		divisor = uart_getreg(bas, REG_DLL) |
 		    (uart_getreg(bas, REG_DLH) << 8);
 		uart_barrier(bas);
 		uart_setreg(bas, REG_LCR, lcr);
+		last_lcr = lcr;
+//		ns8250_setlcr(sc, lcr);
 		uart_barrier(bas);
 		baudrate = (divisor > 0) ? bas->rclk / divisor / 16 : 0;
 		if (baudrate > 0)
@@ -780,7 +656,7 @@ ns8250_bus_ipend(struct uart_softc *sc)
 	struct ns8250_softc *ns8250;
 	int ipend;
 	uint8_t iir, lsr;
-	uint8_t lcr;
+//	uint8_t lcr;
 
 	ns8250 = (struct ns8250_softc *)sc;
 	bas = &sc->sc_bas;
@@ -819,8 +695,8 @@ ns8250_bus_ipend(struct uart_softc *sc)
         
                 } else if (iir == IIR_BUSY) {
                         (void) uart_getreg(bas, REG_USR);
-                        lcr = uart_getreg(bas, REG_LCR);
-                        (void) uart_setreg(bas, REG_LCR, lcr);
+//			lcr = uart_getreg(bas, REG_LCR);
+                        (void) uart_setreg(bas, REG_LCR, last_lcr);
 
 		} 
         }
@@ -1108,7 +984,14 @@ ns8250_bus_transmit(struct uart_softc *sc)
 		uart_setreg(bas, REG_DATA, sc->sc_txbuf[i]);
 		uart_barrier(bas);
 	}
-	sc->sc_txbusy = 1;
+
+//	sc->sc_txbusy = 1;
+
+	ns8250_drain(bas, UART_DRAIN_TRANSMITTER);
+
 	uart_unlock(sc->sc_hwmtx);
+
+	uart_sched_softih(sc, SER_INT_TXIDLE);
+
 	return (0);
 }

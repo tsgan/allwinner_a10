@@ -70,7 +70,7 @@ struct a10_gpio_softc {
 	struct gpio_pin		sc_gpio_pins[A10_GPIO_PINS];
 };
 
-enum bcm_gpio_fsel {
+enum a10_gpio_fsel {
 	A10_GPIO_INPUT,
 	A10_GPIO_OUTPUT,
 };

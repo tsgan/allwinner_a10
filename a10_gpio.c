@@ -58,9 +58,6 @@ __FBSDID("$FreeBSD$");
 #define	A10_GPIO_DEFAULT_CAPS	(GPIO_PIN_INPUT | GPIO_PIN_OUTPUT |	\
     GPIO_PIN_PULLUP | GPIO_PIN_PULLDOWN)
 
-#define	A10_GPIO_INPUT		0
-#define	A10_GPIO_OUTPUT		1
-
 struct a10_gpio_softc {
 	device_t		sc_dev;
 	struct mtx		sc_mtx;
@@ -71,6 +68,11 @@ struct a10_gpio_softc {
 	void *			sc_intrhand;
 	int			sc_gpio_npins;
 	struct gpio_pin		sc_gpio_pins[A10_GPIO_PINS];
+};
+
+enum bcm_gpio_fsel {
+	A10_GPIO_INPUT,
+	A10_GPIO_OUTPUT,
 };
 
 enum a10_gpio_pud {

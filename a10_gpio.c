@@ -54,7 +54,15 @@ __FBSDID("$FreeBSD$");
 
 #include "gpio_if.h"
 
-#define	A10_GPIO_PINS		175
+/*
+ * A10 have 9 banks of gpio.
+ * 32 pins per bank:
+ * PA0 - PA17 | PB0 - PB23 | PC0 - PC24
+ * PD0 - PD27 | PE0 - PE31 | PF0 - PF5
+ * PG0 - PG9 | PH0 - PH27 | PI0 - PI12
+ */
+
+#define	A10_GPIO_PINS		288
 #define	A10_GPIO_DEFAULT_CAPS	(GPIO_PIN_INPUT | GPIO_PIN_OUTPUT |	\
     GPIO_PIN_PULLUP | GPIO_PIN_PULLDOWN)
 
@@ -85,7 +93,6 @@ enum a10_gpio_pud {
 #define	A10_GPIO_UNLOCK(_sc)		mtx_unlock(&_sc->sc_mtx)
 #define	A10_GPIO_LOCK_ASSERT(_sc)	mtx_assert(&_sc->sc_mtx, MA_OWNED)
 
-#define A10_GPIO_BANK(_pin)		((_pin) >> 5)
 #define	A10_GPIO_GP_CFG(_bank, _pin)	0x00 + ((_bank) * 0x24) + ((_pin)<<2)
 #define	A10_GPIO_GP_DAT(_bank)		0x10 + ((_bank) * 0x24)
 #define	A10_GPIO_GP_DRV(_bank, _pin)	0x14 + ((_bank) * 0x24) + ((_pin)<<2)
@@ -110,7 +117,8 @@ a10_gpio_get_function(struct a10_gpio_softc *sc, uint32_t pin)
 {
 	uint32_t bank, func, offset;
 
-	bank = A10_GPIO_BANK(pin);
+	bank = pin / 32;
+	pin = pin - 32 * bank;
 	func = pin >> 3;
 	offset = ((pin & 0x07) << 2);
 
@@ -142,7 +150,8 @@ a10_gpio_set_function(struct a10_gpio_softc *sc, uint32_t pin, uint32_t f)
 	/* Must be called with lock held. */
 	A10_GPIO_LOCK_ASSERT(sc);
 
-	bank = A10_GPIO_BANK(pin);
+	bank = pin / 32;
+	pin = pin - 32 * bank;
 	func = pin >> 3;
 	offset = ((pin & 0x07) << 2);
 
@@ -160,7 +169,8 @@ a10_gpio_set_pud(struct a10_gpio_softc *sc, uint32_t pin, uint32_t state)
 	/* Must be called with lock held. */
 	A10_GPIO_LOCK_ASSERT(sc);
 
-	bank = A10_GPIO_BANK(pin);
+	bank = pin / 32;
+	pin = pin - 32 * bank;
 	pull = pin >> 4;
 	offset = ((pin & 0x0f) << 1);
 
@@ -328,7 +338,8 @@ a10_gpio_pin_set(device_t dev, uint32_t pin, unsigned int value)
 	if (i >= sc->sc_gpio_npins)
 		return (EINVAL);
 
-	bank = A10_GPIO_BANK(pin);
+	bank = pin / 32;
+	pin = pin - 32 * bank;
 	offset = pin & 0x1f;
 
 	A10_GPIO_LOCK(sc);
@@ -358,7 +369,8 @@ a10_gpio_pin_get(device_t dev, uint32_t pin, unsigned int *val)
 	if (i >= sc->sc_gpio_npins)
 		return (EINVAL);
 
-	bank = A10_GPIO_BANK(pin);
+	bank = pin / 32;
+	pin = pin - 32 * bank;
 	offset = pin & 0x1f;
 
 	A10_GPIO_LOCK(sc);
@@ -384,7 +396,8 @@ a10_gpio_pin_toggle(device_t dev, uint32_t pin)
 	if (i >= sc->sc_gpio_npins)
 		return (EINVAL);
 
-	bank = A10_GPIO_BANK(pin);
+	bank = pin / 32;
+	pin = pin - 32 * bank;
 	offset = pin & 0x1f;
 
 	A10_GPIO_LOCK(sc);
@@ -402,7 +415,7 @@ a10_gpio_pin_toggle(device_t dev, uint32_t pin)
 static int
 a10_gpio_probe(device_t dev)
 {
-	if (!ofw_bus_is_compatible(dev, "allwinner,sun4i-gpio"))
+	if (!ofw_bus_is_compatible(dev, "allwinner,sun4i-pinctrl"))
 		return (ENXIO);
 
 	device_set_desc(dev, "Allwinner GPIO controller");
@@ -449,7 +462,7 @@ a10_gpio_attach(device_t dev)
 		goto fail;
 
 	/* Initialize the software controlled pins. */
-	for (i = 0, j = 0; j < A10_GPIO_PINS - 1; j++) {
+	for (i = 0, j = 0; j < A10_GPIO_PINS; j++) {
 		snprintf(sc->sc_gpio_pins[i].gp_name, GPIOMAXNAME,
 		    "pin %d", j);
 		func = a10_gpio_get_function(sc, j);

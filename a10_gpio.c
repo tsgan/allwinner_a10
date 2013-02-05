@@ -462,14 +462,13 @@ a10_gpio_attach(device_t dev)
 		goto fail;
 
 	/* Initialize the software controlled pins. */
-	for (i = 0, j = 0; j < A10_GPIO_PINS; j++) {
+	for (i = 0; i < A10_GPIO_PINS; i++) {
 		snprintf(sc->sc_gpio_pins[i].gp_name, GPIOMAXNAME,
-		    "pin %d", j);
-		func = a10_gpio_get_function(sc, j);
-		sc->sc_gpio_pins[i].gp_pin = j;
+		    "pin %d", i);
+		func = a10_gpio_get_function(sc, i);
+		sc->sc_gpio_pins[i].gp_pin = i;
 		sc->sc_gpio_pins[i].gp_caps = A10_GPIO_DEFAULT_CAPS;
 		sc->sc_gpio_pins[i].gp_flags = a10_gpio_func_flag(func);
-		i++;
 	}
 	sc->sc_gpio_npins = i;
 

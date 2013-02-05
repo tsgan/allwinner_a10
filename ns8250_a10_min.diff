@@ -1,0 +1,128 @@
+--- /usr/src/sys/dev/uart/uart_dev_ns8250.c	2013-01-30 18:49:49.000000000 +0800
++++ uart_dev_ns8250_a10.c	2013-02-05 13:45:24.000000000 +0800
+@@ -24,15 +24,17 @@
+  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+  */
+ 
++/*
++ * Derived from uart_dev_ns8250.c and uart_dev_oct16550.c
++ */
++
+ #include <sys/cdefs.h>
+-__FBSDID("$FreeBSD: head/sys/dev/uart/uart_dev_ns8250.c 246016 2013-01-27 23:33:42Z cperciva $");
++__FBSDID("$FreeBSD$");
+ 
+ #include <sys/param.h>
+ #include <sys/systm.h>
+ #include <sys/bus.h>
+ #include <sys/conf.h>
+-#include <sys/kernel.h>
+-#include <sys/sysctl.h>
+ #include <machine/bus.h>
+ 
+ #include <dev/uart/uart.h>
+@@ -43,7 +45,10 @@
+ 
+ #include "uart_if.h"
+ 
+-#define	DEFAULT_RCLK	1843200
++#define	DEFAULT_RCLK	24000000
++
++#define	A10_REG_USR	31
++#define	A10_UART
+ 
+ /*
+  * Clear pending interrupts. THRE is cleared by reading IIR. Data
+@@ -65,6 +70,15 @@
+ 			(void)uart_getreg(bas, REG_DATA);
+ 		else if (iir == IIR_MLSC)
+ 			(void)uart_getreg(bas, REG_MSR);
++#ifdef A10_UART
++		else if (iir == IIR_BUSY) {
++			/*
++			 * If busy interrupt is detected
++			 * UART status register should be read.
++			 */
++			(void) uart_getreg(bas, A10_REG_USR);
++		}
++#endif
+ 		uart_barrier(bas);
+ 		iir = uart_getreg(bas, REG_IIR);
+ 	}
+@@ -598,18 +612,42 @@
+ 	}
+ 	ipend = 0;
+ 	if (iir & IIR_RXRDY) {
++#ifdef STANDARD_UART
+ 		lsr = uart_getreg(bas, REG_LSR);
+ 		if (lsr & LSR_OE)
+ 			ipend |= SER_INT_OVERRUN;
+ 		if (lsr & LSR_BI)
+ 			ipend |= SER_INT_BREAK;
+ 		if (lsr & LSR_RXRDY)
++#endif
+ 			ipend |= SER_INT_RXREADY;
+ 	} else {
+ 		if (iir & IIR_TXRDY) {
+ 			ipend |= SER_INT_TXIDLE;
+ 			uart_setreg(bas, REG_IER, ns8250->ier);
+-		} else
++		}
++#ifdef A10_UART
++		else if (iir & IIR_RLS) {
++			lsr = uart_getreg(bas, REG_LSR);
++			if (lsr & LSR_OE)
++				ipend |= SER_INT_OVERRUN;
++			if (lsr & LSR_BI)
++				ipend |= SER_INT_BREAK;
++			if (lsr & LSR_RXRDY)
++				ipend |= SER_INT_RXREADY;
++		} else if (iir & IIR_RXTOUT) {
++			ipend |= SER_INT_RXREADY;
++		} else if (iir & IIR_MLSC) {
++			ipend |= SER_INT_SIGCHG;
++		} else if (iir == IIR_BUSY) {
++			/*
++			 * If busy interrupt is detected
++			 * UART status register should be read.
++			 */
++			(void) uart_getreg(bas, A10_REG_USR);
++		}
++#endif
++		else
+ 			ipend |= SER_INT_SIGCHG;
+ 	}
+ 	if (ipend == 0)
+@@ -847,11 +885,6 @@
+ 	return (0);
+ }
+ 
+-static int broken_txfifo = 0;
+-SYSCTL_INT(_hw, OID_AUTO, broken_txfifo, CTLFLAG_RW | CTLFLAG_TUN,
+-	&broken_txfifo, 0, "UART FIFO has QEMU emulation bug");
+-TUNABLE_INT("hw.broken_txfifo", &broken_txfifo);
+-
+ static int
+ ns8250_bus_transmit(struct uart_softc *sc)
+ {
+@@ -869,12 +902,14 @@
+ 		uart_setreg(bas, REG_DATA, sc->sc_txbuf[i]);
+ 		uart_barrier(bas);
+ 	}
+-	if (broken_txfifo)
+-		ns8250_drain(bas, UART_DRAIN_TRANSMITTER);
+-	else
+-		sc->sc_txbusy = 1;
++
++	/*
++	 * Broken txfifo case when TX idle interrupt gets lost.
++	 * Spin wait TX to happen and then send interrupt.
++	 */
++	ns8250_drain(bas, UART_DRAIN_TRANSMITTER);
+ 	uart_unlock(sc->sc_hwmtx);
+-	if (broken_txfifo)
+-		uart_sched_softih(sc, SER_INT_TXIDLE);
++	uart_sched_softih(sc, SER_INT_TXIDLE);
++
+ 	return (0);
+ }

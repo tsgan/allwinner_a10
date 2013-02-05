@@ -427,7 +427,7 @@ a10_gpio_attach(device_t dev)
 {
 	struct a10_gpio_softc *sc = device_get_softc(dev);
 	uint32_t func;
-	int i, j, rid;
+	int i, rid;
 	phandle_t gpio;
 
 	sc->sc_dev = dev;

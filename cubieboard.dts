@@ -78,7 +78,7 @@
 
 		GPIO: gpio@01c20800 {
 			#gpio-cells = <3>;
-			compatible = "allwinner,sun4i-pinctrl";
+			compatible = "allwinner,sun4i-gpio";
 			gpio-controller;
 			reg =<  0x01c20800 0x400 >;
 			interrupts = < 28 >;

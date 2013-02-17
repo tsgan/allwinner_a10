@@ -23,7 +23,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  * 
- * $FreeBSD: head/sys/boot/fdt/dts/cubieboard.dts 245900 2013-01-25 07:21:22Z ganbold $
+ * $FreeBSD: head/sys/boot/fdt/dts/cubieboard.dts 246851 2013-02-15 21:29:03Z gonzo $
  */
 
 /dts-v1/;
@@ -38,7 +38,7 @@
 
 	memory {
 		device_type = "memory";
-		reg = < 0x40000000 0x40000000 >;	/* 1GB RAM */
+		reg = < 0x40000000 0x20000000 >;	/* 512MB RAM */
 	};
 
 	aliases {
@@ -76,6 +76,12 @@
 			clock-frequency = < 24000000 >;
 		};
 
+		watchdog@01c20c90 {
+			compatible = "allwinner,sun4i-wdt";
+			reg = <0x01c20c90 0x08>;
+		};
+
+
 		GPIO: gpio@01c20800 {
 			#gpio-cells = <3>;
 			compatible = "allwinner,sun4i-gpio";
@@ -83,9 +89,25 @@
 			reg =<  0x01c20800 0x400 >;
 			interrupts = < 28 >;
 			interrupt-parent = <&AINTC>;
+		};
+
+                sdhci@01c0f000 {
+                        compatible = "allwinner,sun4i-sdhci";
+                        reg = <0x01c0f000 0x1000>;
+                        interrupts = <32>;
+                        interrupt-parent = <&AINTC>;
+
+                        clock-frequency = <50000000>;
                 };
 
-		usb1: usb@01c1c000 {
+		usb1: usb@01c14000 {
+			compatible = "allwinner,usb-ehci", "usb-ehci";
+			reg = <0x01c14000 0x1000>;
+			interrupts = < 39 >;
+			interrupt-parent = <&AINTC>;
+		};
+
+		usb2: usb@01c1c000 {
 			compatible = "allwinner,usb-ehci", "usb-ehci";
 			reg = <0x01c1c000 0x1000>;
 			interrupts = < 40 >;

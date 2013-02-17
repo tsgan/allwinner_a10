@@ -81,12 +81,13 @@ struct a10_gpio_softc {
 enum a10_gpio_fsel {
 	A10_GPIO_INPUT,
 	A10_GPIO_OUTPUT,
+	A10_GPIO_MUX2,
 };
 
 enum a10_gpio_pud {
 	A10_GPIO_NONE,
-	A10_GPIO_PULLDOWN,
 	A10_GPIO_PULLUP,
+	A10_GPIO_PULLDOWN,
 };
 
 #define	A10_GPIO_LOCK(_sc)		mtx_lock(&_sc->sc_mtx)

@@ -70,6 +70,14 @@ __FBSDID("$FreeBSD$");
 
 #define A10_SDHCI_CTRL_REG	0x00
 #define A10_SDHCI_INT_EN	(1 << 4)
+#define A10_SDHCI_POSELATCH	(1 << 9)
+
+#define A10_SDHCI_FTRGL_REG	0x40
+#define A10_SDHCI_TMOUT_REG	0x08
+#define A10_SDHCI_RINTR_REG	0x38
+
+#define A10_SDHCI_DBGC_REG	0x50
+#define A10_SDHCI_FUNS_REG	0x44
 
 #define DEFAULT_SDHCI_FREQ	50
 
@@ -186,6 +194,16 @@ a10_sdhci_attach(device_t dev)
 		err = ENXIO;
 		goto fail;
 	}
+
+        val = A10_READ_4(sc, A10_SDHCI_CTRL_REG);
+        val |= A10_SDHCI_POSELATCH;
+        A10_WRITE_4(sc, A10_SDHCI_CTRL_REG, val);
+        A10_WRITE_4(sc, A10_SDHCI_FTRGL_REG, 0x70008);
+        A10_WRITE_4(sc, A10_SDHCI_TMOUT_REG, 0xffffffff);
+        A10_WRITE_4(sc, A10_SDHCI_RINTR_REG, 0xffffffff);
+
+        A10_WRITE_4(sc, A10_SDHCI_DBGC_REG, 0xdeb);
+        A10_WRITE_4(sc, A10_SDHCI_FUNS_REG, 0xceaa0000);
 
         /* Enable interrupt */
         val = A10_READ_4(sc, A10_SDHCI_CTRL_REG);

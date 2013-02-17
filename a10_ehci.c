@@ -29,7 +29,7 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: head/sys/arm/allwinner/a10_ehci.c 246375 2013-02-06 01:03:13Z ganbold $");
+__FBSDID("$FreeBSD: head/sys/arm/allwinner/a10_ehci.c 246851 2013-02-15 21:29:03Z gonzo $");
 
 #include "opt_bus.h"
 
@@ -75,6 +75,7 @@ __FBSDID("$FreeBSD: head/sys/arm/allwinner/a10_ehci.c 246375 2013-02-06 01:03:13
 #define SW_AHB_INCRX_ALIGN		(1 << 8)
 #define SW_AHB_INCR4			(1 << 9)
 #define SW_AHB_INCR8			(1 << 10)
+#define GPIO_USB1_PWR			230
 #define GPIO_USB2_PWR			227
 
 #define A10_READ_4(sc, reg)		\
@@ -181,6 +182,10 @@ a10_ehci_attach(device_t self)
 	/* Give power to USB */
 	GPIO_PIN_SETFLAGS(sc_gpio_dev, GPIO_USB2_PWR, GPIO_PIN_OUTPUT);
 	GPIO_PIN_SET(sc_gpio_dev, GPIO_USB2_PWR, GPIO_PIN_HIGH);
+
+	/* Give power to USB */
+	GPIO_PIN_SETFLAGS(sc_gpio_dev, GPIO_USB1_PWR, GPIO_PIN_OUTPUT);
+	GPIO_PIN_SET(sc_gpio_dev, GPIO_USB1_PWR, GPIO_PIN_HIGH);
 
 	/* Enable passby */
 	reg_value = A10_READ_4(sc, SW_USB_PMU_IRQ_ENABLE);

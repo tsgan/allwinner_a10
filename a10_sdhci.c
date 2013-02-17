@@ -43,7 +43,6 @@ __FBSDID("$FreeBSD$");
 #include <sys/rman.h>
 #include <sys/sysctl.h>
 #include <sys/taskqueue.h>
-#include <sys/gpio.h>
 
 #include <machine/bus.h>
 #include <machine/resource.h>
@@ -61,37 +60,7 @@ __FBSDID("$FreeBSD$");
 #include "mmcbr_if.h"
 #include "sdhci_if.h"
 
-#include "a10_clk.h"
-
 #define MAX_SLOTS	1
-
-#define MMC0_D1_PIN	160 /* pin PF0 */
-#define MMC0_D0_PIN	161 /* pin PF1 */
-#define MMC0_CLK_PIN	162 /* pin PF2 */
-#define MMC0_CMD_PIN	163 /* pin PF3 */
-#define MMC0_D3_PIN	164 /* pin PF4 */
-#define MMC0_D2_PIN	165 /* pin PF5 */
-
-#define MMC0_D1		(1 << 1)
-#define MMC0_D0		(1 << 5)
-#define MMC0_CLK	(1 << 9)
-#define MMC0_CMD	(1 << 13)
-#define MMC0_D3		(1 << 17)
-#define MMC0_D2		(1 << 21)
-
-#define MMC0_D1_PULL	(1 << 0)
-#define MMC0_D0_PULL	(1 << 2)
-#define MMC0_CLK_PULL	(1 << 4)
-#define MMC0_CMD_PULL	(1 << 6)
-#define MMC0_D3_PULL	(1 << 8)
-#define MMC0_D2_PULL	(1 << 10)
-
-#define MMC0_D1_DRV	(1 << 1)
-#define MMC0_D0_DRV	(1 << 3)
-#define MMC0_CLK_DRV	(1 << 5)
-#define MMC0_CMD_DRV	(1 << 7)
-#define MMC0_D3_DRV	(1 << 9)
-#define MMC0_D2_DRV	(1 << 11)
 
 struct a10_sdhci_softc {
 	device_t	dev;		/* Controller device */
@@ -228,18 +197,6 @@ a10_sdhci_attach(device_t dev)
 		device_printf(dev, "Error: failed to get the GPIO device\n");
 		return (ENXIO);
 	}
-
-	/* set gpio pins for MMC0 */
-/*
-        GPIO_PIN_SETFLAGS(sc_gpio_dev, MMC0_D1_PIN, GPIO_PIN_PULLUP);
-        GPIO_PIN_SETFLAGS(sc_gpio_dev, MMC0_D0_PIN, GPIO_PIN_PULLUP);
-        GPIO_PIN_SETFLAGS(sc_gpio_dev, MMC0_CLK_PIN, GPIO_PIN_PULLUP);
-        GPIO_PIN_SETFLAGS(sc_gpio_dev, MMC0_CMD_PIN, GPIO_PIN_PULLUP);
-        GPIO_PIN_SETFLAGS(sc_gpio_dev, MMC0_D3_PIN, GPIO_PIN_PULLUP);
-        GPIO_PIN_SETFLAGS(sc_gpio_dev, MMC0_D2_PIN, GPIO_PIN_PULLUP);
-*/
-	/* Enable clock for MMC0 */
-	a10_clk_mmc_activate();
 
 	sc->caps = SDHCI_CAN_VDD_330 | SDHCI_CAN_VDD_180;
 	sc->caps |= SDHCI_CAN_DO_HISPD;

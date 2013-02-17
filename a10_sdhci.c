@@ -178,7 +178,6 @@ a10_sdhci_attach(device_t dev)
 {
 	struct a10_sdhci_softc *sc = device_get_softc(dev);
 	int err, slots, rid, i;
-	device_t sc_gpio_dev;
 	
 	sc->dev = dev;
 
@@ -189,13 +188,6 @@ a10_sdhci_attach(device_t dev)
 	if (sc->irq_res == NULL) {
 		device_printf(dev, "Can't allocate IRQ\n");
 		return (ENOMEM);
-	}
-
-	/* Get the GPIO device, we need this to drive MMC */
-	sc_gpio_dev = devclass_get_device(devclass_find("gpio"), 0);
-	if (sc_gpio_dev == NULL) {
-		device_printf(dev, "Error: failed to get the GPIO device\n");
-		return (ENXIO);
 	}
 
 	sc->caps = SDHCI_CAN_VDD_330 | SDHCI_CAN_VDD_180;

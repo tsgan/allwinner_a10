@@ -1,0 +1,74 @@
+--- uart_dev_ns8250.c.orig	2013-01-30 18:49:49.000000000 +0800
++++ uart_dev_ns8250.c	2013-02-21 15:55:49.000000000 +0800
+@@ -35,6 +35,10 @@
+ #include <sys/sysctl.h>
+ #include <machine/bus.h>
+ 
++#include <dev/fdt/fdt_common.h>
++#include <dev/ofw/ofw_bus.h>
++#include <dev/ofw/ofw_bus_subr.h>
++
+ #include <dev/uart/uart.h>
+ #include <dev/uart/uart_cpu.h>
+ #include <dev/uart/uart_bus.h>
+@@ -45,6 +49,11 @@
+ 
+ #define	DEFAULT_RCLK	1843200
+ 
++static int broken_txfifo = 0;
++SYSCTL_INT(_hw, OID_AUTO, broken_txfifo, CTLFLAG_RW | CTLFLAG_TUN,
++	&broken_txfifo, 0, "UART FIFO has QEMU emulation bug");
++TUNABLE_INT("hw.broken_txfifo", &broken_txfifo);
++
+ /*
+  * Clear pending interrupts. THRE is cleared by reading IIR. Data
+  * that may have been received gets lost here.
+@@ -65,6 +74,8 @@
+ 			(void)uart_getreg(bas, REG_DATA);
+ 		else if (iir == IIR_MLSC)
+ 			(void)uart_getreg(bas, REG_MSR);
++		else if (iir == IIR_BUSY)
++			(void)uart_getreg(bas, 31);
+ 		uart_barrier(bas);
+ 		iir = uart_getreg(bas, REG_IIR);
+ 	}
+@@ -401,6 +412,13 @@
+ 	struct ns8250_softc *ns8250 = (struct ns8250_softc*)sc;
+ 	struct uart_bas *bas;
+ 	unsigned int ivar;
++	phandle_t node;
++	pcell_t cell;
++
++	/* Check whether uart has broken txfifo. */
++	node = ofw_bus_get_node(sc->sc_dev);
++	if ((OF_getprop(node, "broken_txfifo", &cell, sizeof(cell))) > 0)
++		broken_txfifo = (int)fdt32_to_cpu(cell);
+ 
+ 	bas = &sc->sc_bas;
+ 
+@@ -592,6 +610,13 @@
+ 	bas = &sc->sc_bas;
+ 	uart_lock(sc->sc_hwmtx);
+ 	iir = uart_getreg(bas, REG_IIR);
++
++	if ((iir & IIR_BUSY) == IIR_BUSY) {
++		(void)uart_getreg(bas, 31);
++		uart_unlock(sc->sc_hwmtx);
++		return (0);
++	}
++
+ 	if (iir & IIR_NOPEND) {
+ 		uart_unlock(sc->sc_hwmtx);
+ 		return (0);
+@@ -847,11 +872,6 @@
+ 	return (0);
+ }
+ 
+-static int broken_txfifo = 0;
+-SYSCTL_INT(_hw, OID_AUTO, broken_txfifo, CTLFLAG_RW | CTLFLAG_TUN,
+-	&broken_txfifo, 0, "UART FIFO has QEMU emulation bug");
+-TUNABLE_INT("hw.broken_txfifo", &broken_txfifo);
+-
+ static int
+ ns8250_bus_transmit(struct uart_softc *sc)
+ {

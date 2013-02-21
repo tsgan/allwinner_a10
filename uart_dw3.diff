@@ -1,5 +1,5 @@
 --- uart_dev_ns8250.c.orig	2013-01-30 18:49:49.000000000 +0800
-+++ uart_dev_ns8250.c	2013-02-21 20:01:08.000000000 +0800
++++ uart_dev_ns8250.c	2013-02-21 20:08:50.000000000 +0800
 @@ -24,6 +24,8 @@
   * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   */
@@ -34,12 +34,10 @@
  /*
   * Clear pending interrupts. THRE is cleared by reading IIR. Data
   * that may have been received gets lost here.
-@@ -402,6 +415,23 @@
+@@ -402,6 +415,21 @@
  	struct uart_bas *bas;
  	unsigned int ivar;
  
-+	sc->sc_busydetect = 0;
-+
 +#ifdef FDT
 +	phandle_t node;
 +	pcell_t cell;
@@ -58,7 +56,7 @@
  	bas = &sc->sc_bas;
  
  	ns8250->mcr = uart_getreg(bas, REG_MCR);
-@@ -592,6 +622,12 @@
+@@ -592,6 +620,12 @@
  	bas = &sc->sc_bas;
  	uart_lock(sc->sc_hwmtx);
  	iir = uart_getreg(bas, REG_IIR);
@@ -71,7 +69,7 @@
  	if (iir & IIR_NOPEND) {
  		uart_unlock(sc->sc_hwmtx);
  		return (0);
-@@ -847,11 +883,6 @@
+@@ -847,11 +881,6 @@
  	return (0);
  }
  

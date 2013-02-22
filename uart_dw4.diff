@@ -1,5 +1,5 @@
 --- uart_dev_ns8250.c.orig	2013-01-30 18:49:49.000000000 +0800
-+++ uart_dev_ns8250.c	2013-02-22 09:39:55.000000000 +0800
++++ uart_dev_ns8250.c	2013-02-22 09:45:32.000000000 +0800
 @@ -24,6 +24,8 @@
   * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   */
@@ -42,7 +42,7 @@
  };
  
  static int ns8250_bus_attach(struct uart_softc *);
-@@ -401,6 +415,23 @@
+@@ -401,6 +415,24 @@
  	struct ns8250_softc *ns8250 = (struct ns8250_softc*)sc;
  	struct uart_bas *bas;
  	unsigned int ivar;
@@ -50,6 +50,7 @@
 +	phandle_t node;
 +	pcell_t cell;
 +#endif
++
 +	ns8250->busy_detect = 0;
 +
 +#ifdef FDT
@@ -66,7 +67,7 @@
  
  	bas = &sc->sc_bas;
  
-@@ -592,6 +623,12 @@
+@@ -592,6 +624,12 @@
  	bas = &sc->sc_bas;
  	uart_lock(sc->sc_hwmtx);
  	iir = uart_getreg(bas, REG_IIR);
@@ -79,7 +80,7 @@
  	if (iir & IIR_NOPEND) {
  		uart_unlock(sc->sc_hwmtx);
  		return (0);
-@@ -847,11 +884,6 @@
+@@ -847,11 +885,6 @@
  	return (0);
  }
  

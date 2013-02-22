@@ -1,5 +1,5 @@
 --- uart_dev_ns8250.c.orig	2013-01-30 18:49:49.000000000 +0800
-+++ uart_dev_ns8250.c	2013-02-22 08:33:10.000000000 +0800
++++ uart_dev_ns8250.c	2013-02-22 08:50:54.000000000 +0800
 @@ -24,6 +24,8 @@
   * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   */
@@ -57,9 +57,9 @@
 +	 * has broken txfifo. 
 +	 */
 +	node = ofw_bus_get_node(sc->sc_dev);
-+	if ((OF_getprop(node, "busy_detect", &cell, sizeof(cell))) > 0)
++	if ((OF_getprop(node, "busy-detect", &cell, sizeof(cell))) > 0)
 +		ns8250->busy_detect = 1;
-+	if ((OF_getprop(node, "broken_txfifo", &cell, sizeof(cell))) > 0)
++	if ((OF_getprop(node, "broken-txfifo", &cell, sizeof(cell))) > 0)
 +		broken_txfifo = 1;
 +#endif
 +

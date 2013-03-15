@@ -23,7 +23,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  * 
- * $FreeBSD: head/sys/boot/fdt/dts/cubieboard.dts 246851 2013-02-15 21:29:03Z gonzo $
+ * $FreeBSD: head/sys/boot/fdt/dts/cubieboard.dts 247520 2013-03-01 01:47:11Z ganbold $
  */
 
 /dts-v1/;
@@ -91,15 +91,6 @@
 			interrupt-parent = <&AINTC>;
 		};
 
-                sdhci@01c0f000 {
-                        compatible = "allwinner,sun4i-sdhci";
-                        reg = <0x01c0f000 0x1000>;
-                        interrupts = <32>;
-                        interrupt-parent = <&AINTC>;
-
-                        clock-frequency = <50000000>;
-                };
-
 		usb1: usb@01c14000 {
 			compatible = "allwinner,usb-ehci", "usb-ehci";
 			reg = <0x01c14000 0x1000>;
@@ -130,6 +121,25 @@
 			interrupt-parent = <&AINTC>;
 			current-speed = <115200>;
 			clock-frequency = < 24000000 >;
+			busy-detect = <1>;
+			broken-txfifo = <1>;
+		};
+
+		wemac@01c0b000 {
+			compatible = "allwinner,wemac";
+			reg = <0x01c0b000 0x1000>;
+			interrupts = <55>;
+			interrupt-parent = <&AINTC>;
+
+			mdio@0 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				compatible = "allwinner,mdio";
+
+				phy0: ethernet-phy@0 {
+					reg = <0x0>;
+				};
+			};
 		};
 	};
 

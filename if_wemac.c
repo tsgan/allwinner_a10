@@ -44,6 +44,7 @@ __FBSDID("$FreeBSD$");
 #include <sys/rman.h>
 #include <sys/socket.h>
 #include <sys/sockio.h>
+#include <sys/gpio.h>
 
 #include <machine/bus.h>
 #include <machine/resource.h>
@@ -77,6 +78,8 @@ __FBSDID("$FreeBSD$");
 
 #include "miibus_if.h"
 
+#include "gpio_if.h"
+
 struct wemac_softc {
 	struct ifnet		*wemac_ifp;
 	device_t		wemac_dev;
@@ -99,6 +102,8 @@ static void wemac_init_locked(struct wemac_softc *);
 
 #define SW_CCM_AHB_GATING	0xe1c20060
 #define AHB_GATE_OFFSET_EMAC	17
+
+#define GPIO_WEMAC_PWR		243
 
 #define REG_READ(reg)		(*(volatile uint32_t *)(reg))
 #define REG_WRITE(reg, val)	(*(volatile uint32_t *)(reg) = (val))
@@ -401,6 +406,7 @@ wemac_attach(device_t dev)
 {
 	uint8_t eaddr[ETHER_ADDR_LEN];
 	struct wemac_softc *sc;
+        device_t sc_gpio_dev;
 	struct ifnet *ifp;
 	int error, rid;
 
@@ -426,7 +432,17 @@ wemac_attach(device_t dev)
 	sc->wemac_tag = rman_get_bustag(sc->wemac_res);
 	sc->wemac_handle = rman_get_bushandle(sc->wemac_res);
 
-	/* Enable power for wemac */
+        /* Get the GPIO device, we need this to give power to USB */
+        sc_gpio_dev = devclass_get_device(devclass_find("gpio"), 0);
+        if (sc_gpio_dev == NULL) {
+                device_printf(dev, "Error: failed to get the GPIO device\n");
+		error = ENXIO;
+                goto fail;
+        }
+
+        /* Give power to wemac */
+        GPIO_PIN_SETFLAGS(sc_gpio_dev, GPIO_WEMAC_PWR, GPIO_PIN_OUTPUT);
+        GPIO_PIN_SET(sc_gpio_dev, GPIO_WEMAC_PWR, GPIO_PIN_HIGH);
 
 	/* Setup wemac */
 	wemac_setup(dev);

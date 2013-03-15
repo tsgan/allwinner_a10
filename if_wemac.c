@@ -432,7 +432,7 @@ wemac_attach(device_t dev)
 	sc->wemac_tag = rman_get_bustag(sc->wemac_res);
 	sc->wemac_handle = rman_get_bushandle(sc->wemac_res);
 
-        /* Get the GPIO device, we need this to give power to USB */
+        /* Get the GPIO device, we need this to give power to wemac */
         sc_gpio_dev = devclass_get_device(devclass_find("gpio"), 0);
         if (sc_gpio_dev == NULL) {
                 device_printf(dev, "Error: failed to get the GPIO device\n");

@@ -648,8 +648,8 @@ static driver_t wemac_driver = {
 
 static devclass_t wemac_devclass;
 
-MODULE_DEPEND(wemac, ether, 1, 1, 1);
-MODULE_DEPEND(wemac, miibus, 1, 1, 1);
-DRIVER_MODULE(wemac, allwinner, wemac_driver, wemac_devclass, 0, 0);
+DRIVER_MODULE(wemac, simplebus, wemac_driver, wemac_devclass, 0, 0);
 DRIVER_MODULE(miibus, wemac, miibus_driver, miibus_devclass, 0, 0);
+MODULE_DEPEND(wemac, miibus, 1, 1, 1);
+MODULE_DEPEND(wemac, ether, 1, 1, 1);
 

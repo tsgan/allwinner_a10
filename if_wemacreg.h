@@ -1,6 +1,5 @@
 /*
  * Copyright (C) 2013 Ganbold Tsagaankhuu
- * Copyright (C) 2010 Andrew Turner
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without

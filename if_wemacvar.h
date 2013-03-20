@@ -32,6 +32,6 @@
 #define WEMAC_UNLOCK(cs)	mtx_unlock(&(sc)->wemac_mtx)
 #define WEMAC_ASSERT_LOCKED(sc)	mtx_assert(&(sc)->wemac_mtx, MA_OWNED);
 
-#define WEMAC_TIMEOUT		1000
+#define WEMAC_TIMEOUT		5000
 
 #endif /* __IF_WEMACVAR_H__ */

@@ -48,6 +48,7 @@ __FBSDID("$FreeBSD$");
 
 #include <machine/bus.h>
 #include <machine/resource.h>
+#include <machine/intr.h>
 
 #include <net/if.h>
 #include <net/if_arp.h>
@@ -56,6 +57,7 @@ __FBSDID("$FreeBSD$");
 #include <net/if_types.h>
 #include <net/if_mib.h>
 #include <net/ethernet.h>
+#include <net/if_vlan_var.h>
 
 #ifdef INET
 #include <netinet/in.h>
@@ -87,17 +89,32 @@ struct wemac_softc {
 	bus_space_handle_t	wemac_handle;
 	bus_space_tag_t		wemac_tag;
 	struct resource		*wemac_res;
+/*
+	struct resource		*wemac_irq;
+	void			*wemac_intrhand;
+*/
+#define WEMAC_FLAG_LINK		(1 << 0)
+	uint32_t		wemac_flags;
 	struct mtx		wemac_mtx;
 	struct callout		wemac_tick_ch;
+	int			wemac_tx_fifo_stat;
+	int			wemac_watchdog_timer;
 };
 
 static int wemac_probe(device_t);
 static int wemac_attach(device_t);
 static int wemac_detach(device_t);
-static void wemac_setup(device_t);
+/* 
+static void wemac_intr(void *);
+*/
+static void wemac_watchdog(struct wemac_softc *);
 
 static void wemac_init_locked(struct wemac_softc *);
+static int wemac_miibus_readreg(device_t dev, int phy, int reg);
+static int wemac_miibus_writereg(device_t dev, int phy, int reg, int data);
+static void wemac_miibus_statchg(device_t);
 
+#define WEMAC_MAX_FRAME_LEN	0x0600
 #define WEMAC_PHY		0x100 /* PHY address 0x01 */
 
 #define SW_CCM_AHB_GATING	0xe1c20060
@@ -113,16 +130,15 @@ static void wemac_init_locked(struct wemac_softc *);
 #define wemac_write_reg(sc, reg, val)	\
 	bus_space_write_4(sc->wemac_tag, sc->wemac_handle, reg, val)
 
-
 static void
 wemac_reset(struct wemac_softc *sc)
 {
 	/* Send reset */
 	wemac_write_reg(sc, EMAC_CTL, 0);
-	DELAY(1000);
+	DELAY(200);
 
-	wemac_write_reg(sc, EMAC_CTL, CTL_RST);
-	DELAY(1000); /* Wait for the MAC to reset */
+	wemac_write_reg(sc, EMAC_CTL, EMAC_CTL_RST);
+	DELAY(200); /* Wait for the MAC to reset */
 }
 
 
@@ -132,16 +148,23 @@ wemac_start_locked(struct ifnet *ifp)
 	struct wemac_softc *sc;
 	struct mbuf *m, *mp;
 	int len, total_len;
+	uint32_t channel, reg_val;
 
 	sc = ifp->if_softc;
 
+	channel = sc->wemac_tx_fifo_stat & 3;
+	if (channel == 3)
+		return;
+
 	WEMAC_ASSERT_LOCKED(sc);
 
-	/* Select channel 0 */
-	wemac_write_reg(sc, EMAC_TX_INS, 0);
+	/* Select channel */
+	wemac_write_reg(sc, EMAC_TX_INS, channel);
 
-	/* Set TX mode to CPU mode */
+	/* Set TX mode */
 	wemac_write_reg(sc, EMAC_TX_MODE, EMAC_TX_TM);
+
+	sc->wemac_tx_fifo_stat |= 1 << channel;
 
 	if (ifp->if_drv_flags & IFF_DRV_OACTIVE)
 		return;
@@ -165,24 +188,44 @@ wemac_start_locked(struct ifnet *ifp)
 
 			total_len += len;
 
-			/* Write the data */
+			/* 
+			 * XXX Write the data.
+			 * Maybe need to try bus_space_write_multi_(1-4)).
+			 */
 			bus_space_write_multi_2(sc->wemac_tag, sc->wemac_handle,
 			    EMAC_TX_IO_DATA, mtod(mp, uint16_t *), (len + 1) / 2);
 		}
 
-		/* Send the data length */
-		wemac_write_reg(sc, EMAC_TX_PL0, total_len);
-
 		/* 
-		 * Send the packet.
+		 * Send the data lengh and the packet.
 		 * Start translate from fifo to phy.
 		 */
-		wemac_write_reg(sc, EMAC_TX_CTL0, 1);
+		if (channel == 0) {
+			wemac_write_reg(sc, EMAC_TX_PL0, total_len);
+
+			reg_val = wemac_read_reg(sc, EMAC_TX_CTL0);
+			reg_val |= 1;
+			wemac_write_reg(sc, EMAC_TX_CTL0, reg_val);
+
+		} else if (channel == 1) {
+			wemac_write_reg(sc, EMAC_TX_PL1, total_len);
+
+			reg_val = wemac_read_reg(sc, EMAC_TX_CTL1);
+			reg_val |= 1;
+			wemac_write_reg(sc, EMAC_TX_CTL1, reg_val);
+		}
+
+		if((sc->wemac_tx_fifo_stat & 3) == 3) {
+			/* Second packet */
+			IFQ_DRV_DEQUEUE(&ifp->if_snd, m);
+		}
 
 		BPF_MTAP(ifp, m);
 
 		m_freem(m);
 	}
+	/* set timeout */
+	sc->wemac_watchdog_timer = 5;
 }
 
 static void
@@ -213,15 +256,19 @@ wemac_rxeof(struct wemac_softc *sc)
 
 	WEMAC_ASSERT_LOCKED(sc);
 
- 	ifp = sc->wemac_ifp;
+	ifp = sc->wemac_ifp;
 
 	/* Read the first byte to check it correct */
 	reg_val = wemac_read_reg(sc, EMAC_RX_FBC);
 	if (!reg_val) {
+		reg_val = wemac_read_reg(sc, EMAC_INT_CTL);
+		reg_val |= (0xf << 0) | (0x01 << 8);
+		wemac_write_reg(sc, EMAC_INT_CTL, reg_val);
+
 		/* Had one stuck? */
 		reg_val = wemac_read_reg(sc, EMAC_RX_FBC);
 		if (!reg_val)
-			return 0;
+			return -1;
 	}
 
 	/* Read the data */
@@ -231,39 +278,37 @@ wemac_rxeof(struct wemac_softc *sc)
 	if (reg_val != 0x0143414d) {
 		/* Disable RX */
 		reg_val = wemac_read_reg(sc, EMAC_CTL);
-		reg_val &= ~(1 << 2);
+		reg_val &= ~EMAC_CTL_RX_EN;
 		wemac_write_reg(sc, EMAC_CTL, reg_val);
 
 		/* Flush RX FIFO */
-		wemac_write_reg(sc, EMAC_CTL, 1 << 3);
-		while (wemac_read_reg(sc, EMAC_CTL) & (1 << 3))
+		reg_val = wemac_read_reg(sc, EMAC_RX_CTL);
+		reg_val |= (1 << 3);
+		wemac_write_reg(sc, EMAC_RX_CTL, reg_val);
+		while (wemac_read_reg(sc, EMAC_RX_CTL) & (1 << 3))
 			;
 
 		/* Enable RX */
 		reg_val = wemac_read_reg(sc, EMAC_CTL);
-		reg_val |= (1 << 2);
+		reg_val |= EMAC_CTL_RX_EN;
 		wemac_write_reg(sc, EMAC_CTL, reg_val);
+
+		reg_val = wemac_read_reg(sc, EMAC_INT_CTL);
+		reg_val |= (0xf << 0) | (0x01 << 8);
+		wemac_write_reg(sc, EMAC_INT_CTL, reg_val);
 
 		return 0;
 	}
 
-	MGETHDR(m, M_DONTWAIT, MT_DATA);
+	m = m_getcl(M_NOWAIT, MT_DATA, M_PKTHDR);
 	if (m == NULL)
-		return -1;
-
-	if (len > MHLEN) {
-		MCLGET(m, M_DONTWAIT);
-		if (!(m->m_flags & M_EXT)) {
-			m_freem(m);
-			return -1;
-		}
-	}
+		return (ENOBUFS);
 
 	m->m_pkthdr.rcvif = ifp;
 	m->m_len = m->m_pkthdr.len = len;
 	m_adj(m, ETHER_ALIGN);
 
-	/* Read the data */
+	/* XXX Read the data (maybe need to try bus_space_read_multi_(1-4)) */
 	bus_space_read_multi_2(sc->wemac_tag, sc->wemac_handle, EMAC_RX_IO_DATA,
 	    mtod(m, uint16_t *), (len + 1) / 2);
 
@@ -276,11 +321,38 @@ wemac_rxeof(struct wemac_softc *sc)
 }
 
 static void
+wemac_watchdog(struct wemac_softc *sc)
+{
+	struct ifnet *ifp;
+
+	WEMAC_ASSERT_LOCKED(sc);
+
+	if (sc->wemac_watchdog_timer == 0 || --sc->wemac_watchdog_timer)
+		return;
+
+	ifp = sc->wemac_ifp;
+	if_printf(sc->wemac_ifp, "watchdog timeout -- resetting\n");
+	ifp->if_oerrors++;
+	ifp->if_drv_flags &= ~IFF_DRV_RUNNING;
+	wemac_init_locked(sc);
+	if (!IFQ_DRV_IS_EMPTY(&ifp->if_snd))
+		wemac_start_locked(ifp);
+}
+
+static void
 wemac_tick(void *arg)
 {
 	struct wemac_softc *sc;
+	struct mii_data *mii;
 
 	sc = (struct wemac_softc *)arg;
+
+	mii = device_get_softc(sc->wemac_miibus);
+	mii_tick(mii);
+        if ((sc->wemac_flags & WEMAC_FLAG_LINK) == 0)
+                wemac_miibus_statchg(sc->wemac_dev);
+
+	wemac_watchdog(sc);
 
 	/* Read the packets off the device */
 	while (wemac_rxeof(sc) == 0)
@@ -339,11 +411,56 @@ wemac_ioctl(struct ifnet *ifp, u_long command, caddr_t data)
 static void wemac_init_locked(struct wemac_softc *sc)
 {
 	struct ifnet *ifp = sc->wemac_ifp;
+	uint32_t reg_val;
+	int phy_reg;
+	device_t dev;
+
+	dev = sc->wemac_dev;
 
 	wemac_reset(sc);
 
+	/* PHY POWER UP */
+	phy_reg = wemac_miibus_readreg(dev, WEMAC_PHY, 0);
+	wemac_miibus_writereg(dev, WEMAC_PHY, 0, phy_reg & (~(1 << 11)));
+	DELAY(1000);
+
+	phy_reg = wemac_miibus_readreg(dev, WEMAC_PHY, 0);
+
+	/* set EMAC SPEED, depend on PHY */
+	reg_val = wemac_read_reg(sc, EMAC_MAC_SUPP);
+	reg_val &= (~(0x1 << 8));
+	reg_val |= (((phy_reg & (1 << 13)) >> 13) << 8);
+	wemac_write_reg(sc, EMAC_MAC_SUPP, reg_val);
+
+	/* set duplex depend on phy */
+	reg_val = wemac_read_reg(sc, EMAC_MAC_CTL1);
+	reg_val &= (~(0x1 << 0));
+	reg_val |= (((phy_reg & (1 << 8)) >> 8) << 0);
+	wemac_write_reg(sc, EMAC_MAC_CTL1, reg_val);
+
+	/* enable RX/TX */
+	reg_val = wemac_read_reg(sc, EMAC_CTL);
+	wemac_write_reg(sc, EMAC_CTL, reg_val | EMAC_CTL_RST | EMAC_CTL_TX_EN | EMAC_CTL_RX_EN);
+
+	/* enable RX/TX0/RX Hlevel interrupt */
+	reg_val = wemac_read_reg(sc, EMAC_INT_CTL);
+	reg_val |= (0xf << 0) | (0x01 << 8);
+	wemac_write_reg(sc, EMAC_INT_CTL, reg_val);
+
+	/* Set up TX */
+	reg_val = wemac_read_reg(sc, EMAC_TX_MODE);
+	reg_val |= EMAC_TX_AB_M;
+	wemac_write_reg(sc, EMAC_TX_MODE, reg_val);
+
+	/* Set up RX */
+	reg_val = wemac_read_reg(sc, EMAC_RX_CTL);
+	reg_val |= EMAC_RX_SETUP;
+	wemac_write_reg(sc, EMAC_RX_CTL, reg_val);
+
 	ifp->if_drv_flags |= IFF_DRV_RUNNING;
 	ifp->if_drv_flags &= ~IFF_DRV_OACTIVE;
+
+	sc->wemac_tx_fifo_stat = 0;
 
 	callout_reset(&sc->wemac_tick_ch, hz/100, wemac_tick, sc);
 }
@@ -409,6 +526,9 @@ wemac_attach(device_t dev)
         device_t sc_gpio_dev;
 	struct ifnet *ifp;
 	int error, rid;
+	uint32_t reg_val;
+	int phy_val;
+	uint32_t duplex_flag;
 
 	sc = device_get_softc(dev);
 	sc->wemac_dev = dev;
@@ -432,20 +552,76 @@ wemac_attach(device_t dev)
 	sc->wemac_tag = rman_get_bustag(sc->wemac_res);
 	sc->wemac_handle = rman_get_bushandle(sc->wemac_res);
 
-        /* Get the GPIO device, we need this to give power to wemac */
-        sc_gpio_dev = devclass_get_device(devclass_find("gpio"), 0);
-        if (sc_gpio_dev == NULL) {
-                device_printf(dev, "Error: failed to get the GPIO device\n");
+	/* Get the GPIO device, we need this to give power to wemac */
+	sc_gpio_dev = devclass_get_device(devclass_find("gpio"), 0);
+	if (sc_gpio_dev == NULL) {
+		device_printf(dev, "Error: failed to get the GPIO device\n");
 		error = ENXIO;
-                goto fail;
-        }
+		goto fail;
+	}
 
-        /* Give power to wemac */
-        GPIO_PIN_SETFLAGS(sc_gpio_dev, GPIO_WEMAC_PWR, GPIO_PIN_OUTPUT);
-        GPIO_PIN_SET(sc_gpio_dev, GPIO_WEMAC_PWR, GPIO_PIN_HIGH);
+	/* Give power to wemac */
+	GPIO_PIN_SETFLAGS(sc_gpio_dev, GPIO_WEMAC_PWR, GPIO_PIN_OUTPUT);
+	GPIO_PIN_SET(sc_gpio_dev, GPIO_WEMAC_PWR, GPIO_PIN_HIGH);
 
-	/* Setup wemac */
-	wemac_setup(dev);
+	/* initial EMAC */
+	/* flush RX FIFO */
+	reg_val = wemac_read_reg(sc, EMAC_RX_CTL);
+	reg_val |= 0x8;
+	wemac_write_reg(sc, EMAC_RX_CTL, reg_val);
+	DELAY(1);
+
+	/* soft reset MAC */
+	reg_val = wemac_read_reg(sc, EMAC_MAC_CTL0);
+	reg_val &= ~EMAC_MAC_CTL0_SOFT_RST;
+	wemac_write_reg(sc, EMAC_MAC_CTL0, reg_val);
+
+	/* set MII clock */
+	reg_val = wemac_read_reg(sc, EMAC_MAC_MCFG);
+	reg_val &= (~(0xf << 2));
+	reg_val |= (0xd << 2);
+	wemac_write_reg(sc, EMAC_MAC_MCFG, reg_val);
+
+	/* clear RX counter */
+	wemac_write_reg(sc, EMAC_RX_FBC, 0);
+
+	/* disable all interrupt and clear interrupt status */
+	wemac_write_reg(sc, EMAC_INT_CTL, 0);
+	reg_val = wemac_read_reg(sc, EMAC_INT_STA);
+	wemac_write_reg(sc, EMAC_INT_STA, reg_val);
+
+	DELAY(1);
+
+	/* 
+	 * Set up EMAC.
+	 * Set MAC CTL0. 
+	 */
+	reg_val = wemac_read_reg(sc, EMAC_MAC_CTL0);
+	reg_val |= EMAC_MAC_CTL0_SETUP;
+	wemac_write_reg(sc, EMAC_MAC_CTL0, reg_val);
+
+	/* Set MAC CTL1 */
+	reg_val = wemac_read_reg(sc, EMAC_MAC_CTL1);
+	phy_val = wemac_miibus_readreg(dev, WEMAC_PHY, 0);
+	duplex_flag = !!(phy_val & EMAC_PHY_DUPLEX);
+
+	if (duplex_flag)
+		reg_val |= EMAC_MAC_CTL1_DUP;
+
+	reg_val |= EMAC_MAC_CTL1_SETUP;
+	wemac_write_reg(sc, EMAC_MAC_CTL1, reg_val);
+
+	/* Set up IPGT */
+	wemac_write_reg(sc, EMAC_MAC_IPGT, EMAC_MAC_IPGT_FD);
+
+	/* Set up IPGR */
+	wemac_write_reg(sc, EMAC_MAC_IPGR, EMAC_MAC_NBTB_IPG2 | (EMAC_MAC_NBTB_IPG1 << 8));
+
+	/* Set up Collison window */
+	wemac_write_reg(sc, EMAC_MAC_CLRT, EMAC_MAC_RM | (EMAC_MAC_CW << 8));
+
+	/* Set up Max Frame Length */
+	wemac_write_reg(sc, EMAC_MAC_MAXF, EMAC_MAC_MFL);
 
 	/* Reset */
 	wemac_reset(sc);
@@ -496,6 +672,20 @@ wemac_attach(device_t dev)
 	/* Enable RX/TX */
 	wemac_write_reg(sc, EMAC_CTL, 0x7);
 
+	/* VLAN capability setup. */
+	ifp->if_capabilities |= IFCAP_VLAN_MTU;
+	ifp->if_capenable = ifp->if_capabilities;
+	/* Tell the upper layer we support VLAN over-sized frames. */
+	ifp->if_hdrlen = sizeof(struct ether_vlan_header);
+/*
+	error = bus_setup_intr(dev, sc->wemac_irq, INTR_TYPE_NET | INTR_MPSAFE,
+	    NULL, wemac_intr, sc, &sc->wemac_intrhand);
+	if (error != 0) {
+		device_printf(dev, "could not set up interrupt handler.\n");
+		ether_ifdetach(ifp);
+		goto fail;
+	}
+*/
 fail:
 	if (error != 0)
 		wemac_detach(dev);
@@ -577,51 +767,27 @@ wemac_miibus_writereg(device_t dev, int phy, int reg, int data)
 	return (0);
 }
 
-static void 
-wemac_setup(device_t dev)
+static void
+wemac_miibus_statchg(device_t dev)
 {
 	struct wemac_softc *sc;
-	uint32_t reg_val;
-	int phy_val;
-	uint32_t duplex_flag;
+	struct mii_data *mii;
+	struct ifnet *ifp;
 
 	sc = device_get_softc(dev);
 
-	/* Set up TX */
-	wemac_write_reg(sc, EMAC_TX_MODE, EMAC_TX_SETUP);
+	mii = device_get_softc(sc->wemac_miibus);
+	ifp = sc->wemac_ifp;
+	if ((ifp->if_drv_flags & IFF_DRV_RUNNING) == 0)
+		return;
 
-	/* Set up RX */
-	wemac_write_reg(sc, EMAC_RX_CTL, EMAC_RX_SETUP);
-
-	/* 
-	 * Set MAC.
-	 * Set MAC CTL0. 
-	 */
-	wemac_write_reg(sc, EMAC_MAC_CTL0, EMAC_MAC_CTL0_SETUP);
-
-	/* Set MAC CTL1 */
-	phy_val = wemac_miibus_readreg(dev, 0, 0);
-	duplex_flag = !!(phy_val & (1 << 8));
-
-	reg_val = 0;
-	if (duplex_flag)
-		reg_val = (0x1 << 0);
-
-	wemac_write_reg(sc, EMAC_MAC_CTL1, EMAC_MAC_CTL1_SETUP | reg_val);
-
-	/* Set up IPGT */
-	wemac_write_reg(sc, EMAC_MAC_IPGT, EMAC_MAC_IPGT_VAL);
-
-	/* Set up IPGR */
-	wemac_write_reg(sc, EMAC_MAC_IPGR, EMAC_MAC_NBTB_IPG2 | (EMAC_MAC_NBTB_IPG1 << 8));
-
-	/* Set up Collison window */
-	wemac_write_reg(sc, EMAC_MAC_CLRT, EMAC_MAC_RM | (EMAC_MAC_CW << 8));
-
-	/* Set up Max Frame Length */
-	wemac_write_reg(sc, EMAC_MAC_MAXF, EMAC_MAC_MFL);
-
+	if ((mii->mii_media_status & (IFM_ACTIVE | IFM_AVALID)) ==
+	    (IFM_ACTIVE | IFM_AVALID))
+		sc->wemac_flags |= WEMAC_FLAG_LINK;
+	else
+		sc->wemac_flags &= ~WEMAC_FLAG_LINK;
 }
+
 
 static device_method_t wemac_methods[] = {
 	/* Device interface */
@@ -636,8 +802,9 @@ static device_method_t wemac_methods[] = {
 	/* MII interface */
 	DEVMETHOD(miibus_readreg,	wemac_miibus_readreg),
 	DEVMETHOD(miibus_writereg,	wemac_miibus_writereg),
+	DEVMETHOD(miibus_statchg,	wemac_miibus_statchg),
 
-	{ 0, 0 }
+	DEVMETHOD_END
 };
 
 static driver_t wemac_driver = {

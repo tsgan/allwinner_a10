@@ -32,7 +32,9 @@
  * WEMAC register definitions
  */
 #define EMAC_CTL		0x00
-#define  CTL_RST		(1<<0)
+#define EMAC_CTL_RST		(1<<0)
+#define EMAC_CTL_TX_EN		(1<<1)
+#define EMAC_CTL_RX_EN		(1<<2)
 
 #define EMAC_TX_MODE		0x04
 #define EMAC_TX_FLOW		0x08
@@ -54,6 +56,11 @@
 #define EMAC_RX_HASH1		0x44
 #define EMAC_RX_STA		0x48
 #define EMAC_RX_IO_DATA		0x4C
+#define EMAC_RX_IO_DATA_LEN(x)		(x & 0xffff)
+#define EMAC_RX_IO_DATA_STA(x)		((x >> 16) & 0xffff)
+#define EMAC_RX_IO_DATA_STA_CRC_ERR	(1 << 4)
+#define EMAC_RX_IO_DATA_STA_ELN_ERR	(3 << 5)
+#define EMAC_RX_IO_DATA_STA_OK		(1 << 7)
 #define EMAC_RX_FBC		0x50
 
 #define EMAC_INT_CTL		0x54
@@ -87,110 +94,132 @@
 #define EMAC_SAFX_L3		0xBC
 #define EMAC_SAFX_H3		0xC0
 
+#define EMAC_PHY_DUPLEX		(1 << 8)
 
+#define WEMAC_PLATF_8BITONLY	(1 << 0)
+#define WEMAC_PLATF_16BITONLY	(1 << 1)
+#define WEMAC_PLATF_32BITONLY	(1 << 2)
+#define WEMAC_PLATF_EXT_PHY	(1 << 3)
+#define WEMAC_PLATF_NO_EEPROM	(1 << 4)
+
+/* Use NSR to find link status */
+#define WEMAC_PLATF_SIMPLE_PHY	(1 << 5)
+
+#define EMAC_EEPROM_MAGIC	(0x444d394b)
 
 /* 0: Disable, 1: Aborted frame enable(default) */
-#define EMAC_TX_AB_M		(0x1 << 0)
+#define EMAC_TX_AB_M		(1 << 0)
 
 /* 0: CPU, 1: DMA(default) */
-#define EMAC_TX_TM		(0)
+#define EMAC_TX_TM		(1)
 
-#define EMAC_TX_SETUP		(0)
+//#define EMAC_TX_SETUP		(0)
 
 /* 0: DRQ asserted, 1: DRQ automatically(default) */
-#define EMAC_RX_DRQ_MODE	(0x1 << 1)
+#define EMAC_RX_DRQ_MODE	(1 << 1)
 
 /* 0: CPU, 1: DMA(default) */
-#define EMAC_RX_TM		(0x1 << 2)
+#define EMAC_RX_TM		(1 << 2)
 
 /* 0: Normal(default), 1: Pass all Frames */
-#define EMAC_RX_PA		(0x1 << 4)
+#define EMAC_RX_PA		(1 << 4)
 
 /* 0: Normal(default), 1: Pass Control Frames */
-#define EMAC_RX_PCF		(0x1 << 5)
+#define EMAC_RX_PCF		(1 << 5)
 
 /* 0: Normal(default), 1: Pass Frames with CRC Error */
-#define EMAC_RX_PCRCE		(0x1 << 6)
+#define EMAC_RX_PCRCE		(1 << 6)
 
 /* 0: Normal(default), 1: Pass Frames with Length Error */
-#define EMAC_RX_PLE		(0x1 << 7)
+#define EMAC_RX_PLE		(1 << 7)
 
 /* 0: Normal, 1: Pass Frames length out of range(default) */
-#define EMAC_RX_POR		(0x1 << 8)
+#define EMAC_RX_POR		(1 << 8)
 
 /* 0: Not accept, 1: Accept unicast Packets(default) */
-#define EMAC_RX_UCAD		(0x1 << 16)
+#define EMAC_RX_UCAD		(1 << 16)
 
 /* 0: Normal(default), 1: DA Filtering */
-#define EMAC_RX_DAF		(0x1 << 17)
+#define EMAC_RX_DAF		(1 << 17)
 
 /* 0: Not accept, 1: Accept multicast Packets(default) */
-#define EMAC_RX_MCO		(0x1 << 20)
+#define EMAC_RX_MCO		(1 << 20)
 
 /* 0: Disable(default), 1: Enable Hash filter */
-#define EMAC_RX_MHF		(0x1 << 21)
+#define EMAC_RX_MHF		(1 << 21)
 
 /* 0: Not accept, 1: Accept Broadcast Packets(default) */
-#define EMAC_RX_BCO		(0x1 << 22)
+#define EMAC_RX_BCO		(1 << 22)
 
 /* 0: Disable(default), 1: Enable SA Filtering */
-#define EMAC_RX_SAF		(0x1 << 24)
+#define EMAC_RX_SAF		(1 << 24)
 
 /* 0: Normal(default), 1: Inverse Filtering */
-#define EMAC_RX_SAIF		(0x1 << 25)
+#define EMAC_RX_SAIF		(1 << 25)
 
 #define EMAC_RX_SETUP		(EMAC_RX_POR | EMAC_RX_UCAD | EMAC_RX_DAF | \
-				    EMAC_RX_MCO | EMAC_RX_BCO)
+    EMAC_RX_MCO | EMAC_RX_BCO)
 
 /* 0: Disable, 1: Enable Receive Flow Control(default) */
-#define EMAC_MAC_CTL0_RFC	(0x1 << 2)
+#define EMAC_MAC_CTL0_RFC	(1 << 2)
 
 /* 0: Disable, 1: Enable Transmit Flow Control(default) */
-#define EMAC_MAC_CTL0_TFC	(0x1 << 3)
+#define EMAC_MAC_CTL0_TFC	(1 << 3)
+
+/* Soft reset */
+#define EMAC_MAC_CTL0_SOFT_RST	(1 << 15)
 
 #define EMAC_MAC_CTL0_SETUP	(EMAC_MAC_CTL0_RFC | EMAC_MAC_CTL0_TFC)
 
+/* duplex */
+#define EMAC_MAC_CTL1_DUP	(1 << 0)
+
 /* 0: Disable, 1: Enable MAC Frame Length Checking(default) */
-#define EMAC_MAC_CTL1_FLC	(0x1 << 1)
+#define EMAC_MAC_CTL1_FLC	(1 << 1)
 
 /* 0: Disable(default), 1: Enable Huge Frame */
-#define EMAC_MAC_CTL1_HF	(0x1 << 2)
+#define EMAC_MAC_CTL1_HF	(1 << 2)
 
 /* 0: Disable(default), 1: Enable MAC Delayed CRC */
-#define EMAC_MAC_CTL1_DCRC	(0x1 << 3)
+#define EMAC_MAC_CTL1_DCRC	(1 << 3)
 
 /* 0: Disable, 1: Enable MAC CRC(default) */
-#define EMAC_MAC_CTL1_CRC	(0x1 << 4)
+#define EMAC_MAC_CTL1_CRC	(1 << 4)
 
 /* 0: Disable, 1: Enable MAC PAD Short frames(default) */
-#define EMAC_MAC_CTL1_PC	(0x1 << 5)
+#define EMAC_MAC_CTL1_PC	(1 << 5)
 
 /* 0: Disable(default), 1: Enable MAC PAD Short frames and append CRC */
-#define EMAC_MAC_CTL1_VC	(0x1 << 6)
+#define EMAC_MAC_CTL1_VC	(1 << 6)
 
 /* 0: Disable(default), 1: Enable MAC auto detect Short frames */
-#define EMAC_MAC_CTL1_ADP	(0x1 << 7)
+#define EMAC_MAC_CTL1_ADP	(1 << 7)
 
 /* 0: Disable(default), 1: Enable */
-#define EMAC_MAC_CTL1_PRE	(0x1 << 8)
+#define EMAC_MAC_CTL1_PRE	(1 << 8)
 
 /* 0: Disable(default), 1: Enable */
-#define EMAC_MAC_CTL1_LPE	(0x1 << 9)
+#define EMAC_MAC_CTL1_LPE	(1 << 9)
 
 /* 0: Disable(default), 1: Enable no back off */
-#define EMAC_MAC_CTL1_NB	(0x1 << 12)
+#define EMAC_MAC_CTL1_NB	(1 << 12)
 
 /* 0: Disable(default), 1: Enable */
-#define EMAC_MAC_CTL1_BNB	(0x1 << 13)
+#define EMAC_MAC_CTL1_BNB	(1 << 13)
 
 /* 0: Disable(default), 1: Enable */
-#define EMAC_MAC_CTL1_ED	(0x1 << 14)
+#define EMAC_MAC_CTL1_ED	(1 << 14)
 
 #define EMAC_MAC_CTL1_SETUP	(EMAC_MAC_CTL1_FLC | EMAC_MAC_CTL1_CRC | \
-				    EMAC_MAC_CTL1_PC)
-#define EMAC_MAC_IPGT_VAL	0x15
+    EMAC_MAC_CTL1_PC)
 
-#define EMAC_MAC_NBTB_IPG1	0xC
+/* half duplex */
+#define EMAC_MAC_IPGT_HD	0x12
+
+/* full duplex */
+#define EMAC_MAC_IPGT_FD	0x15
+
+#define EMAC_MAC_NBTB_IPG1	0xc
 #define EMAC_MAC_NBTB_IPG2	0x12
 
 #define EMAC_MAC_CW		0x37

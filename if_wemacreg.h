@@ -111,7 +111,7 @@
 #define EMAC_TX_AB_M		(1 << 0)
 
 /* 0: CPU, 1: DMA(default) */
-#define EMAC_TX_TM		(1)
+#define EMAC_TX_TM		(1 << 1)
 
 //#define EMAC_TX_SETUP		(0)
 

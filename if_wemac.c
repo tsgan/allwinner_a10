@@ -89,10 +89,8 @@ struct wemac_softc {
 	bus_space_handle_t	wemac_handle;
 	bus_space_tag_t		wemac_tag;
 	struct resource		*wemac_res;
-/*
 	struct resource		*wemac_irq;
 	void			*wemac_intrhand;
-*/
 #define WEMAC_FLAG_LINK		(1 << 0)
 	uint32_t		wemac_flags;
 	struct mtx		wemac_mtx;
@@ -104,9 +102,9 @@ struct wemac_softc {
 static int wemac_probe(device_t);
 static int wemac_attach(device_t);
 static int wemac_detach(device_t);
-/* 
+ 
 static void wemac_intr(void *);
-*/
+
 static void wemac_watchdog(struct wemac_softc *);
 
 static void wemac_init_locked(struct wemac_softc *);
@@ -129,6 +127,8 @@ static void wemac_miibus_statchg(device_t);
 	bus_space_read_4(sc->wemac_tag, sc->wemac_handle, reg)
 #define wemac_write_reg(sc, reg, val)	\
 	bus_space_write_4(sc->wemac_tag, sc->wemac_handle, reg, val)
+
+static int emacrx_completed_flag = 1;
 
 static void
 wemac_reset(struct wemac_softc *sc)
@@ -261,6 +261,7 @@ wemac_rxeof(struct wemac_softc *sc)
 	/* Read the first byte to check it correct */
 	reg_val = wemac_read_reg(sc, EMAC_RX_FBC);
 	if (!reg_val) {
+		emacrx_completed_flag = 1;
 		reg_val = wemac_read_reg(sc, EMAC_INT_CTL);
 		reg_val |= (0xf << 0) | (0x01 << 8);
 		wemac_write_reg(sc, EMAC_INT_CTL, reg_val);
@@ -296,6 +297,8 @@ wemac_rxeof(struct wemac_softc *sc)
 		reg_val = wemac_read_reg(sc, EMAC_INT_CTL);
 		reg_val |= (0xf << 0) | (0x01 << 8);
 		wemac_write_reg(sc, EMAC_INT_CTL, reg_val);
+
+		emacrx_completed_flag = 1;
 
 		return 0;
 	}
@@ -359,6 +362,43 @@ wemac_tick(void *arg)
 		continue;
 
 	callout_reset(&sc->wemac_tick_ch, hz/100, wemac_tick, sc);
+}
+
+static void
+wemac_intr(void *arg)
+{
+        struct wemac_softc *sc = (struct wemac_softc *)arg;
+        uint32_t intstatus, reg_val;
+
+	/* Disable all interrupts */
+	wemac_write_reg(sc, EMAC_INT_CTL, 0);
+
+	/* Got WEMAC interrupt status */
+	/* Got ISR */
+	intstatus = wemac_read_reg(sc, EMAC_INT_STA);
+
+	/* Clear ISR status */
+	wemac_write_reg(sc, EMAC_INT_STA, intstatus);
+
+	WEMAC_ASSERT_LOCKED(sc);
+
+	/* Received the coming packet */
+	if ((intstatus & 0x100) && (emacrx_completed_flag == 1)) {
+		/* carrier lost */
+		emacrx_completed_flag = 0;
+		wemac_rxeof(sc);
+	}
+
+	/* Transmit Interrupt check */
+	if (intstatus & (0x01 | 0x02))
+		wemac_tx_done(sc, intstatus);
+
+	/* Re-enable interrupt mask */
+	if (emacrx_completed_flag == 1) {
+		reg_val = wemac_read_reg(sc, EMAC_INT_CTL);
+		reg_val |= (0xf << 0) | (0x01 << 8);
+		wemac_write_reg(sc, EMAC_INT_CTL, reg_val);
+	}
 }
 
 static void
@@ -677,7 +717,7 @@ wemac_attach(device_t dev)
 	ifp->if_capenable = ifp->if_capabilities;
 	/* Tell the upper layer we support VLAN over-sized frames. */
 	ifp->if_hdrlen = sizeof(struct ether_vlan_header);
-/*
+
 	error = bus_setup_intr(dev, sc->wemac_irq, INTR_TYPE_NET | INTR_MPSAFE,
 	    NULL, wemac_intr, sc, &sc->wemac_intrhand);
 	if (error != 0) {
@@ -685,7 +725,7 @@ wemac_attach(device_t dev)
 		ether_ifdetach(ifp);
 		goto fail;
 	}
-*/
+
 fail:
 	if (error != 0)
 		wemac_detach(dev);

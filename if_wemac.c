@@ -324,6 +324,30 @@ wemac_rxeof(struct wemac_softc *sc)
 }
 
 static void
+wemac_txeof(struct wemac_softc *sc)
+{
+	struct ifnet *ifp;
+	uint32_t int_status;
+
+	WEMAC_ASSERT_LOCKED(sc);
+	ifp = sc->wemac_ifp;
+
+	/* Get WEMAC interrupt status */
+	int_status = wemac_read_reg(sc, EMAC_INT_STA);
+
+	sc->wemac_tx_fifo_stat &= ~(int_status & 3);
+	if ((int_status & 3) == 3) {
+		ifp->if_opackets++;
+	}
+	ifp->if_opackets++;
+
+	ifp->if_drv_flags &= ~IFF_DRV_OACTIVE;
+
+	/* Unarm watchdog timer if no TX */
+	sc->wemac_watchdog_timer = 0;
+}
+
+static void
 wemac_watchdog(struct wemac_softc *sc)
 {
 	struct ifnet *ifp;
@@ -352,14 +376,11 @@ wemac_tick(void *arg)
 
 	mii = device_get_softc(sc->wemac_miibus);
 	mii_tick(mii);
-        if ((sc->wemac_flags & WEMAC_FLAG_LINK) == 0)
-                wemac_miibus_statchg(sc->wemac_dev);
+	if ((sc->wemac_flags & WEMAC_FLAG_LINK) == 0)
+		wemac_miibus_statchg(sc->wemac_dev);
 
+	wemac_txeof(sc);
 	wemac_watchdog(sc);
-
-	/* Read the packets off the device */
-	while (wemac_rxeof(sc) == 0)
-		continue;
 
 	callout_reset(&sc->wemac_tick_ch, hz/100, wemac_tick, sc);
 }
@@ -367,31 +388,33 @@ wemac_tick(void *arg)
 static void
 wemac_intr(void *arg)
 {
-        struct wemac_softc *sc = (struct wemac_softc *)arg;
-        uint32_t intstatus, reg_val;
+	struct wemac_softc *sc = (struct wemac_softc *)arg;
+	uint32_t int_status, reg_val;
 
 	/* Disable all interrupts */
 	wemac_write_reg(sc, EMAC_INT_CTL, 0);
 
-	/* Got WEMAC interrupt status */
-	/* Got ISR */
-	intstatus = wemac_read_reg(sc, EMAC_INT_STA);
+	/* Get WEMAC interrupt status */
+	/* Get ISR */
+	int_status = wemac_read_reg(sc, EMAC_INT_STA);
 
 	/* Clear ISR status */
-	wemac_write_reg(sc, EMAC_INT_STA, intstatus);
+	wemac_write_reg(sc, EMAC_INT_STA, int_status);
 
 	WEMAC_ASSERT_LOCKED(sc);
 
 	/* Received the coming packet */
-	if ((intstatus & 0x100) && (emacrx_completed_flag == 1)) {
-		/* carrier lost */
+	if ((int_status & 0x100) && (emacrx_completed_flag == 1)) {
 		emacrx_completed_flag = 0;
-		wemac_rxeof(sc);
+
+		/* Read the packets off the device */
+		while (wemac_rxeof(sc) == 0)
+			continue;
 	}
 
 	/* Transmit Interrupt check */
-	if (intstatus & (0x01 | 0x02))
-		wemac_tx_done(sc, intstatus);
+	if (int_status & (0x01 | 0x02))
+		wemac_txeof(sc);
 
 	/* Re-enable interrupt mask */
 	if (emacrx_completed_flag == 1) {
@@ -563,7 +586,7 @@ wemac_attach(device_t dev)
 {
 	uint8_t eaddr[ETHER_ADDR_LEN];
 	struct wemac_softc *sc;
-        device_t sc_gpio_dev;
+	device_t sc_gpio_dev;
 	struct ifnet *ifp;
 	int error, rid;
 	uint32_t reg_val;

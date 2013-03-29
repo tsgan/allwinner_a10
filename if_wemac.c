@@ -620,6 +620,15 @@ wemac_attach(device_t dev)
 	sc->wemac_tag = rman_get_bustag(sc->wemac_res);
 	sc->wemac_handle = rman_get_bushandle(sc->wemac_res);
 
+	rid = 0;
+	sc->wemac_irq = bus_alloc_resource_any(dev, SYS_RES_IRQ, &rid,
+	    RF_SHAREABLE | RF_ACTIVE);
+	if (sc->wemac_irq == NULL) {
+		device_printf(dev, "cannot allocate IRQ resources.\n");
+		error = ENXIO;
+		goto fail;
+	}
+
 	/* Get the GPIO device, we need this to give power to wemac */
 	sc_gpio_dev = devclass_get_device(devclass_find("gpio"), 0);
 	if (sc_gpio_dev == NULL) {

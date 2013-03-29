@@ -628,6 +628,8 @@ wemac_attach(device_t dev)
 		goto fail;
 	}
 
+	sc->wemac_rx_completed_flag = 1;
+
 	/* Give power to wemac */
 	GPIO_PIN_SETFLAGS(sc_gpio_dev, GPIO_WEMAC_PWR, GPIO_PIN_OUTPUT);
 	GPIO_PIN_SET(sc_gpio_dev, GPIO_WEMAC_PWR, GPIO_PIN_HIGH);

@@ -394,6 +394,8 @@ wemac_intr(void *arg)
 
 	ifp = sc->wemac_ifp;	
 
+	WEMAC_LOCK(sc);
+
 	/* Disable all interrupts */
 	wemac_write_reg(sc, EMAC_INT_CTL, 0);
 
@@ -427,6 +429,8 @@ wemac_intr(void *arg)
 		reg_val |= (0xf << 0) | (0x01 << 8);
 		wemac_write_reg(sc, EMAC_INT_CTL, reg_val);
 	}
+
+	WEMAC_UNLOCK(sc);
 }
 
 static void

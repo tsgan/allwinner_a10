@@ -97,6 +97,7 @@ struct wemac_softc {
 	struct callout		wemac_tick_ch;
 	int			wemac_tx_fifo_stat;
 	int			wemac_watchdog_timer;
+	int			wemac_rx_completed_flag;
 };
 
 static int wemac_probe(device_t);
@@ -112,7 +113,6 @@ static int wemac_miibus_readreg(device_t dev, int phy, int reg);
 static int wemac_miibus_writereg(device_t dev, int phy, int reg, int data);
 static void wemac_miibus_statchg(device_t);
 
-#define WEMAC_MAX_FRAME_LEN	0x0600
 #define WEMAC_PHY		0x100 /* PHY address 0x01 */
 
 #define SW_CCM_AHB_GATING	0xe1c20060
@@ -127,8 +127,6 @@ static void wemac_miibus_statchg(device_t);
 	bus_space_read_4(sc->wemac_tag, sc->wemac_handle, reg)
 #define wemac_write_reg(sc, reg, val)	\
 	bus_space_write_4(sc->wemac_tag, sc->wemac_handle, reg, val)
-
-static int emacrx_completed_flag = 1;
 
 static void
 wemac_reset(struct wemac_softc *sc)
@@ -151,6 +149,10 @@ wemac_start_locked(struct ifnet *ifp)
 	uint32_t channel, reg_val;
 
 	sc = ifp->if_softc;
+
+	if ((ifp->if_drv_flags & (IFF_DRV_RUNNING | IFF_DRV_OACTIVE)) !=
+	    IFF_DRV_RUNNING || (sc->wemac_flags & WEMAC_FLAG_LINK) == 0)
+		return;
 
 	channel = sc->wemac_tx_fifo_stat & 3;
 	if (channel == 3)
@@ -261,7 +263,7 @@ wemac_rxeof(struct wemac_softc *sc)
 	/* Read the first byte to check it correct */
 	reg_val = wemac_read_reg(sc, EMAC_RX_FBC);
 	if (!reg_val) {
-		emacrx_completed_flag = 1;
+		sc->wemac_rx_completed_flag = 1;
 		reg_val = wemac_read_reg(sc, EMAC_INT_CTL);
 		reg_val |= (0xf << 0) | (0x01 << 8);
 		wemac_write_reg(sc, EMAC_INT_CTL, reg_val);
@@ -298,7 +300,7 @@ wemac_rxeof(struct wemac_softc *sc)
 		reg_val |= (0xf << 0) | (0x01 << 8);
 		wemac_write_reg(sc, EMAC_INT_CTL, reg_val);
 
-		emacrx_completed_flag = 1;
+		sc->wemac_rx_completed_flag = 1;
 
 		return 0;
 	}
@@ -373,16 +375,14 @@ wemac_tick(void *arg)
 	struct mii_data *mii;
 
 	sc = (struct wemac_softc *)arg;
-
 	mii = device_get_softc(sc->wemac_miibus);
 	mii_tick(mii);
-	if ((sc->wemac_flags & WEMAC_FLAG_LINK) == 0)
+	if((sc->wemac_flags & WEMAC_FLAG_LINK) == 0)
 		wemac_miibus_statchg(sc->wemac_dev);
 
-	wemac_txeof(sc);
 	wemac_watchdog(sc);
 
-	callout_reset(&sc->wemac_tick_ch, hz/100, wemac_tick, sc);
+	callout_reset(&sc->wemac_tick_ch, hz, wemac_tick, sc);
 }
 
 static void
@@ -390,6 +390,9 @@ wemac_intr(void *arg)
 {
 	struct wemac_softc *sc = (struct wemac_softc *)arg;
 	uint32_t int_status, reg_val;
+	struct ifnet *ifp;
+
+	ifp = sc->wemac_ifp;	
 
 	/* Disable all interrupts */
 	wemac_write_reg(sc, EMAC_INT_CTL, 0);
@@ -404,20 +407,22 @@ wemac_intr(void *arg)
 	WEMAC_ASSERT_LOCKED(sc);
 
 	/* Received the coming packet */
-	if ((int_status & 0x100) && (emacrx_completed_flag == 1)) {
-		emacrx_completed_flag = 0;
+	if ((int_status & 0x100) && (sc->wemac_rx_completed_flag == 1)) {
+		sc->wemac_rx_completed_flag = 0;
 
 		/* Read the packets off the device */
-		while (wemac_rxeof(sc) == 0)
-			continue;
+		wemac_rxeof(sc);
 	}
 
 	/* Transmit Interrupt check */
-	if (int_status & (0x01 | 0x02))
+	if (int_status & (0x01 | 0x02)){
 		wemac_txeof(sc);
+		if (!IFQ_DRV_IS_EMPTY(&ifp->if_snd))
+			wemac_start_locked(ifp);
+	}
 
 	/* Re-enable interrupt mask */
-	if (emacrx_completed_flag == 1) {
+	if (sc->wemac_rx_completed_flag == 1) {
 		reg_val = wemac_read_reg(sc, EMAC_INT_CTL);
 		reg_val |= (0xf << 0) | (0x01 << 8);
 		wemac_write_reg(sc, EMAC_INT_CTL, reg_val);
@@ -792,7 +797,10 @@ wemac_miibus_readreg(device_t dev, int phy, int reg)
 
 	/* pull up the phy io line */
 	wemac_write_reg(sc, EMAC_MAC_MCMD, 0x1);
-	DELAY(1000);
+
+	/* Wait read complete */
+	while(wemac_read_reg(sc, EMAC_MAC_MIND) & 0x1)
+		;
 
 	/* push down the phy io line */
 	wemac_write_reg(sc, EMAC_MAC_MCMD, 0x0);
@@ -819,7 +827,10 @@ wemac_miibus_writereg(device_t dev, int phy, int reg, int data)
 
 	/* pull up the phy io line */
 	wemac_write_reg(sc, EMAC_MAC_MCMD, 0x1);
-	DELAY(1000);
+
+	/* Wait read complete */
+	while(wemac_read_reg(sc, EMAC_MAC_MIND) & 0x1)
+		;
 
 	/* push down the phy io line */
 	wemac_write_reg(sc, EMAC_MAC_MCMD, 0x0);

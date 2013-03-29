@@ -310,10 +310,10 @@ wemac_rxeof(struct wemac_softc *sc)
 		return (ENOBUFS);
 
 	m->m_pkthdr.rcvif = ifp;
-//      m->m_len = m->m_pkthdr.len = MCLBYTES;
+//	m->m_len = m->m_pkthdr.len = MCLBYTES;
+//	m_adj(m, sizeof(uint32_t));
 	m->m_len = m->m_pkthdr.len = len;
-//	m_adj(m, ETHER_ALIGN);
-        m_adj(m, sizeof(uint32_t));
+	m_adj(m, ETHER_ALIGN);
 
 	/* XXX Read the data (maybe need to try bus_space_read_multi_(1-4)) */
 	bus_space_read_multi_2(sc->wemac_tag, sc->wemac_handle, EMAC_RX_IO_DATA,

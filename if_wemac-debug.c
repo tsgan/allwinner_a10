@@ -318,7 +318,7 @@ wemac_txeof(struct wemac_softc *sc)
 	ifp = sc->wemac_ifp;
 
 	/* Get WEMAC interrupt status */
-	int_status = wemac_read_reg(sc, EMAC_INT_STA);
+//	int_status = wemac_read_reg(sc, EMAC_INT_STA);
 
 //	sc->wemac_tx_fifo_stat &= ~(int_status & 3);
 //	if ((int_status & 3) == 3) {

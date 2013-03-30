@@ -146,7 +146,7 @@ wemac_start_locked(struct ifnet *ifp)
 	struct wemac_softc *sc;
 	struct mbuf *m, *mp;
 	int len, total_len;
-	uint32_t channel, reg_val;
+	uint32_t reg_val;
 
 	sc = ifp->if_softc;
 
@@ -154,19 +154,10 @@ wemac_start_locked(struct ifnet *ifp)
 	    IFF_DRV_RUNNING || (sc->wemac_flags & WEMAC_FLAG_LINK) == 0)
 		return;
 
-	channel = sc->wemac_tx_fifo_stat & 3;
-	if (channel == 3)
-		return;
-
 	WEMAC_ASSERT_LOCKED(sc);
 
 	/* Select channel */
-	wemac_write_reg(sc, EMAC_TX_INS, channel);
-
-	/* Set TX mode */
-	wemac_write_reg(sc, EMAC_TX_MODE, EMAC_TX_TM);
-
-	sc->wemac_tx_fifo_stat |= 1 << channel;
+	wemac_write_reg(sc, EMAC_TX_INS, 0);
 
 	if (ifp->if_drv_flags & IFF_DRV_OACTIVE)
 		return;
@@ -175,6 +166,10 @@ wemac_start_locked(struct ifnet *ifp)
 		IFQ_DRV_DEQUEUE(&ifp->if_snd, m);
 		if (m == NULL)
 			break;
+
+		/* Write data to network */
+		bus_space_write_1(sc->wemac_tag, sc->wemac_handle, 
+		    EMAC_MAC_MCMD, EMAC_MAC_MWTD);
 
 		/*
 		 * TODO: Fix the case where an mbuf is
@@ -199,28 +194,14 @@ wemac_start_locked(struct ifnet *ifp)
 		}
 
 		/* 
-		 * Send the data lengh and the packet.
+		 * Send the data lengh.
 		 * Start translate from fifo to phy.
 		 */
-		if (channel == 0) {
-			wemac_write_reg(sc, EMAC_TX_PL0, total_len);
+		wemac_write_reg(sc, EMAC_TX_PL0, total_len);
 
-			reg_val = wemac_read_reg(sc, EMAC_TX_CTL0);
-			reg_val |= 1;
-			wemac_write_reg(sc, EMAC_TX_CTL0, reg_val);
-
-		} else if (channel == 1) {
-			wemac_write_reg(sc, EMAC_TX_PL1, total_len);
-
-			reg_val = wemac_read_reg(sc, EMAC_TX_CTL1);
-			reg_val |= 1;
-			wemac_write_reg(sc, EMAC_TX_CTL1, reg_val);
-		}
-
-		if((sc->wemac_tx_fifo_stat & 3) == 3) {
-			/* Second packet */
-			IFQ_DRV_DEQUEUE(&ifp->if_snd, m);
-		}
+		reg_val = wemac_read_reg(sc, EMAC_TX_CTL0);
+		reg_val |= 1;
+		wemac_write_reg(sc, EMAC_TX_CTL0, reg_val);
 
 		BPF_MTAP(ifp, m);
 
@@ -274,10 +255,8 @@ wemac_rxeof(struct wemac_softc *sc)
 			return -1;
 	}
 
-	/* Read the data */
-	reg_val = wemac_read_reg(sc, EMAC_RX_IO_DATA);
-	len = reg_val & 0xFFFF;
 
+	reg_val = wemac_read_reg(sc, EMAC_RX_IO_DATA);
 	if (reg_val != 0x0143414d) {
 		/* Disable RX */
 		reg_val = wemac_read_reg(sc, EMAC_CTL);
@@ -305,14 +284,16 @@ wemac_rxeof(struct wemac_softc *sc)
 		return 0;
 	}
 
+//	len = reg_val & 0xFFFF;
+
 	m = m_getcl(M_NOWAIT, MT_DATA, M_PKTHDR);
 	if (m == NULL)
 		return (ENOBUFS);
 
 	m->m_pkthdr.rcvif = ifp;
-//	m->m_len = m->m_pkthdr.len = MCLBYTES;
+	m->m_len = m->m_pkthdr.len = len = MCLBYTES;
 //	m_adj(m, sizeof(uint32_t));
-	m->m_len = m->m_pkthdr.len = len;
+//	m->m_len = m->m_pkthdr.len = len;
 	m_adj(m, ETHER_ALIGN);
 
 	/* XXX Read the data (maybe need to try bus_space_read_multi_(1-4)) */
@@ -339,10 +320,10 @@ wemac_txeof(struct wemac_softc *sc)
 	/* Get WEMAC interrupt status */
 	int_status = wemac_read_reg(sc, EMAC_INT_STA);
 
-	sc->wemac_tx_fifo_stat &= ~(int_status & 3);
-	if ((int_status & 3) == 3) {
-		ifp->if_opackets++;
-	}
+//	sc->wemac_tx_fifo_stat &= ~(int_status & 3);
+//	if ((int_status & 3) == 3) {
+//		ifp->if_opackets++;
+//	}
 	ifp->if_opackets++;
 
 	ifp->if_drv_flags &= ~IFF_DRV_OACTIVE;
@@ -536,7 +517,7 @@ static void wemac_init_locked(struct wemac_softc *sc)
 
 	sc->wemac_tx_fifo_stat = 0;
 
-	callout_reset(&sc->wemac_tick_ch, hz/100, wemac_tick, sc);
+	callout_reset(&sc->wemac_tick_ch, hz, wemac_tick, sc);
 }
 
 static void

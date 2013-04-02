@@ -281,7 +281,7 @@ wemac_rxeof(struct wemac_softc *sc)
 
 		sc->wemac_rx_completed_flag = 1;
 
-		return 0;
+		return 1;
 	}
 
 //	len = reg_val & 0xFFFF;
@@ -363,6 +363,7 @@ wemac_tick(void *arg)
 	if((sc->wemac_flags & WEMAC_FLAG_LINK) == 0)
 		wemac_miibus_statchg(sc->wemac_dev);
 
+//	wemac_txeof(sc);
 	wemac_watchdog(sc);
 
 	callout_reset(&sc->wemac_tick_ch, hz, wemac_tick, sc);
@@ -396,7 +397,8 @@ wemac_intr(void *arg)
 		sc->wemac_rx_completed_flag = 0;
 
 		/* Read the packets off the device */
-		wemac_rxeof(sc);
+		while(wemac_rxeof(sc) == 0)
+			continue;
 	}
 
 	/* Transmit Interrupt check */
@@ -811,7 +813,8 @@ wemac_miibus_readreg(device_t dev, int phy, int reg)
 	sc = device_get_softc(dev);
 
 	/* issue the phy address and reg */
-	wemac_write_reg(sc, EMAC_MAC_MADR, WEMAC_PHY | reg);
+//	wemac_write_reg(sc, EMAC_MAC_MADR, WEMAC_PHY | reg);
+	wemac_write_reg(sc, EMAC_MAC_MADR, (phy << 8) | reg);
 
 	/* pull up the phy io line */
 	wemac_write_reg(sc, EMAC_MAC_MCMD, 0x1);
@@ -841,7 +844,8 @@ wemac_miibus_writereg(device_t dev, int phy, int reg, int data)
 	sc = device_get_softc(dev);
 
 	/* issue the phy address and reg */
-	wemac_write_reg(sc, EMAC_MAC_MADR, WEMAC_PHY | reg);
+//	wemac_write_reg(sc, EMAC_MAC_MADR, WEMAC_PHY | reg);
+	wemac_write_reg(sc, EMAC_MAC_MADR, (phy << 8) | reg);
 
 	/* pull up the phy io line */
 	wemac_write_reg(sc, EMAC_MAC_MCMD, 0x1);

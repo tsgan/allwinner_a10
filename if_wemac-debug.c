@@ -98,6 +98,8 @@ struct wemac_softc {
 	int			wemac_tx_fifo_stat;
 	int			wemac_watchdog_timer;
 	int			wemac_rx_completed_flag;
+        unsigned char 		*buffer;
+	int			buf_len;
 };
 
 static int wemac_probe(device_t);
@@ -112,8 +114,10 @@ static void wemac_init_locked(struct wemac_softc *);
 static int wemac_miibus_readreg(device_t dev, int phy, int reg);
 static int wemac_miibus_writereg(device_t dev, int phy, int reg, int data);
 static void wemac_miibus_statchg(device_t);
+static void wemac_write_mbufs(struct wemac_softc *sc, struct mbuf *m);
+static void wemac_xmit_buf(struct wemac_softc *sc);
 
-#define WEMAC_PHY		0x100 /* PHY address 0x01 */
+#define WEMAC_PHY		0x1 /* PHY address 0x01 */
 
 #define SW_CCM_AHB_GATING	0xe1c20060
 #define AHB_GATE_OFFSET_EMAC	17
@@ -128,6 +132,35 @@ static void wemac_miibus_statchg(device_t);
 #define wemac_write_reg(sc, reg, val)	\
 	bus_space_write_4(sc->wemac_tag, sc->wemac_handle, reg, val)
 
+/*
+static void 
+wemac_inblk_32bit(struct wemac_softc *sc, uint32_t *reg, uint32_t *data, int count)
+{
+	int cnt = (count + 3) >> 2;
+
+	if (cnt) {
+		uint32_t *buf = data;
+
+		do {
+			uint32_t x = wemac_read_reg(sc, *reg);
+			*buf++ = x;
+		} while (--cnt);
+	}
+}
+static void 
+wemac_outblk_32bit(struct wemac_softc *sc, uint32_t *reg, uint32_t *data, int count)
+{
+	int cnt = (count + 3) >> 2;
+
+	if (cnt) {
+		const uint32_t *buf = data;
+
+		do {
+			wemac_write_reg(sc, *reg, *buf++);
+		} while (--cnt);
+	}
+}
+*/
 static void
 wemac_reset(struct wemac_softc *sc)
 {
@@ -145,7 +178,7 @@ wemac_start_locked(struct ifnet *ifp)
 {
 	struct wemac_softc *sc;
 	struct mbuf *m, *mp;
-	int len, total_len;
+	int len;//, total_len;
 	uint32_t reg_val;
 
 	sc = ifp->if_softc;
@@ -162,53 +195,50 @@ wemac_start_locked(struct ifnet *ifp)
 	if (ifp->if_drv_flags & IFF_DRV_OACTIVE)
 		return;
 
-	while (!IFQ_DRV_IS_EMPTY(&ifp->if_snd)) {
-		IFQ_DRV_DEQUEUE(&ifp->if_snd, m);
-		if (m == NULL)
-			break;
+        for (;;) {
+                if (sc->buf_len)
+                        len = sc->buf_len;
+                else {
+                        IF_DEQUEUE(&ifp->if_snd, m);
 
-		/* Write data to network */
-		bus_space_write_1(sc->wemac_tag, sc->wemac_handle, 
-		    EMAC_MAC_MCMD, EMAC_MAC_MWTD);
+                        if(m == NULL)
+                                return;
 
-		/*
-		 * TODO: Fix the case where an mbuf is
-		 * not a multiple of the write size.
-		 */
-		total_len = 0;
-		for (mp = m; mp != NULL; mp = mp->m_next) {
-			len = mp->m_len;
+                        for(len = 0, mp = m; mp != NULL; mp = mp->m_next)
+                                len += mp->m_len;
 
-			/* Ignore empty parts */
-			if (len == 0)
-				continue;
+                        /* Skip zero-length packets */
+                        if (len == 0) {
+                                m_freem(m);
+                                continue;
+                        }
 
-			total_len += len;
+                        wemac_write_mbufs(sc, m);
 
-			/* 
-			 * XXX Write the data.
-			 * Maybe need to try bus_space_write_multi_(1-4)).
-			 */
-			bus_space_write_multi_2(sc->wemac_tag, sc->wemac_handle,
-			    EMAC_TX_IO_DATA, mtod(mp, uint16_t *), (len + 1) / 2);
-		}
+                        BPF_MTAP(ifp, m);
+
+                        m_freem(m);
+                }
 
 		/* 
 		 * Send the data lengh.
 		 * Start translate from fifo to phy.
 		 */
-		wemac_write_reg(sc, EMAC_TX_PL0, total_len);
+		wemac_write_reg(sc, EMAC_TX_PL0, len);
 
 		reg_val = wemac_read_reg(sc, EMAC_TX_CTL0);
 		reg_val |= 1;
 		wemac_write_reg(sc, EMAC_TX_CTL0, reg_val);
 
-		BPF_MTAP(ifp, m);
+                wemac_xmit_buf(sc);
 
-		m_freem(m);
-	}
-	/* set timeout */
-	sc->wemac_watchdog_timer = 5;
+                /* set timeout */
+		sc->wemac_watchdog_timer = 5;
+
+                ifp->if_drv_flags |= IFF_DRV_OACTIVE;
+
+                return;
+        }
 }
 
 static void
@@ -255,8 +285,9 @@ wemac_rxeof(struct wemac_softc *sc)
 			return -1;
 	}
 
-
 	reg_val = wemac_read_reg(sc, EMAC_RX_IO_DATA);
+//	len = reg_val & 0xFFFF;
+	len = reg_val;
 	if (reg_val != 0x0143414d) {
 		/* Disable RX */
 		reg_val = wemac_read_reg(sc, EMAC_CTL);
@@ -284,17 +315,30 @@ wemac_rxeof(struct wemac_softc *sc)
 		return 1;
 	}
 
-//	len = reg_val & 0xFFFF;
-
-	m = m_getcl(M_NOWAIT, MT_DATA, M_PKTHDR);
+	MGETHDR(m, M_DONTWAIT, MT_DATA);
 	if (m == NULL)
-		return (ENOBUFS);
+		return -1;
 
+	if (len > MHLEN) {
+		MCLGET(m, M_DONTWAIT);
+		if (!(m->m_flags & M_EXT)) {
+			m_freem(m);
+			return -1;
+		}
+	}
 	m->m_pkthdr.rcvif = ifp;
 	m->m_len = m->m_pkthdr.len = len = MCLBYTES;
-//	m_adj(m, sizeof(uint32_t));
-//	m->m_len = m->m_pkthdr.len = len;
 	m_adj(m, ETHER_ALIGN);
+
+//	m = m_getcl(M_NOWAIT, MT_DATA, M_PKTHDR);
+//	if (m == NULL)
+//		return (ENOBUFS);
+
+//	m->m_pkthdr.rcvif = ifp;
+//	m->m_len = m->m_pkthdr.len = len = MCLBYTES;
+////	m_adj(m, sizeof(uint32_t));
+////	m->m_len = m->m_pkthdr.len = len;
+//	m_adj(m, ETHER_ALIGN);
 
 	/* XXX Read the data (maybe need to try bus_space_read_multi_(1-4)) */
 	bus_space_read_multi_2(sc->wemac_tag, sc->wemac_handle, EMAC_RX_IO_DATA,
@@ -397,8 +441,9 @@ wemac_intr(void *arg)
 		sc->wemac_rx_completed_flag = 0;
 
 		/* Read the packets off the device */
-		while(wemac_rxeof(sc) == 0)
-			continue;
+		wemac_rxeof(sc);
+//		while(wemac_rxeof(sc) == 0)
+//			continue;
 	}
 
 	/* Transmit Interrupt check */
@@ -518,6 +563,7 @@ static void wemac_init_locked(struct wemac_softc *sc)
 	ifp->if_drv_flags &= ~IFF_DRV_OACTIVE;
 
 	sc->wemac_tx_fifo_stat = 0;
+        sc->buf_len = 0;
 
 	callout_reset(&sc->wemac_tick_ch, hz, wemac_tick, sc);
 }
@@ -537,9 +583,12 @@ wemac_ifmedia_upd(struct ifnet *ifp)
 {
 	struct wemac_softc *sc;
 	struct mii_data *mii;
+        struct mii_softc *miisc;
 
 	sc = ifp->if_softc;
 	mii = device_get_softc(sc->wemac_miibus);
+        LIST_FOREACH(miisc, &mii->mii_phys, mii_list)
+                PHY_RESET(miisc);
 
 	WEMAC_LOCK(sc);
 	mii_mediachg(mii);
@@ -625,6 +674,13 @@ wemac_attach(device_t dev)
 		error = ENXIO;
 		goto fail;
 	}
+
+        sc->buffer=malloc(ETHER_MAX_LEN - ETHER_CRC_LEN, M_DEVBUF, M_NOWAIT);
+        if (sc->buffer == NULL) {
+                device_printf(dev, "Couldn't allocate memory for NIC\n");
+		error = ENOMEM;
+		goto fail;
+        }
 
 	sc->wemac_rx_completed_flag = 1;
 
@@ -736,12 +792,39 @@ wemac_attach(device_t dev)
 	IFQ_SET_MAXLEN(&ifp->if_snd, IFQ_MAXLEN);
 
 	/* XXX: Hardcode the ethernet address for now */
-	eaddr[0] = 0x08;
-	eaddr[1] = 0x08;
-	eaddr[2] = 0x11;
-	eaddr[3] = 0x18;
-	eaddr[4] = 0x12;
-	eaddr[5] = 0x27;
+/*
+	eaddr[0] = 0xf2;
+	eaddr[1] = 0x9b;
+	eaddr[2] = 0x61;
+	eaddr[3] = 0xb3;
+	eaddr[4] = 0x4a;
+	eaddr[5] = 0x00;
+*/
+	eaddr[0] = 0x4e;
+	eaddr[1] = 0x34;
+	eaddr[2] = 0x84;
+	eaddr[3] = 0xd3;
+	eaddr[4] = 0xd3;
+	eaddr[5] = 0xa9;
+/*
+4e:34:84:d3:d3:a9
+root@android:/ # netcfg
+lo       UP                                   127.0.0.1/8   0x00000049 00:00:00:00:00:00
+eth0     DOWN                                   0.0.0.0/0   0x00001002 f2:9b:61:b3:4a:00
+tunl0    DOWN                                   0.0.0.0/0   0x00000080 00:00:00:00:00:00
+sit0     DOWN                                   0.0.0.0/0   0x00000080 00:00:00:00:00:00
+root@android:/ # ifconfig eth0
+eth0: Cannot assign requested address
+255|root@android:/ # ifconfig eth0 inet 172.30.38.111 netmask 255.255.255.0
+[  284.300000] wemac wemac.0: WARNING: no IRQ resource flags set.
+[  284.450000] wemac wemac.0: eth0: link up, 100Mbps, full-duplex, lpa 0xC1E1
+root@android:/ # netcfg
+lo       UP                                   127.0.0.1/8   0x00000049 00:00:00:00:00:00
+eth0     UP                               172.30.38.111/24  0x00001043 f2:9b:61:b3:4a:00
+tunl0    DOWN                                   0.0.0.0/0   0x00000080 00:00:00:00:00:00
+sit0     DOWN                                   0.0.0.0/0   0x00000080 00:00:00:00:00:00
+root@android:/ # [  295.300000] eth0: no IPv6 routers present
+*/
 
 //        printf("------- WEMAC 2 --------------\n");
 
@@ -795,6 +878,45 @@ wemac_detach(device_t dev)
 	mtx_destroy(&sc->wemac_mtx);
 
 	return (0);
+}
+
+/*
+ * Save the data in buffer
+ */
+
+static void
+wemac_write_mbufs(struct wemac_softc *sc, struct mbuf *m)
+{
+        int len;
+        struct mbuf *mp;
+        unsigned char *data, *buf;
+
+        for (mp=m, buf=sc->buffer, sc->buf_len=0; mp != NULL; mp=mp->m_next) {
+                len = mp->m_len;
+
+                /*
+                 * Ignore empty parts
+                 */
+                if (!len)
+                        continue;
+
+                /*
+                 * Find actual data address
+                 */
+                data = mtod(mp, caddr_t);
+
+                bcopy((caddr_t) data, (caddr_t) buf, len);
+                buf += len;
+                sc->buf_len += len;
+        }
+}
+
+static void
+wemac_xmit_buf(struct wemac_softc *sc)
+{
+        bus_space_write_multi_2(sc->wemac_tag, sc->wemac_handle, 
+	    EMAC_TX_IO_DATA, (uint16_t *)sc->buffer, (sc->buf_len + 1) >> 1);
+        sc->buf_len = 0;
 }
 
 /*

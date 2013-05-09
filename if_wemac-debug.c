@@ -287,7 +287,7 @@ wemac_rxeof(struct wemac_softc *sc)
 
 	reg_val = wemac_read_reg(sc, EMAC_RX_IO_DATA);
 //	len = reg_val & 0xFFFF;
-	len = reg_val;
+//	len = reg_val;
 	if (reg_val != 0x0143414d) {
 		/* Disable RX */
 		reg_val = wemac_read_reg(sc, EMAC_CTL);
@@ -314,7 +314,7 @@ wemac_rxeof(struct wemac_softc *sc)
 
 		return 1;
 	}
-
+/*
 	MGETHDR(m, M_DONTWAIT, MT_DATA);
 	if (m == NULL)
 		return -1;
@@ -329,16 +329,16 @@ wemac_rxeof(struct wemac_softc *sc)
 	m->m_pkthdr.rcvif = ifp;
 	m->m_len = m->m_pkthdr.len = len = MCLBYTES;
 	m_adj(m, ETHER_ALIGN);
+*/
+	m = m_getcl(M_NOWAIT, MT_DATA, M_PKTHDR);
+	if (m == NULL)
+		return (ENOBUFS);
 
-//	m = m_getcl(M_NOWAIT, MT_DATA, M_PKTHDR);
-//	if (m == NULL)
-//		return (ENOBUFS);
-
-//	m->m_pkthdr.rcvif = ifp;
-//	m->m_len = m->m_pkthdr.len = len = MCLBYTES;
+	m->m_pkthdr.rcvif = ifp;
+	m->m_len = m->m_pkthdr.len = len = MCLBYTES;
 ////	m_adj(m, sizeof(uint32_t));
 ////	m->m_len = m->m_pkthdr.len = len;
-//	m_adj(m, ETHER_ALIGN);
+	m_adj(m, ETHER_ALIGN);
 
 	/* XXX Read the data (maybe need to try bus_space_read_multi_(1-4)) */
 	bus_space_read_multi_2(sc->wemac_tag, sc->wemac_handle, EMAC_RX_IO_DATA,

@@ -1,0 +1,26 @@
+# $FreeBSD: head/sys/arm/allwinner/files.a10 247520 2013-03-01 01:47:11Z ganbold $
+kern/kern_clocksource.c			standard
+
+arm/arm/bus_space_asm_generic.S		standard
+arm/arm/bus_space_generic.c		standard
+arm/arm/cpufunc_asm_armv5.S		standard
+arm/arm/cpufunc_asm_arm10.S		standard
+arm/arm/cpufunc_asm_arm11.S		standard
+arm/arm/cpufunc_asm_armv7.S		standard
+arm/arm/irq_dispatch.S			standard
+
+arm/arm/gic.c                           standard
+
+arm/allwinner/a20/a20_clk.c		standard
+arm/allwinner/a20/a20_gpio.c		optional	gpio
+
+arm/allwinner/a20/a20_ehci.c		optional	ehci
+arm/allwinner/a20/a20_wdog.c		standard
+arm/allwinner/a20/timer.c		standard
+#arm/allwinner/a20/aintc.c		standard
+arm/allwinner/a20/bus_space.c		standard
+arm/allwinner/a20/common.c		standard
+
+arm/allwinner/a20/console.c		standard
+
+arm/allwinner/a20/a20_machdep.c		standard

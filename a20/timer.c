@@ -62,9 +62,9 @@ __FBSDID("$FreeBSD: head/sys/arm/allwinner/timer.c 247463 2013-02-28 13:46:03Z m
 #define SW_TIMER0_INT_VALUE_REG	0x14
 #define SW_TIMER0_CUR_VALUE_REG	0x18
 
-#define SW_COUNTER64LO_REG	0xa4
-#define SW_COUNTER64HI_REG	0xa8
-#define CNT64_CTRL_REG		0xa0
+#define SW_COUNTER64LO_REG	(0xe1c25c00 + 0x0284)
+#define SW_COUNTER64HI_REG	(0xe1c25c00 + 0x0288)
+#define CNT64_CTRL_REG		(0xe1c25c00 + 0x0280)
 
 #define CNT64_RL_EN		0x02 /* read latch enable */
 
@@ -92,6 +92,9 @@ int a20_timer_get_timerfreq(struct a20_timer_softc *);
 	bus_space_read_4(sc->sc_bst, sc->sc_bsh, reg)
 #define timer_write_4(sc, reg, val)	\
 	bus_space_write_4(sc->sc_bst, sc->sc_bsh, reg, val)
+
+#define REG_READ(reg)                   (*(volatile uint32_t *)(reg))
+#define REG_WRITE(reg, val)             (*(volatile uint32_t *)(reg) = (val))
 
 static u_int	a20_timer_get_timecount(struct timecounter *);
 static int	a20_timer_timer_start(struct eventtimer *,
@@ -127,12 +130,12 @@ timer_read_counter64(void)
 	uint32_t lo, hi;
 
 	/* Latch counter, wait for it to be ready to read. */
-	timer_write_4(a20_timer_sc, CNT64_CTRL_REG, CNT64_RL_EN);
-	while (timer_read_4(a20_timer_sc, CNT64_CTRL_REG) & CNT64_RL_EN)
+	REG_WRITE(CNT64_CTRL_REG, CNT64_RL_EN);
+	while (REG_READ(CNT64_CTRL_REG) & CNT64_RL_EN)
 		continue;
 
-	hi = timer_read_4(a20_timer_sc, SW_COUNTER64HI_REG);
-	lo = timer_read_4(a20_timer_sc, SW_COUNTER64LO_REG);
+	hi = REG_READ(SW_COUNTER64HI_REG);
+	lo = REG_READ(SW_COUNTER64LO_REG);
 
 	return (((uint64_t)hi << 32) | lo);
 }
@@ -367,4 +370,3 @@ DELAY(int usec)
 	while (now < end)
 		now = timer_read_counter64();
 }
-

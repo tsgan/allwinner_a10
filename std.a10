@@ -1,5 +1,5 @@
 # Allwinner A10 common options
-#$FreeBSD$
+#$FreeBSD: head/sys/arm/allwinner/std.a10 245450 2013-01-15 08:26:16Z ganbold $
 
 cpu		CPU_CORTEXA
 machine 	arm armv6

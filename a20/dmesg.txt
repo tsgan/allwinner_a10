@@ -1,0 +1,326 @@
+## Starting application at 0x40200100 ...
+KDB: debugger backends: ddb
+KDB: current backend: ddb
+Copyright (c) 1992-2013 The FreeBSD Project.
+Copyright (c) 1979, 1980, 1983, 1986, 1988, 1989, 1991, 1992, 1993, 1994
+        The Regents of the University of California. All rights reserved.
+FreeBSD is a registered trademark of The FreeBSD Foundation.
+FreeBSD 10.0-CURRENT #32: Thu Aug  1 16:32:42 ULAT 2013
+    tsgan@bsd.mobicom.mn:/usr/obj/arm.armv6/usr/src/sys/CUBIEBOARD2 arm
+FreeBSD clang version 3.3 (tags/RELEASE_33/final 183502) 20130610
+WARNING: WITNESS option enabled, expect reduced performance.
+CPU: Cortex A7 rev 4 (Cortex-A core)
+ Supported features: ARM_ISA THUMB2 JAZELLE THUMBEE ARMv4 Security_Ext
+ WB disabled EABT branch prediction enabled
+LoUU:2 LoC:2 LoUIS:2
+Cache level 1:
+ 32KB/64B 4-way data cache WB Read-Alloc Write-Alloc
+ 32KB/32B 2-way instruction cache Read-Alloc
+Cache level 2:
+ 256KB/64B 8-way unified cache WB Read-Alloc Write-Alloc
+real memory  = 1073741824 (1024 MB)
+avail memory = 1031815168 (984 MB)
+random device not loaded; using insecure entropy
+random: <Software, Yarrow> initialized
+simplebus0: <Flattened device tree simple bus> on fdtbus0
+gic0: <ARM Generic Interrupt Controller> mem 0x1c81000-0x1c81fff,0x1c82000-0x1c820ff on simplebus0
+gic0: pn 0x10, arch 0x2, rev 0x1, implementer 0x43b nirqs 160
+a20_ccm0: <Allwinner Clock Control Module> mem 0x1c20000-0x1c203ff on simplebus0
+a20_timer0: <Allwinner A20 timer> mem 0x1c20c00-0x1c20c8f irq 54 on simplebus0
+Event timer "a20_timer Eventtimer" frequency 24000000 Hz quality 1000
+Timecounter "a20_timer timer0" frequency 24000000 Hz quality 1000
+a20wd0: <Allwinner A20 Watchdog> mem 0x1c20c90-0x1c20c9f on simplebus0
+gpio0: <Allwinner GPIO controller> mem 0x1c20800-0x1c20bff irq 60 on simplebus0
+gpioc0: <GPIO controller> on gpio0
+gpiobus0: <GPIO bus> on gpio0
+ehci0: <Allwinner Integrated USB 2.0 controller> mem 0x1c14000-0x1c14fff irq 71 on simplebus0
+usbus0: EHCI version 1.0
+usbus0 on ehci0
+ehci1: <Allwinner Integrated USB 2.0 controller> mem 0x1c1c000-0x1c1cfff irq 72 on simplebus0
+usbus1: EHCI version 1.0
+usbus1 on ehci1
+uart0: <16750 or compatible> mem 0x1c28000-0x1c283ff irq 33 on simplebus0
+uart0: console (115200,n,8,1)
+Timecounters tick every 10.000 msec
+usbus0: 480Mbps High Speed USB v2.0
+usbus1: 480Mbps High Speed USB v2.0
+ugen0.1: <Allwinner> at usbus0
+uhub0: <Allwinner EHCI root HUB, class 9/0, rev 2.00/1.00, addr 1> on usbus0
+ugen1.1: <Allwinner> at usbus1
+uhub1: <Allwinner EHCI root HUB, class 9/0, rev 2.00/1.00, addr 1> on usbus1
+uhub1: 1 port with 1 removable, self powered
+uhub0: 1 port with 1 removable, self powered
+ugen1.2: <JetFlash> at usbus1
+umass0: <JetFlash Mass Storage Device, class 0/0, rev 2.00/1.00, addr 2> on usbus1
+umass0:  SCSI over Bulk-Only; quirks = 0x4100
+umass0:0:0:-1: Attached to scbus0
+da0 at umass-sim0 bus 0 scbus0 target 0 lun 0
+da0: <JetFlash Transcend 8GB 8.07> Removable Direct Access SCSI-4 device
+da0: 40.000MB/s transfers
+da0: 7656MB (15679488 512 byte sectors: 255H 63S/T 976C)
+da0: quirks=0x2<NO_6_BYTE>
+WARNING: WITNESS option enabled, expect reduced performance.
+Trying to mount root from ufs:/dev/da0s2 []...
+warning: no time-of-day clock registered, system time will not be set accurately
+lock order reversal:
+ 1st 0xc35b35ac pmap (pmap) @ /usr/src/sys/arm/arm/pmap-v6.c:2990
+ 2nd 0xc0729808 pmap pv global (pmap pv global) @ /usr/src/sys/arm/arm/pmap-v6.c:695
+KDB: stack backtrace:
+db_trace_self() at db_trace_self
+         pc = 0xc04b865c  lr = 0xc022e878 (X_db_symbol_values+0x11c)
+         sp = 0xd7b0fb08  fp = 0xd7b0fc20
+        r10 = 0xc35b35ac
+X_db_symbol_values() at X_db_symbol_values+0x11c
+         pc = 0xc022e878  lr = 0xc0336c8c (kdb_backtrace+0x38)
+         sp = 0xd7b0fc28  fp = 0xd7b0fc30
+         r4 = 0xc05c85c4  r5 = 0xc052967e
+         r6 = 0xc0508fb9  r7 = 0xc052967e
+kdb_backtrace() at kdb_backtrace+0x38
+         pc = 0xc0336c8c  lr = 0xc0350b98 (witness_checkorder+0xddc)
+         sp = 0xd7b0fc38  fp = 0xd7b0fc88
+         r4 = 0xc05091b0
+witness_checkorder() at witness_checkorder+0xddc
+         pc = 0xc0350b98  lr = 0xc02ff2bc (_rw_wlock_cookie+0x7c)
+         sp = 0xd7b0fc90  fp = 0xd7b0fcb8
+         r4 = 0x000002b7  r5 = 0xc052967b
+         r6 = 0xc0729818  r7 = 0xc0729818
+         r8 = 0xc0729808  r9 = 0xc35b30cc
+        r10 = 0xc35b30d8
+_rw_wlock_cookie() at _rw_wlock_cookie+0x7c
+         pc = 0xc02ff2bc  lr = 0xc04c2730 (pmap_copy+0x3b0)
+         sp = 0xd7b0fcc0  fp = 0xd7b0fce8
+         r4 = 0xc052967b  r5 = 0x00000000
+         r6 = 0xc07ebd04  r7 = 0xc0729818
+         r8 = 0x00008000
+pmap_copy() at pmap_copy+0x3b0
+         pc = 0xc04c2730  lr = 0xc04c24d0 (pmap_copy+0x150)
+         sp = 0xd7b0fcf0  fp = 0xd7b0fd28
+         r4 = 0xc35b30bc  r5 = 0x000d6000
+         r6 = 0xc052967b  r7 = 0x00008000
+         r8 = 0x000ce000  r9 = 0xc07e5020
+        r10 = 0x000ce000
+pmap_copy() at pmap_copy+0x150
+         pc = 0xc04c24d0  lr = 0xc049cb78 (vmspace_fork+0x790)
+         sp = 0xd7b0fd30  fp = 0xd7b0fd68
+         r4 = 0xc35b34f0  r5 = 0x00000000
+         r6 = 0x00008000  r7 = 0xc07ff690
+         r8 = 0xc35b3000  r9 = 0xc07ff5a0
+        r10 = 0x000ce000
+vmspace_fork() at vmspace_fork+0x790
+         pc = 0xc049cb78  lr = 0xc02d0dfc (fork1+0x1a4)
+         sp = 0xd7b0fd70  fp = 0xd7b0fde0
+         r4 = 0xc361a960  r5 = 0x00000000
+         r6 = 0xc3845960  r7 = 0x0000000c
+         r8 = 0xc35ae640  r9 = 0xc35b1640
+        r10 = 0xd7b0fdf4
+fork1() at fork1+0x1a4
+         pc = 0xc02d0dfc  lr = 0xc02d0c38 (sys_fork+0x24)
+         sp = 0xd7b0fde8  fp = 0xd7b0fe00
+         r4 = 0xc35b1640  r5 = 0x00000000
+         r6 = 0xd7b0fea8  r7 = 0x00000000
+         r8 = 0xd7b0fe58  r9 = 0xc35ae640
+        r10 = 0x00000012
+sys_fork() at sys_fork+0x24
+         pc = 0xc02d0c38  lr = 0xc04c8094 (swi_handler+0x284)
+         sp = 0xd7b0fe08  fp = 0xd7b0fea0
+         r4 = 0xc35b1640  r5 = 0x00000000
+swi_handler() at swi_handler+0x284
+         pc = 0xc04c8094  lr = 0xc04b9cbc (swi_entry+0x30)
+         sp = 0xd7b0fea8  fp = 0xbfffe940
+         r4 = 0x000e012c  r5 = 0x000c6c31
+         r6 = 0xd7b0fea8  r7 = 0x00000002
+         r8 = 0x000e0110  r9 = 0x000c6d69
+swi_entry() at swi_entry+0x30
+         pc = 0xc04b9cbc  lr = 0xc04b9cbc (swi_entry+0x30)
+         sp = 0xd7b0fea8  fp = 0xbfffe940
+Unable to unwind further
+lock order reversal:
+ 1st 0xc35b30bc pmap (pmap) @ /usr/src/sys/arm/arm/pmap-v6.c:2990
+ 2nd 0xc081f0fc vm map (system) (vm map (system)) @ /usr/src/sys/vm/vm_kern.c:428
+KDB: stack backtrace:
+db_trace_self() at db_trace_self
+         pc = 0xc04b865c  lr = 0xc022e878 (X_db_symbol_values+0x11c)
+         sp = 0xdb961960  fp = 0xdb961a78
+        r10 = 0xc35b30bc
+X_db_symbol_values() at X_db_symbol_values+0x11c
+         pc = 0xc022e878  lr = 0xc0336c8c (kdb_backtrace+0x38)
+         sp = 0xdb961a80  fp = 0xdb961a88
+         r4 = 0xc05c85c4  r5 = 0xc05249b4
+         r6 = 0xc0508fb9  r7 = 0xc052967e
+kdb_backtrace() at kdb_backtrace+0x38
+         pc = 0xc0336c8c  lr = 0xc0350b98 (witness_checkorder+0xddc)
+         sp = 0xdb961a90  fp = 0xdb961ae0
+         r4 = 0xc050916c
+witness_checkorder() at witness_checkorder+0xddc
+         pc = 0xc0350b98  lr = 0xc02ee404 (__mtx_lock_flags+0xa4)
+         sp = 0xdb961ae8  fp = 0xdb961b18
+         r4 = 0x000001ac  r5 = 0xc05249b1
+         r6 = 0x00000101  r7 = 0xc081f10c
+         r8 = 0x00000000  r9 = 0xc081f0fc
+        r10 = 0xc0822c00
+__mtx_lock_flags() at __mtx_lock_flags+0xa4
+         pc = 0xc02ee404  lr = 0xc0497ae0 (_vm_map_lock+0x30)
+         sp = 0xdb961b20  fp = 0xdb961b28
+         r4 = 0xc081f098  r5 = 0x00001000
+         r6 = 0x00000101  r7 = 0xc0727180
+         r8 = 0xdb961bab  r9 = 0x00000101
+_vm_map_lock() at _vm_map_lock+0x30
+         pc = 0xc0497ae0  lr = 0xc04968cc (kmem_malloc+0x30)
+         sp = 0xdb961b30  fp = 0xdb961b70
+         r4 = 0xc081f098
+kmem_malloc() at kmem_malloc+0x30
+         pc = 0xc04968cc  lr = 0xc0490f4c (uma_print_zone+0x1414)
+         sp = 0xdb961b78  fp = 0xdb961b98
+         r4 = 0x00001000  r5 = 0xc0726f50
+         r6 = 0x00000000  r7 = 0xc0727180
+         r8 = 0xdb961bab  r9 = 0x00000101
+        r10 = 0xc0822c00
+uma_print_zone() at uma_print_zone+0x1414
+         pc = 0xc0490f4c  lr = 0xc048f4c4 (uma_prealloc+0x1fc)
+         sp = 0xdb961ba0  fp = 0xdb961bc8
+         r4 = 0xc0822c00  r5 = 0x00000001
+         r6 = 0x00000000  r7 = 0xc0822c10
+         r8 = 0xc0490e70  r9 = 0x00000101
+        r10 = 0x00000000
+uma_prealloc() at uma_prealloc+0x1fc
+         pc = 0xc048f4c4  lr = 0xc04901c8 (uma_print_zone+0x690)
+         sp = 0xdb961bd0  fp = 0xdb961c08
+         r4 = 0xc0822c00  r5 = 0xc081e2e8
+         r6 = 0x00000001  r7 = 0xc081e240
+         r8 = 0x00000000  r9 = 0xc081e2d8
+        r10 = 0x00000000
+uma_print_zone() at uma_print_zone+0x690
+         pc = 0xc04901c8  lr = 0xc04905bc (uma_print_zone+0xa84)
+         sp = 0xdb961c10  fp = 0xdb961c28
+         r4 = 0x00000001  r5 = 0xc081e240
+         r6 = 0xc0822c00  r7 = 0xc0822c00
+         r8 = 0x00000001  r9 = 0xc07e5fa8
+        r10 = 0x00000002
+uma_print_zone() at uma_print_zone+0xa84
+         pc = 0xc04905bc  lr = 0xc0490648 (uma_print_zone+0xb10)
+         sp = 0xdb961c30  fp = 0xdb961c70
+         r4 = 0xc07e5fac  r5 = 0xc0523c76
+         r6 = 0x00000001  r7 = 0xc0822c00
+         r8 = 0x00000000
+uma_print_zone() at uma_print_zone+0xb10
+         pc = 0xc0490648  lr = 0xc048e1e8 (uma_zalloc_arg+0x2a0)
+         sp = 0xdb961c78  fp = 0xdb961cb8
+         r4 = 0x00000001  r5 = 0xc0523c76
+         r6 = 0xc07fcdcc  r7 = 0xc04905fc
+         r8 = 0xc081e240  r9 = 0xc081e2f8
+        r10 = 0xc07fcdc0
+uma_zalloc_arg() at uma_zalloc_arg+0x2a0
+         pc = 0xc048e1e8  lr = 0xc04c2814 (pmap_copy+0x494)
+         sp = 0xdb961cc0  fp = 0xdb961ce8
+         r4 = 0xc052967b  r5 = 0xc07eb9f8
+         r6 = 0xc07eb9f4  r7 = 0xc0729818
+         r8 = 0xc052967b  r9 = 0xc35b2aac
+        r10 = 0xc35b2b38
+pmap_copy() at pmap_copy+0x494
+         pc = 0xc04c2814  lr = 0xc04c24d0 (pmap_copy+0x150)
+         sp = 0xdb961cf0  fp = 0xdb961d28
+         r4 = 0xc35b2a9c  r5 = 0x20049000
+         r6 = 0xc052967b  r7 = 0x2002e000
+         r8 = 0x0001b000  r9 = 0xc07e84b8
+        r10 = 0x0001b000
+pmap_copy() at pmap_copy+0x150
+         pc = 0xc04c24d0  lr = 0xc049cb78 (vmspace_fork+0x790)
+         sp = 0xdb961d30  fp = 0xdb961d68
+         r4 = 0xc35b3000  r5 = 0x00000000
+         r6 = 0x2002e000  r7 = 0xc07ff4b0
+         r8 = 0xc35b29e0  r9 = 0xc0800f00
+        r10 = 0x0001b000
+vmspace_fork() at vmspace_fork+0x790
+         pc = 0xc049cb78  lr = 0xc02d0dfc (fork1+0x1a4)
+         sp = 0xdb961d70  fp = 0xdb961de0
+         r4 = 0xc361a640  r5 = 0x00000000
+         r6 = 0xc3845640  r7 = 0x0000000c
+         r8 = 0xc3845960  r9 = 0xc361a960
+        r10 = 0xdb961df4
+fork1() at fork1+0x1a4
+         pc = 0xc02d0dfc  lr = 0xc02d0c38 (sys_fork+0x24)
+         sp = 0xdb961de8  fp = 0xdb961e00
+         r4 = 0xc361a960  r5 = 0x00000000
+         r6 = 0xdb961ea8  r7 = 0x00000000
+         r8 = 0xdb961e58  r9 = 0xc3845960
+        r10 = 0x00000000
+sys_fork() at sys_fork+0x24
+         pc = 0xc02d0c38  lr = 0xc04c8094 (swi_handler+0x284)
+         sp = 0xdb961e08  fp = 0xdb961ea0
+         r4 = 0xc361a960  r5 = 0x00000000
+swi_handler() at swi_handler+0x284
+         pc = 0xc04c8094  lr = 0xc04b9cbc (swi_entry+0x30)
+         sp = 0xdb961ea8  fp = 0xbfffec18
+         r4 = 0x00030998  r5 = 0x2080d020
+         r6 = 0xdb961ea8  r7 = 0x00000002
+         r8 = 0x00000003  r9 = 0x2080d020
+swi_entry() at swi_entry+0x30
+         pc = 0xc04b9cbc  lr = 0xc04b9cbc (swi_entry+0x30)
+         sp = 0xdb961ea8  fp = 0xbfffec18
+Unable to unwind further
+Setting hostuuid: cd1f3130-fa4b-11e2-b2e5-a9f7b6ebd84f.
+Setting hostid: 0xe03ba48c.
+No suitable dump device was found.
+Entropy harvesting: interrupts ethernet point_to_pointsha256: /kernel: No such file or directory
+ kickstart.
+Starting file system checks:
+Mounting local file systems:.
+Writing entropy file:.
+Setting hostname: cubieboard2.
+Starting Network: lo0.
+lo0: flags=8049<UP,LOOPBACK,RUNNING,MULTICAST> metric 0 mtu 16384
+        options=600003<RXCSUM,TXCSUM,RXCSUM_IPV6,TXCSUM_IPV6>
+        inet6 ::1 prefixlen 128
+        inet6 fe80::1%lo0 prefixlen 64 scopeid 0x1
+        inet 127.0.0.1 netmask 0xff000000
+        nd6 options=21<PERFORMNUD,AUTO_LINKLOCAL>
+Starting devd.
+add net fe80::: gateway ::1
+add net ff02::: gateway ::1
+add net ::ffff:0.0.0.0: gateway ::1
+add net ::0.0.0.0: gateway ::1
+Creating and/or trimming log files.
+Starting syslogd.
+ELF ldconfig path: /lib /usr/lib /usr/lib/compat
+Clearing /tmp (X related).
+Updating motd:.
+Mounting late file systems:.
+Performing sanity check on sshd configuration.
+Starting sshd.
+Starting cron.
+Starting background file system checks in 60 seconds.
+
+Thu Aug  1 02:00:49 UTC 2013
+
+FreeBSD/arm (cubieboard2) (ttyu0)
+
+login: root
+Aug  1 02:12:10 cubieboard2 login: ROOT LOGIN (root) ON ttyu0
+Last login: Thu Aug  1 01:54:18 on ttyu0
+FreeBSD 10.0-CURRENT (CUBIEBOARD2) #32: Thu Aug  1 16:32:42 ULAT 2013
+
+Welcome to FreeBSD!
+
+Before seeking technical support, please use the following resources:
+
+o  Security advisories and updated errata information for all releases are
+   at http://www.FreeBSD.org/releases/ - always consult the ERRATA section
+   for your release first as it's updated frequently.
+
+o  The Handbook and FAQ documents are at http://www.FreeBSD.org/ and,
+   along with the mailing lists, can be searched by going to
+   http://www.FreeBSD.org/search/.  If the doc package has been installed
+   (or fetched via pkg install lang-freebsd-doc, where lang is the
+   2-letter language code, e.g. en), they are also available formatted
+   in /usr/local/share/doc/freebsd.
+
+If you still have a question or problem, please take the output of
+`uname -a', along with any relevant error messages, and email it
+as a question to the questions@FreeBSD.org mailing list.  If you are
+unfamiliar with FreeBSD's directory layout, please refer to the hier(7)
+manual page.  If you are not familiar with manual pages, type `man man'.
+
+Edit /etc/motd to change this login announcement.
+
+root@cubieboard2:~ #
+

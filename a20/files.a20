@@ -10,6 +10,7 @@ arm/arm/cpufunc_asm_armv7.S		standard
 arm/arm/irq_dispatch.S			standard
 
 arm/arm/gic.c                           standard
+#arm/arm/generic_timer.c                 standard
 
 arm/allwinner/a20/a20_clk.c		standard
 arm/allwinner/a20/a20_gpio.c		optional	gpio
@@ -21,6 +22,6 @@ arm/allwinner/a20/timer.c		standard
 arm/allwinner/a20/bus_space.c		standard
 arm/allwinner/a20/common.c		standard
 
-arm/allwinner/a20/console.c		standard
+#arm/allwinner/a20/console.c		standard
 
 arm/allwinner/a20/a20_machdep.c		standard

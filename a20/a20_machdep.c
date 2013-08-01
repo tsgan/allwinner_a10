@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2012 Ganbold Tsagaankhuu <ganbold@gmail.com>
+ * Copyright (c) 2012-2013 Ganbold Tsagaankhuu <ganbold@gmail.com>
  * All rights reserved.
  *
  * This code is derived from software written for Brini by Mark Brinicombe
@@ -32,7 +32,7 @@
 #include "opt_platform.h"
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: head/sys/arm/allwinner/a10_machdep.c 246661 2013-02-11 11:33:56Z gonzo $");
+__FBSDID("$FreeBSD$");
 
 #define _ARM32_BUS_DMA_PRIVATE
 #include <sys/param.h>
@@ -49,7 +49,7 @@ __FBSDID("$FreeBSD: head/sys/arm/allwinner/a10_machdep.c 246661 2013-02-11 11:33
 
 #include <dev/fdt/fdt_common.h>
 
-#include <arm/allwinner/a20/a20_wdog.h>
+#include <arm/allwinner/a10_wdog.h>
 
 /* Start of address space used for bootstrap map */
 #define DEVMAP_BOOTSTRAP_MAP_START      0xE0000000
@@ -115,7 +115,7 @@ bus_dma_get_range_nb(void)
 void
 cpu_reset()
 {
-	a20wd_watchdog_reset();
+	a10wd_watchdog_reset();
 	printf("Reset failed!\n");
 	while (1);
 }

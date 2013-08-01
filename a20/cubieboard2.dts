@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2012 Ganbold Tsagaankhuu <ganbold@gmail.com>
+ * Copyright (c) 2012-2013 Ganbold Tsagaankhuu <ganbold@gmail.com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -23,7 +23,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  * 
- * $FreeBSD: head/sys/boot/fdt/dts/cubieboard.dts 247520 2013-03-01 01:47:11Z ganbold $
+ * $FreeBSD$
  */
 
 /dts-v1/;
@@ -61,16 +61,8 @@
 			#interrupt-cells = <1>;
 		};
 
-//		AINTC: interrupt-controller@01c20400 {
-//			compatible = "allwinner,sun7i-ic";
-//			interrupt-controller;
-//			#address-cells = <0>;
-//			#interrupt-cells = <1>;
-//			reg =   < 0x01c20400 0x400 >;
-//		};
-
 		ccm@01c20000 {
-			compatible = "allwinner,sun7i-ccm";
+			compatible = "allwinner,sun4i-ccm";
 			#address-cells = <1>;
 			#size-cells = <1>;
 			reg = < 0x01c20000 0x400 >;
@@ -79,29 +71,21 @@
 		timer@01c20c00 {
 			compatible = "allwinner,sun7i-timer";
 			reg = <0x01c20c00 0x90>;
-//			interrupts = < 22 >;
 			interrupts = < 54 >;
 			interrupt-parent = <&GIC>;
 			clock-frequency = < 24000000 >;
 		};
 
-//                generic_timer {
-//                        compatible = "arm,armv7-timer";
-//                        clock-frequency = <24000000>;
-//                };
-
 		watchdog@01c20c90 {
-			compatible = "allwinner,sun7i-wdt";
+			compatible = "allwinner,sun4i-wdt";
 			reg = <0x01c20c90 0x10>;
 		};
 
-
 		GPIO: gpio@01c20800 {
 			#gpio-cells = <3>;
-			compatible = "allwinner,sun7i-gpio";
+			compatible = "allwinner,sun4i-gpio";
 			gpio-controller;
 			reg =<  0x01c20800 0x400 >;
-//			interrupts = < 28 >;
 			interrupts = < 60 >;
 			interrupt-parent = <&GIC>;
 		};
@@ -109,7 +93,6 @@
 		usb1: usb@01c14000 {
 			compatible = "allwinner,usb-ehci", "usb-ehci";
 			reg = <0x01c14000 0x1000>;
-//			interrupts = < 39 >;
 			interrupts = < 71 >;
 			interrupt-parent = <&GIC>;
 		};
@@ -117,24 +100,22 @@
 		usb2: usb@01c1c000 {
 			compatible = "allwinner,usb-ehci", "usb-ehci";
 			reg = <0x01c1c000 0x1000>;
-//			interrupts = < 40 >;
 			interrupts = < 72 >;
 			interrupt-parent = <&GIC>;
 		};
 
-//		sata@01c18000 {
-//			compatible = "allwinner,ahci";
-//			reg = <0x01c18000 0x1000>;
-//			interrupts = <56>;
-//			interrupt-parent = <&GIC>;
-//		};
+		sata@01c18000 {
+			compatible = "allwinner,ahci";
+			reg = <0x01c18000 0x1000>;
+			interrupts = <88>;
+			interrupt-parent = <&GIC>;
+		};
 
 		UART0: serial@01c28000 {
 			status = "okay";
 			compatible = "ns16550";
 			reg = <0x01c28000 0x400>;
 			reg-shift = <2>;
-//			interrupts = <1>;
 			interrupts = <33>;
 			interrupt-parent = <&GIC>;
 			current-speed = <115200>;
@@ -146,7 +127,6 @@
 		wemac@01c0b000 {
 			compatible = "allwinner,wemac";
 			reg = <0x01c0b000 0x1000>;
-//			interrupts = <55>;
 			interrupts = <87>;
 			interrupt-parent = <&GIC>;
 			phy-handle = <&phy0>;

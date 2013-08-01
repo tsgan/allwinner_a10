@@ -1,4 +1,4 @@
-# CUBIEBOARD -- Custom configuration for the CUBIEBOARD ARM development
+# CUBIEBOARD -- Custom configuration for the CUBIEBOARD2 ARM development
 # platform, check out http://www.cubieboard.org
 #
 # For more information on this file, please read the handbook section on
@@ -16,9 +16,9 @@
 # If you are in doubt as to the purpose or necessity of a line, check first
 # in NOTES.
 #
-# $FreeBSD: head/sys/arm/conf/CUBIEBOARD 249083 2013-04-04 07:12:24Z mav $
+# $FreeBSD$
 
-ident		CUBIEBOARD
+ident		CUBIEBOARD2
 
 include		"../allwinner/a20/std.a20"
 
@@ -38,7 +38,7 @@ options 	CD9660			#ISO 9660 Filesystem
 options 	PROCFS			#Process filesystem (requires PSEUDOFS)
 options 	PSEUDOFS		#Pseudo-filesystem framework
 options 	COMPAT_43		#Compatible with BSD 4.3 [KEEP THIS!]
-options 	SCSI_DELAY=10000		#Delay (in ms) before probing SCSI
+options 	SCSI_DELAY=5000		#Delay (in ms) before probing SCSI
 options 	KTRACE			#ktrace(1) support
 options 	SYSVSHM			#SYSV-style shared memory
 options 	SYSVMSG			#SYSV-style message queues
@@ -79,7 +79,6 @@ options 	WITNESS_SKIPSPIN	#Don't run witness on spinlocks for speed
 
 # Boot device is 2nd slice on MMC/SD card
 options		ROOTDEVNAME=\"ufs:/dev/da0s2\"
-#options		ROOTDEVNAME=\"ufs:/dev/da0\"
 
 # ATA controllers
 #device		ahci		# AHCI-compatible SATA controllers
@@ -93,7 +92,7 @@ device		pty
 device		snp
 device		md
 device		random			# Entropy device
-options         YARROW_RNG      # Yarrow software RNG
+options 	YARROW_RNG		# Yarrow software RNG
 
 # I2C support
 #device		iicbus

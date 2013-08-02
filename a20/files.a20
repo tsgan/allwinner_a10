@@ -11,6 +11,7 @@ arm/arm/irq_dispatch.S			standard
 
 arm/arm/gic.c                           standard
 
+arm/allwinner/a20/a20_cpu_cfg.c 	standard
 arm/allwinner/a10_clk.c 		standard
 arm/allwinner/a10_gpio.c		optional	gpio
 

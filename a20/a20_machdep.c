@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2012-2013 Ganbold Tsagaankhuu <ganbold@gmail.com>
+ * Copyright (c) 2013 Ganbold Tsagaankhuu <ganbold@gmail.com>
  * All rights reserved.
  *
  * This code is derived from software written for Brini by Mark Brinicombe

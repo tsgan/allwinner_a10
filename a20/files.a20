@@ -21,4 +21,4 @@ arm/allwinner/a20/timer.c		standard
 arm/allwinner/bus_space.c		standard
 arm/allwinner/a20/common.c		standard
 
-arm/allwinner/a20/a20_machdep.c		standard
+arm/allwinner/a10_machdep.c		standard

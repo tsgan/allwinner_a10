@@ -58,18 +58,18 @@ __FBSDID("$FreeBSD$");
  * Timer registers addr
  *
  */
-#define SW_TIMER_IRQ_EN_REG 	0x00
-#define SW_TIMER_IRQ_STA_REG 	0x04
-#define SW_TIMER0_CTRL_REG 	0x10
-#define SW_TIMER0_INT_VALUE_REG	0x14
-#define SW_TIMER0_CUR_VALUE_REG	0x18
+#define SW_TIMER_IRQ_EN_REG 		0x00
+#define SW_TIMER_IRQ_STA_REG 		0x04
+#define SW_TIMER0_CTRL_REG 		0x10
+#define SW_TIMER0_INT_VALUE_REG 	0x14
+#define SW_TIMER0_CUR_VALUE_REG 	0x18
 
-#define TIMER_ENABLE		(1<<0)
-#define TIMER_AUTORELOAD	(1<<1)
-#define TIMER_OSC24M		(1<<2) /* oscillator = 24mhz */
-#define TIMER_PRESCALAR		(4<<4) /* prescalar = 16 */
+#define TIMER_ENABLE			(1<<0)
+#define TIMER_AUTORELOAD		(1<<1)
+#define TIMER_OSC24M			(1<<2) /* oscillator = 24mhz */
+#define TIMER_PRESCALAR 		(4<<4) /* prescalar = 16 */
 
-#define SYS_TIMER_CLKSRC	24000000 /* clock source */
+#define SYS_TIMER_CLKSRC		24000000 /* clock source */
 
 struct a20_timer_softc {
 	device_t 	sc_dev;
@@ -88,9 +88,6 @@ int a20_timer_get_timerfreq(struct a20_timer_softc *);
 	bus_space_read_4(sc->sc_bst, sc->sc_bsh, reg)
 #define timer_write_4(sc, reg, val)	\
 	bus_space_write_4(sc->sc_bst, sc->sc_bsh, reg, val)
-
-#define REG_READ(reg)                   (*(volatile uint32_t *)(reg))
-#define REG_WRITE(reg, val)             (*(volatile uint32_t *)(reg) = (val))
 
 static u_int	a20_timer_get_timecount(struct timecounter *);
 static int	a20_timer_timer_start(struct eventtimer *,
@@ -313,7 +310,7 @@ a20_timer_get_timecount(struct timecounter *tc)
 }
 
 static device_method_t a20_timer_methods[] = {
-	DEVMETHOD(device_probe,		a20_timer_probe),
+	DEVMETHOD(device_probe, 	a20_timer_probe),
 	DEVMETHOD(device_attach,	a20_timer_attach),
 
 	DEVMETHOD_END

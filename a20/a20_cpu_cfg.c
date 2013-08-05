@@ -55,14 +55,14 @@ __FBSDID("$FreeBSD$");
 #include "a20_cpu_cfg.h"
 
 struct a20_cpu_cfg_softc {
-	struct resource		*res;
-	bus_space_tag_t		bst;
+	struct resource 	*res;
+	bus_space_tag_t 	bst;
 	bus_space_handle_t	bsh;
 };
 
 static struct a20_cpu_cfg_softc *a20_cpu_cfg_sc = NULL;
 
-#define cpu_cfg_read_4(sc, reg)		\
+#define cpu_cfg_read_4(sc, reg) 	\
 	bus_space_read_4((sc)->bst, (sc)->bsh, (reg))
 #define cpu_cfg_write_4(sc, reg, val)	\
 	bus_space_write_4((sc)->bst, (sc)->bsh, (reg), (val))

@@ -50,7 +50,7 @@ fdt_pic_decode_ic(phandle_t node, pcell_t *intr, int *interrupt, int *trig,
 	if (!fdt_is_compatible(node, "arm,gic"))
 		return (ENXIO);
 
-	*interrupt = fdt32_to_cpu(intr[0]);
+	*interrupt = fdt32_to_cpu(intr[0]) + 32;
 	*trig = INTR_TRIGGER_CONFORM;
 	*pol = INTR_POLARITY_CONFORM;
 

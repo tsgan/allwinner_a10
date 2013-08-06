@@ -92,7 +92,6 @@ device		pty
 device		snp
 device		md
 device		random			# Entropy device
-options 	YARROW_RNG		# Yarrow software RNG
 
 # I2C support
 #device 	iicbus

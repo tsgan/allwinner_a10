@@ -1,0 +1,162 @@
+Index: aintc.c
+===================================================================
+--- aintc.c	(revision 253981)
++++ aintc.c	(working copy)
+@@ -79,6 +79,10 @@
+ #define SW_INT_ENABLE_REG(_b)		(0x40 + ((_b) * 4))
+ #define SW_INT_MASK_REG(_b)		(0x50 + ((_b) * 4))
+ 
++static int	aintc_get_next_irq(int);
++static void	aintc_mask_irq(uintptr_t);
++static void	aintc_unmask_irq(uintptr_t);
++
+ struct a10_aintc_softc {
+ 	device_t		sc_dev;
+ 	struct resource *	aintc_res;
+@@ -120,6 +124,9 @@
+ 		device_printf(dev, "could not allocate resource\n");
+ 		return (ENXIO);
+ 	}
++        arm_get_next_irq = aintc_get_next_irq;
++        arm_mask_irq = aintc_mask_irq;
++        arm_unmask_irq = aintc_unmask_irq;
+ 
+ 	sc->aintc_bst = rman_get_bustag(sc->aintc_res);
+ 	sc->aintc_bsh = rman_get_bushandle(sc->aintc_res);
+@@ -156,8 +163,8 @@
+ 
+ DRIVER_MODULE(aintc, simplebus, a10_aintc_driver, a10_aintc_devclass, 0, 0);
+ 
+-int
+-arm_get_next_irq(int last_irq)
++static int
++aintc_get_next_irq(int last_irq)
+ {
+ 	uint32_t value;
+ 	int i, b;
+@@ -173,8 +180,8 @@
+ 	return (-1);
+ }
+ 
+-void
+-arm_mask_irq(uintptr_t nb)
++static void
++aintc_mask_irq(uintptr_t nb)
+ {
+ 	uint32_t bit, block, value;
+ 	
+@@ -190,8 +197,8 @@
+ 	aintc_write_4(SW_INT_MASK_REG(block), value);
+ }
+ 
+-void
+-arm_unmask_irq(uintptr_t nb)
++static void
++aintc_unmask_irq(uintptr_t nb)
+ {
+ 	uint32_t bit, block, value;
+ 
+Index: std.a10
+===================================================================
+--- std.a10	(revision 253981)
++++ std.a10	(working copy)
+@@ -18,4 +18,9 @@
+ 
+ options		STARTUP_PAGETABLE_ADDR=0x48000000
+ 
++options 	ARM_L2_PIPT
++
++options 	IPI_IRQ_START=0
++options 	IPI_IRQ_END=15
++
+ files		"../allwinner/files.a10"
+Index: files.a10
+===================================================================
+--- files.a10	(revision 253981)
++++ files.a10	(working copy)
+@@ -9,6 +9,9 @@
+ arm/arm/cpufunc_asm_armv7.S		standard
+ arm/arm/irq_dispatch.S			standard
+ 
++arm/arm/gic.c				standard
++
++arm/allwinner/a20/a20_cpu_cfg.c 	standard
+ arm/allwinner/a10_clk.c			standard
+ arm/allwinner/a10_gpio.c		optional	gpio
+ arm/allwinner/a10_ehci.c		optional	ehci
+Index: timer.c
+===================================================================
+--- timer.c	(revision 253981)
++++ timer.c	(working copy)
+@@ -52,6 +52,8 @@
+ 
+ #include <sys/kdb.h>
+ 
++#include "a20/a20_cpu_cfg.h"
++
+ /**
+  * Timer registers addr
+  *
+@@ -84,6 +86,7 @@
+ 	uint32_t 	sc_period;
+ 	uint32_t 	timer0_freq;
+ 	struct eventtimer et;
++	uint8_t 	sc_timer_type;	/* 0 for A10, 1 for A20 */
+ };
+ 
+ int a10_timer_get_timerfreq(struct a10_timer_softc *);
+@@ -126,6 +129,10 @@
+ {
+ 	uint32_t lo, hi;
+ 
++	/* In case of A20 get appropriate counter info */
++	if (a10_timer_sc->sc_timer_type)
++		return (a20_read_counter64());
++
+ 	/* Latch counter, wait for it to be ready to read. */
+ 	timer_write_4(a10_timer_sc, CNT64_CTRL_REG, CNT64_RL_EN);
+ 	while (timer_read_4(a10_timer_sc, CNT64_CTRL_REG) & CNT64_RL_EN)
+@@ -140,11 +147,18 @@
+ static int
+ a10_timer_probe(device_t dev)
+ {
++	struct a10_timer_softc *sc;
+ 
+-	if (!ofw_bus_is_compatible(dev, "allwinner,sun4i-timer"))
++	sc = device_get_softc(dev);
++
++	if (ofw_bus_is_compatible(dev, "allwinner,sun4i-timer"))
++		sc->sc_timer_type = 0;
++	else if (ofw_bus_is_compatible(dev, "allwinner,sun7i-timer"))
++		sc->sc_timer_type = 1;
++	else
+ 		return (ENXIO);
+ 
+-	device_set_desc(dev, "Allwinner A10 timer");
++	device_set_desc(dev, "Allwinner A10/A20 timer");
+ 	return (BUS_PROBE_DEFAULT);
+ }
+ 
+Index: common.c
+===================================================================
+--- common.c	(revision 253981)
++++ common.c	(working copy)
+@@ -47,10 +47,16 @@
+ fdt_aintc_decode_ic(phandle_t node, pcell_t *intr, int *interrupt, int *trig,
+     int *pol)
+ {
+-	if (!fdt_is_compatible(node, "allwinner,sun4i-ic"))
++	int offset;
++
++	if (fdt_is_compatible(node, "allwinner,sun4i-ic"))
++		offset = 0;
++	else if (fdt_is_compatible(node, "arm,gic"))
++		offset = 32;
++	else
+ 		return (ENXIO);
+ 
+-	*interrupt = fdt32_to_cpu(intr[0]);
++	*interrupt = fdt32_to_cpu(intr[0]) + offset;
+ 	*trig = INTR_TRIGGER_CONFORM;
+ 	*pol = INTR_POLARITY_CONFORM;
+ 

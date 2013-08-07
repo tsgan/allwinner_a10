@@ -102,7 +102,7 @@ a20_cpu_cfg_attach(device_t dev)
 }
 
 static device_method_t a20_cpu_cfg_methods[] = {
-	DEVMETHOD(device_probe,		a20_cpu_cfg_probe),
+	DEVMETHOD(device_probe, 	a20_cpu_cfg_probe),
 	DEVMETHOD(device_attach,	a20_cpu_cfg_attach),
 	{ 0, 0 }
 };

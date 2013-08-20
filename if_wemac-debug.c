@@ -117,7 +117,7 @@ static void wemac_miibus_statchg(device_t);
 static void wemac_write_mbufs(struct wemac_softc *sc, struct mbuf *m);
 static void wemac_xmit_buf(struct wemac_softc *sc);
 
-#define WEMAC_PHY		0x1 /* PHY address 0x01 */
+#define WEMAC_PHY		0x100 /* PHY address 0x01 */
 
 #define SW_CCM_AHB_GATING	0xe1c20060
 #define AHB_GATE_OFFSET_EMAC	17
@@ -220,12 +220,10 @@ wemac_start_locked(struct ifnet *ifp)
                         m_freem(m);
                 }
 
-		/* 
-		 * Send the data lengh.
-		 * Start translate from fifo to phy.
-		 */
+		/* Send the data lengh. */
 		wemac_write_reg(sc, EMAC_TX_PL0, len);
 
+		/* Start translate from fifo to phy. */
 		reg_val = wemac_read_reg(sc, EMAC_TX_CTL0);
 		reg_val |= 1;
 		wemac_write_reg(sc, EMAC_TX_CTL0, reg_val);
@@ -298,6 +296,7 @@ wemac_rxeof(struct wemac_softc *sc)
 		reg_val = wemac_read_reg(sc, EMAC_RX_CTL);
 		reg_val |= (1 << 3);
 		wemac_write_reg(sc, EMAC_RX_CTL, reg_val);
+
 		while (wemac_read_reg(sc, EMAC_RX_CTL) & (1 << 3))
 			;
 
@@ -522,11 +521,11 @@ static void wemac_init_locked(struct wemac_softc *sc)
 	wemac_reset(sc);
 
 	/* PHY POWER UP */
-	phy_reg = wemac_miibus_readreg(dev, WEMAC_PHY, 0);
-	wemac_miibus_writereg(dev, WEMAC_PHY, 0, phy_reg & (~(1 << 11)));
+	phy_reg = wemac_miibus_readreg(dev, 0, 0);
+	wemac_miibus_writereg(dev, 0, 0, phy_reg & (~(1 << 11)));
 	DELAY(1000);
 
-	phy_reg = wemac_miibus_readreg(dev, WEMAC_PHY, 0);
+	phy_reg = wemac_miibus_readreg(dev, 0, 0);
 
 	/* set EMAC SPEED, depend on PHY */
 	reg_val = wemac_read_reg(sc, EMAC_MAC_SUPP);
@@ -552,11 +551,13 @@ static void wemac_init_locked(struct wemac_softc *sc)
 	/* Set up TX */
 	reg_val = wemac_read_reg(sc, EMAC_TX_MODE);
 	reg_val |= EMAC_TX_AB_M;
+	reg_val &= EMAC_TX_M;
 	wemac_write_reg(sc, EMAC_TX_MODE, reg_val);
 
 	/* Set up RX */
 	reg_val = wemac_read_reg(sc, EMAC_RX_CTL);
 	reg_val |= EMAC_RX_SETUP;
+	reg_val &= EMAC_RX_TM;
 	wemac_write_reg(sc, EMAC_RX_CTL, reg_val);
 
 	ifp->if_drv_flags |= IFF_DRV_RUNNING;
@@ -736,7 +737,9 @@ wemac_attach(device_t dev)
 
 	/* Set MAC CTL1 */
 	reg_val = wemac_read_reg(sc, EMAC_MAC_CTL1);
-	phy_val = wemac_miibus_readreg(dev, WEMAC_PHY, 0);
+
+	phy_val = wemac_miibus_readreg(dev, 0, 0);
+
 	duplex_flag = !!(phy_val & EMAC_PHY_DUPLEX);
 
 	if (duplex_flag)
@@ -801,6 +804,9 @@ wemac_attach(device_t dev)
 	eaddr[5] = 0x00;
 */
 	eaddr[0] = 0x4e;
+	eaddr[0] &= 0xfe;	/* the 48bit must set 0 */
+	eaddr[0] |= 0x02;	/* the 47bit must set 1 */
+
 	eaddr[1] = 0x34;
 	eaddr[2] = 0x84;
 	eaddr[3] = 0xd3;
@@ -839,7 +845,7 @@ root@android:/ # [  295.300000] eth0: no IPv6 routers present
 //        printf("------- WEMAC 2 --------------\n");
 
 	/* Enable RX/TX */
-	wemac_write_reg(sc, EMAC_CTL, 0x7);
+//	wemac_write_reg(sc, EMAC_CTL, 0x7);
 
 	/* VLAN capability setup. */
 	ifp->if_capabilities |= IFCAP_VLAN_MTU;
@@ -935,8 +941,8 @@ wemac_miibus_readreg(device_t dev, int phy, int reg)
 	sc = device_get_softc(dev);
 
 	/* issue the phy address and reg */
-//	wemac_write_reg(sc, EMAC_MAC_MADR, WEMAC_PHY | reg);
-	wemac_write_reg(sc, EMAC_MAC_MADR, (phy << 8) | reg);
+	wemac_write_reg(sc, EMAC_MAC_MADR, WEMAC_PHY | reg);
+//	wemac_write_reg(sc, EMAC_MAC_MADR, (phy << 8) | reg);
 
 	/* pull up the phy io line */
 	wemac_write_reg(sc, EMAC_MAC_MCMD, 0x1);
@@ -966,8 +972,8 @@ wemac_miibus_writereg(device_t dev, int phy, int reg, int data)
 	sc = device_get_softc(dev);
 
 	/* issue the phy address and reg */
-//	wemac_write_reg(sc, EMAC_MAC_MADR, WEMAC_PHY | reg);
-	wemac_write_reg(sc, EMAC_MAC_MADR, (phy << 8) | reg);
+	wemac_write_reg(sc, EMAC_MAC_MADR, WEMAC_PHY | reg);
+//	wemac_write_reg(sc, EMAC_MAC_MADR, (phy << 8) | reg);
 
 	/* pull up the phy io line */
 	wemac_write_reg(sc, EMAC_MAC_MCMD, 0x1);

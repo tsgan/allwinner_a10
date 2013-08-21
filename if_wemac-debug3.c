@@ -114,8 +114,8 @@ static void wemac_init_locked(struct wemac_softc *);
 static int wemac_miibus_readreg(device_t dev, int phy, int reg);
 static int wemac_miibus_writereg(device_t dev, int phy, int reg, int data);
 static void wemac_miibus_statchg(device_t);
-//static void wemac_write_mbufs(struct wemac_softc *sc, struct mbuf *m);
-//static void wemac_xmit_buf(struct wemac_softc *sc);
+//static void wemac_inblk_32bit(struct wemac_softc *sc, uint32_t *reg, uint32_t *data, int count);
+//static void wemac_outblk_32bit(struct wemac_softc *sc, uint32_t *reg, uint32_t *data, int count);
 
 #define WEMAC_PHY		0x100 /* PHY address 0x01 */
 
@@ -312,7 +312,7 @@ wemac_rxeof(struct wemac_softc *sc)
 
 		sc->wemac_rx_completed_flag = 1;
 
-		return 0;
+		return 1;
 	}
 /*
 	MGETHDR(m, M_DONTWAIT, MT_DATA);
@@ -336,20 +336,14 @@ wemac_rxeof(struct wemac_softc *sc)
 
 	reg_val = bus_space_read_4(sc->wemac_tag, sc->wemac_handle, EMAC_RX_IO_DATA);
 	len = reg_val & 0xFFFF;
-//	printf("len: %d\n", len);
-//	len = reg_val;
 
 	m->m_pkthdr.rcvif = ifp;
-//	m->m_len = m->m_pkthdr.len = len = MCLBYTES;
-////	m_adj(m, sizeof(uint32_t));
 	m->m_len = m->m_pkthdr.len = len;
 	m_adj(m, ETHER_ALIGN);
 
 	/* XXX Read the data (maybe need to try bus_space_read_multi_(1-4)) */
 	bus_space_read_multi_2(sc->wemac_tag, sc->wemac_handle, EMAC_RX_IO_DATA,
 	    mtod(m, uint16_t *), (len + 1) / 2);
-//	bus_space_read_multi_4(sc->wemac_tag, sc->wemac_handle, EMAC_RX_IO_DATA,
-//	    mtod(m, uint32_t *), (len + 1) / 4);
 
 	ifp->if_ipackets++;
 	WEMAC_UNLOCK(sc);
@@ -912,9 +906,9 @@ wemac_miibus_readreg(device_t dev, int phy, int reg)
 	sc = device_get_softc(dev);
 
 	/* issue the phy address and reg */
-//	wemac_write_reg(sc, EMAC_MAC_MADR, WEMAC_PHY | reg);
+	wemac_write_reg(sc, EMAC_MAC_MADR, WEMAC_PHY | reg);
 //	wemac_write_reg(sc, EMAC_MAC_MADR, (phy << 8) | reg);
-	wemac_write_reg(sc, EMAC_MAC_MADR, (1 << 8) | reg);
+//	wemac_write_reg(sc, EMAC_MAC_MADR, (1 << 8) | reg);
 
 	/* pull up the phy io line */
 	wemac_write_reg(sc, EMAC_MAC_MCMD, 0x1);
@@ -944,9 +938,9 @@ wemac_miibus_writereg(device_t dev, int phy, int reg, int data)
 	sc = device_get_softc(dev);
 
 	/* issue the phy address and reg */
-//	wemac_write_reg(sc, EMAC_MAC_MADR, WEMAC_PHY | reg);
+	wemac_write_reg(sc, EMAC_MAC_MADR, WEMAC_PHY | reg);
 //	wemac_write_reg(sc, EMAC_MAC_MADR, (phy << 8) | reg);
-	wemac_write_reg(sc, EMAC_MAC_MADR, (1 << 8) | reg);
+//	wemac_write_reg(sc, EMAC_MAC_MADR, (1 << 8) | reg);
 
 	/* pull up the phy io line */
 	wemac_write_reg(sc, EMAC_MAC_MCMD, 0x1);

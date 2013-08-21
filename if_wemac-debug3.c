@@ -223,7 +223,7 @@ wemac_start_locked(struct ifnet *ifp)
 		}
 
 		/* Send the data lengh. */
-		wemac_write_reg(sc, EMAC_TX_PL0, len);
+		wemac_write_reg(sc, EMAC_TX_PL0, total_len);
 
 		/* Start translate from fifo to phy. */
 		reg_val = wemac_read_reg(sc, EMAC_TX_CTL0);

@@ -114,8 +114,8 @@ static void wemac_init_locked(struct wemac_softc *);
 static int wemac_miibus_readreg(device_t dev, int phy, int reg);
 static int wemac_miibus_writereg(device_t dev, int phy, int reg, int data);
 static void wemac_miibus_statchg(device_t);
-//static void wemac_inblk_32bit(struct wemac_softc *sc, uint32_t *reg, uint32_t *data, int count);
-//static void wemac_outblk_32bit(struct wemac_softc *sc, uint32_t *reg, uint32_t *data, int count);
+//static void wemac_inblk_32bit(struct wemac_softc *sc, uint32_t reg, uint32_t *data, int count);
+//static void wemac_outblk_32bit(struct wemac_softc *sc, uint32_t reg, uint32_t *data, int count);
 
 #define WEMAC_PHY		0x100 /* PHY address 0x01 */
 
@@ -134,7 +134,7 @@ static void wemac_miibus_statchg(device_t);
 
 /*
 static void 
-wemac_inblk_32bit(struct wemac_softc *sc, uint32_t *reg, uint32_t *data, int count)
+wemac_inblk_32bit(struct wemac_softc *sc, uint32_t reg, uint32_t *data, int count)
 {
 	int cnt = (count + 3) >> 2;
 
@@ -142,13 +142,13 @@ wemac_inblk_32bit(struct wemac_softc *sc, uint32_t *reg, uint32_t *data, int cou
 		uint32_t *buf = data;
 
 		do {
-			uint32_t x = wemac_read_reg(sc, *reg);
+			uint32_t x = wemac_read_reg(sc, reg);
 			*buf++ = x;
 		} while (--cnt);
 	}
 }
 static void 
-wemac_outblk_32bit(struct wemac_softc *sc, uint32_t *reg, uint32_t *data, int count)
+wemac_outblk_32bit(struct wemac_softc *sc, uint32_t reg, uint32_t *data, int count)
 {
 	int cnt = (count + 3) >> 2;
 
@@ -156,11 +156,12 @@ wemac_outblk_32bit(struct wemac_softc *sc, uint32_t *reg, uint32_t *data, int co
 		const uint32_t *buf = data;
 
 		do {
-			wemac_write_reg(sc, *reg, *buf++);
+			wemac_write_reg(sc, reg, *buf++);
 		} while (--cnt);
 	}
 }
 */
+
 static void
 wemac_reset(struct wemac_softc *sc)
 {
@@ -178,8 +179,12 @@ wemac_start_locked(struct ifnet *ifp)
 {
 	struct wemac_softc *sc;
 	struct mbuf *m, *mp;
+//	struct mbuf *m;
 	int len, total_len;
+//	int total_len;
 	uint32_t reg_val;
+        unsigned dso;
+        uint8_t *p;
 
 	sc = ifp->if_softc;
 
@@ -204,23 +209,63 @@ wemac_start_locked(struct ifnet *ifp)
 //		bus_space_write_1(sc->wemac_tag, sc->wemac_handle, EMAC_MAC_MCMD,
 //		    DME_MWCMD);
 
-		/*
-		 * TODO: Fix the case where an mbuf is
-		 * not a multiple of the write size.
-		 */
 		total_len = 0;
+/*
+                p = mtod(m, uint8_t *);
+                dso = (unsigned)p & 0x3;
+
+                while (m->m_next != NULL) {
+                        bus_space_write_multi_4(sc->wemac_tag, sc->wemac_handle,
+                             EMAC_TX_IO_DATA, (uint32_t *)(p - dso),
+                             (m->m_len + dso + 3) >> 2);
+
+			total_len += m->m_len;
+                        m = m->m_next;
+                        p = mtod(m, uint8_t *);
+                        dso = (unsigned)p & 0x3;
+                }
+                bus_space_write_multi_4(sc->wemac_tag, sc->wemac_handle,
+                     EMAC_TX_IO_DATA, (uint32_t *)(p - dso),
+                     (m->m_len + dso + 3) >> 2);
+*/
+
 		for (mp = m; mp != NULL; mp = mp->m_next) {
 			len = mp->m_len;
 
-			/* Ignore empty parts */
 			if (len == 0)
 				continue;
 
 			total_len += len;
 
-			bus_space_write_multi_2(sc->wemac_tag, sc->wemac_handle,
-			    EMAC_TX_IO_DATA, mtod(mp, uint16_t *), (len + 1) / 2);
+//			wemac_outblk_32bit(sc, EMAC_TX_IO_DATA, mtod(mp, uint32_t *), len);
+
+			p = mtod(mp, uint8_t *);
+			dso = (unsigned)p & 0x3;
+
+			bus_space_write_multi_4(sc->wemac_tag, sc->wemac_handle,
+			    EMAC_TX_IO_DATA, (uint32_t *)(p - dso),
+			    (len + dso + 3) >> 2);
+
+//			bus_space_write_multi_2(sc->wemac_tag, sc->wemac_handle,
+//			    EMAC_TX_IO_DATA, mtod(mp, uint16_t *), (len + 1) / 2);
+//			bus_space_write_multi_4(sc->wemac_tag, sc->wemac_handle,
+//			    EMAC_TX_IO_DATA, mtod(mp, uint32_t *), roundup2(len, 4)/4);
 		}
+
+/*
+	        while (m) {
+			total_len += m->m_len;
+        	        if (m->m_len > 3)
+                	        bus_space_write_multi_4(sc->wemac_tag, sc->wemac_handle,
+                        	    EMAC_TX_IO_DATA, mtod(m, uint32_t *),
+	                            m->m_len / 4);
+        	        if (m->m_len & 3)
+                	        bus_space_write_multi_1(sc->wemac_tag, sc->wemac_handle,
+                        	    EMAC_TX_IO_DATA, mtod(m, uint8_t *) + (m->m_len & ~3), 
+				    m->m_len & 3);
+        	        m = m_free(m);
+	        }
+*/
 
 		/* Send the data lengh. */
 		wemac_write_reg(sc, EMAC_TX_PL0, total_len);
@@ -267,6 +312,7 @@ wemac_rxeof(struct wemac_softc *sc)
 	struct mbuf *m;
 	int len;
 	uint32_t reg_val;
+	const int pad = ETHER_HDR_LEN % sizeof(uint32_t);
 
 	WEMAC_ASSERT_LOCKED(sc);
 
@@ -314,7 +360,9 @@ wemac_rxeof(struct wemac_softc *sc)
 
 		return 1;
 	}
-/*
+	reg_val = bus_space_read_4(sc->wemac_tag, sc->wemac_handle, EMAC_RX_IO_DATA);
+	len = reg_val & 0xFFFF;
+
 	MGETHDR(m, M_DONTWAIT, MT_DATA);
 	if (m == NULL)
 		return -1;
@@ -326,24 +374,27 @@ wemac_rxeof(struct wemac_softc *sc)
 			return -1;
 		}
 	}
-	m->m_pkthdr.rcvif = ifp;
-	m->m_len = m->m_pkthdr.len = len = MCLBYTES;
-	m_adj(m, ETHER_ALIGN);
-*/
-	m = m_getcl(M_NOWAIT, MT_DATA, M_PKTHDR);
-	if (m == NULL)
-		return (ENOBUFS);
 
-	reg_val = bus_space_read_4(sc->wemac_tag, sc->wemac_handle, EMAC_RX_IO_DATA);
-	len = reg_val & 0xFFFF;
+//	m = m_getcl(M_NOWAIT, MT_DATA, M_PKTHDR);
+//	if (m == NULL)
+//		return (ENOBUFS);
 
-	m->m_pkthdr.rcvif = ifp;
-	m->m_len = m->m_pkthdr.len = len;
-	m_adj(m, ETHER_ALIGN);
+
+	bus_space_read_multi_4(sc->wemac_tag, sc->wemac_handle,
+	    EMAC_RX_IO_DATA, mtod(m, uint32_t *),
+	    roundup(pad + len, sizeof(uint32_t)) >> 2);
+	m->m_data += pad;
 
 	/* XXX Read the data (maybe need to try bus_space_read_multi_(1-4)) */
-	bus_space_read_multi_2(sc->wemac_tag, sc->wemac_handle, EMAC_RX_IO_DATA,
-	    mtod(m, uint16_t *), (len + 1) / 2);
+//	bus_space_read_multi_2(sc->wemac_tag, sc->wemac_handle, EMAC_RX_IO_DATA,
+//	    mtod(m, uint16_t *), (len + 1) / 2);
+
+	m->m_pkthdr.rcvif = ifp;
+//	m->m_len = m->m_pkthdr.len = len;
+	m->m_len = m->m_pkthdr.len = (len - ETHER_CRC_LEN);
+	m_adj(m, ETHER_ALIGN);
+
+	BPF_MTAP(ifp, m);
 
 	ifp->if_ipackets++;
 	WEMAC_UNLOCK(sc);

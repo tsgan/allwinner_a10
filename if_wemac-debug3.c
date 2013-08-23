@@ -205,10 +205,6 @@ wemac_start_locked(struct ifnet *ifp)
 		if (m == NULL)
 			break;
 
-		/* Write the data to the network */
-//		bus_space_write_1(sc->wemac_tag, sc->wemac_handle, EMAC_MAC_MCMD,
-//		    DME_MWCMD);
-
 		total_len = 0;
 /*
                 p = mtod(m, uint8_t *);
@@ -237,8 +233,6 @@ wemac_start_locked(struct ifnet *ifp)
 
 			total_len += len;
 
-//			wemac_outblk_32bit(sc, EMAC_TX_IO_DATA, mtod(mp, uint32_t *), len);
-
 			p = mtod(mp, uint8_t *);
 			dso = (unsigned)p & 0x3;
 
@@ -248,8 +242,6 @@ wemac_start_locked(struct ifnet *ifp)
 
 //			bus_space_write_multi_2(sc->wemac_tag, sc->wemac_handle,
 //			    EMAC_TX_IO_DATA, mtod(mp, uint16_t *), (len + 1) / 2);
-//			bus_space_write_multi_4(sc->wemac_tag, sc->wemac_handle,
-//			    EMAC_TX_IO_DATA, mtod(mp, uint32_t *), roundup2(len, 4)/4);
 		}
 
 /*
@@ -367,7 +359,8 @@ wemac_rxeof(struct wemac_softc *sc)
 	if (m == NULL)
 		return -1;
 
-	if (len > MHLEN) {
+	if (len > (MHLEN - pad)) {
+//	if (len > MHLEN) {
 		MCLGET(m, M_DONTWAIT);
 		if (!(m->m_flags & M_EXT)) {
 			m_freem(m);
@@ -379,10 +372,10 @@ wemac_rxeof(struct wemac_softc *sc)
 //	if (m == NULL)
 //		return (ENOBUFS);
 
-
 	bus_space_read_multi_4(sc->wemac_tag, sc->wemac_handle,
 	    EMAC_RX_IO_DATA, mtod(m, uint32_t *),
 	    roundup(pad + len, sizeof(uint32_t)) >> 2);
+
 	m->m_data += pad;
 
 	/* XXX Read the data (maybe need to try bus_space_read_multi_(1-4)) */

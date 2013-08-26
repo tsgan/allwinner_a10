@@ -183,7 +183,7 @@ wemac_start_locked(struct ifnet *ifp)
 	int len, total_len;
 //	int total_len;
 	uint32_t reg_val;
-        unsigned dso;
+        unsigned d;
         uint8_t *p;
 
 	sc = ifp->if_softc;
@@ -206,24 +206,6 @@ wemac_start_locked(struct ifnet *ifp)
 			break;
 
 		total_len = 0;
-/*
-                p = mtod(m, uint8_t *);
-                dso = (unsigned)p & 0x3;
-
-                while (m->m_next != NULL) {
-                        bus_space_write_multi_4(sc->wemac_tag, sc->wemac_handle,
-                             EMAC_TX_IO_DATA, (uint32_t *)(p - dso),
-                             (m->m_len + dso + 3) >> 2);
-
-			total_len += m->m_len;
-                        m = m->m_next;
-                        p = mtod(m, uint8_t *);
-                        dso = (unsigned)p & 0x3;
-                }
-                bus_space_write_multi_4(sc->wemac_tag, sc->wemac_handle,
-                     EMAC_TX_IO_DATA, (uint32_t *)(p - dso),
-                     (m->m_len + dso + 3) >> 2);
-*/
 
 		for (mp = m; mp != NULL; mp = mp->m_next) {
 			len = mp->m_len;
@@ -234,30 +216,16 @@ wemac_start_locked(struct ifnet *ifp)
 			total_len += len;
 
 			p = mtod(mp, uint8_t *);
-			dso = (unsigned)p & 0x3;
+			d = (unsigned)p & 0x3;
 
+			/* Write data */
 			bus_space_write_multi_4(sc->wemac_tag, sc->wemac_handle,
-			    EMAC_TX_IO_DATA, (uint32_t *)(p - dso),
-			    (len + dso + 3) >> 2);
+			    EMAC_TX_IO_DATA, (uint32_t *)(p - d),
+			    (len + d + 3) >> 2);
 
 //			bus_space_write_multi_2(sc->wemac_tag, sc->wemac_handle,
 //			    EMAC_TX_IO_DATA, mtod(mp, uint16_t *), (len + 1) / 2);
 		}
-
-/*
-	        while (m) {
-			total_len += m->m_len;
-        	        if (m->m_len > 3)
-                	        bus_space_write_multi_4(sc->wemac_tag, sc->wemac_handle,
-                        	    EMAC_TX_IO_DATA, mtod(m, uint32_t *),
-	                            m->m_len / 4);
-        	        if (m->m_len & 3)
-                	        bus_space_write_multi_1(sc->wemac_tag, sc->wemac_handle,
-                        	    EMAC_TX_IO_DATA, mtod(m, uint8_t *) + (m->m_len & ~3), 
-				    m->m_len & 3);
-        	        m = m_free(m);
-	        }
-*/
 
 		/* Send the data lengh. */
 		wemac_write_reg(sc, EMAC_TX_PL0, total_len);
@@ -368,20 +336,15 @@ wemac_rxeof(struct wemac_softc *sc)
 		}
 	}
 
-//	m = m_getcl(M_NOWAIT, MT_DATA, M_PKTHDR);
-//	if (m == NULL)
-//		return (ENOBUFS);
-
+	/* XXX Read the data ? */
 	bus_space_read_multi_4(sc->wemac_tag, sc->wemac_handle,
 	    EMAC_RX_IO_DATA, mtod(m, uint32_t *),
 	    roundup(pad + len, sizeof(uint32_t)) >> 2);
 
-	m->m_data += pad;
-
-	/* XXX Read the data (maybe need to try bus_space_read_multi_(1-4)) */
 //	bus_space_read_multi_2(sc->wemac_tag, sc->wemac_handle, EMAC_RX_IO_DATA,
 //	    mtod(m, uint16_t *), (len + 1) / 2);
 
+	m->m_data += pad;
 	m->m_pkthdr.rcvif = ifp;
 //	m->m_len = m->m_pkthdr.len = len;
 	m->m_len = m->m_pkthdr.len = (len - ETHER_CRC_LEN);

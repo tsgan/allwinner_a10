@@ -59,7 +59,7 @@
 #define EMAC_RX_IO_DATA_LEN(x)		(x & 0xffff)
 #define EMAC_RX_IO_DATA_STA(x)		((x >> 16) & 0xffff)
 #define EMAC_RX_IO_DATA_STA_CRC_ERR	(1 << 4)
-#define EMAC_RX_IO_DATA_STA_ELN_ERR	(3 << 5)
+#define EMAC_RX_IO_DATA_STA_LEN_ERR	(3 << 5)
 #define EMAC_RX_IO_DATA_STA_OK		(1 << 7)
 #define EMAC_RX_FBC		0x50
 
@@ -106,12 +106,14 @@
 #define WEMAC_PLATF_SIMPLE_PHY	(1 << 5)
 
 #define EMAC_EEPROM_MAGIC	(0x444d394b)
+#define EMAC_UNDOCUMENTED_MAGIC	(0x0143414d)
 
 /* 0: Disable, 1: Aborted frame enable(default) */
 #define EMAC_TX_AB_M		(1 << 0)
 
 /* 0: CPU, 1: DMA(default) */
-#define EMAC_TX_TM		(1 << 1)
+//#define EMAC_TX_TM		(1 << 1)
+#define EMAC_TX_TM		~(1 << 1)
 
 //#define EMAC_TX_SETUP		(0)
 
@@ -119,7 +121,8 @@
 #define EMAC_RX_DRQ_MODE	(1 << 1)
 
 /* 0: CPU, 1: DMA(default) */
-#define EMAC_RX_TM		(1 << 2)
+//#define EMAC_RX_TM		(1 << 2)
+#define EMAC_RX_TM		~(1 << 2)
 
 /* 0: Normal(default), 1: Pass all Frames */
 #define EMAC_RX_PA		(1 << 4)

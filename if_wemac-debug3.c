@@ -114,8 +114,6 @@ static void wemac_init_locked(struct wemac_softc *);
 static int wemac_miibus_readreg(device_t dev, int phy, int reg);
 static int wemac_miibus_writereg(device_t dev, int phy, int reg, int data);
 static void wemac_miibus_statchg(device_t);
-//static void wemac_inblk_32bit(struct wemac_softc *sc, uint32_t reg, uint32_t *data, int count);
-//static void wemac_outblk_32bit(struct wemac_softc *sc, uint32_t reg, uint32_t *data, int count);
 
 #define WEMAC_PHY		0x100 /* PHY address 0x01 */
 
@@ -131,36 +129,6 @@ static void wemac_miibus_statchg(device_t);
 	bus_space_read_4(sc->wemac_tag, sc->wemac_handle, reg)
 #define wemac_write_reg(sc, reg, val)	\
 	bus_space_write_4(sc->wemac_tag, sc->wemac_handle, reg, val)
-
-/*
-static void 
-wemac_inblk_32bit(struct wemac_softc *sc, uint32_t reg, uint32_t *data, int count)
-{
-	int cnt = (count + 3) >> 2;
-
-	if (cnt) {
-		uint32_t *buf = data;
-
-		do {
-			uint32_t x = wemac_read_reg(sc, reg);
-			*buf++ = x;
-		} while (--cnt);
-	}
-}
-static void 
-wemac_outblk_32bit(struct wemac_softc *sc, uint32_t reg, uint32_t *data, int count)
-{
-	int cnt = (count + 3) >> 2;
-
-	if (cnt) {
-		const uint32_t *buf = data;
-
-		do {
-			wemac_write_reg(sc, reg, *buf++);
-		} while (--cnt);
-	}
-}
-*/
 
 static void
 wemac_reset(struct wemac_softc *sc)
@@ -699,8 +667,6 @@ wemac_attach(device_t dev)
 //	GPIO_PIN_SETFLAGS(sc_gpio_dev, GPIO_WEMAC_PWR, GPIO_PIN_OUTPUT);
 //	GPIO_PIN_SET(sc_gpio_dev, GPIO_WEMAC_PWR, GPIO_PIN_HIGH);
 
-//        printf("------- WEMAC 2 --------------\n");
-
 	/* initial EMAC */
 	/* flush RX FIFO */
 	reg_val = wemac_read_reg(sc, EMAC_RX_CTL);
@@ -708,14 +674,10 @@ wemac_attach(device_t dev)
 	wemac_write_reg(sc, EMAC_RX_CTL, reg_val);
 	DELAY(1);
 
-//        printf("------- WEMAC 2 --------------\n");
-
 	/* soft reset MAC */
 	reg_val = wemac_read_reg(sc, EMAC_MAC_CTL0);
 	reg_val &= ~EMAC_MAC_CTL0_SOFT_RST;
 	wemac_write_reg(sc, EMAC_MAC_CTL0, reg_val);
-
-//        printf("------- WEMAC 2 --------------\n");
 
 	/* set MII clock */
 	reg_val = wemac_read_reg(sc, EMAC_MAC_MCFG);
@@ -726,16 +688,12 @@ wemac_attach(device_t dev)
 	/* clear RX counter */
 	wemac_write_reg(sc, EMAC_RX_FBC, 0);
 
-//        printf("------- WEMAC 2 --------------\n");
-
 	/* disable all interrupt and clear interrupt status */
 	wemac_write_reg(sc, EMAC_INT_CTL, 0);
 	reg_val = wemac_read_reg(sc, EMAC_INT_STA);
 	wemac_write_reg(sc, EMAC_INT_STA, reg_val);
 
 	DELAY(1);
-
-//        printf("------- WEMAC 2 --------------\n");
 
 	/* 
 	 * Set up EMAC.
@@ -773,8 +731,6 @@ wemac_attach(device_t dev)
 	/* Reset */
 	wemac_reset(sc);
 
-//        printf("------- WEMAC 2 --------------\n");
-
 	ifp = sc->wemac_ifp = if_alloc(IFT_ETHER);
 	if (ifp == NULL) {
 		device_printf(dev, "unable to allocate ifp\n");
@@ -792,8 +748,6 @@ wemac_attach(device_t dev)
 		goto fail;
 	}
 
-//        printf("------- WEMAC 2 --------------\n");
-
 	/* Gating AHB clock for EMAC */
 //	REG_WRITE(SW_CCM_AHB_GATING, 1 << AHB_GATE_OFFSET_EMAC);
 
@@ -805,14 +759,6 @@ wemac_attach(device_t dev)
 	IFQ_SET_MAXLEN(&ifp->if_snd, IFQ_MAXLEN);
 
 	/* XXX: Hardcode the ethernet address for now */
-/*
-	eaddr[0] = 0xf2;
-	eaddr[1] = 0x9b;
-	eaddr[2] = 0x61;
-	eaddr[3] = 0xb3;
-	eaddr[4] = 0x4a;
-	eaddr[5] = 0x00;
-*/
 	eaddr[0] = 0x4e;
 	eaddr[0] &= 0xfe;	/* the 48bit must set 0 */
 	eaddr[0] |= 0x02;	/* the 47bit must set 1 */
@@ -842,8 +788,6 @@ sit0     DOWN                                   0.0.0.0/0   0x00000080 00:00:00:
 root@android:/ # [  295.300000] eth0: no IPv6 routers present
 */
 
-//        printf("------- WEMAC 2 --------------\n");
-
 	/* Write ethernet address to register */
 	wemac_write_reg(sc, EMAC_MAC_A1, eaddr[0] << 16 | eaddr[1] << 8 |
 	    eaddr[2]);
@@ -851,8 +795,6 @@ root@android:/ # [  295.300000] eth0: no IPv6 routers present
 	    eaddr[5]);
 
 	ether_ifattach(ifp, eaddr);
-
-//        printf("------- WEMAC 2 --------------\n");
 
 	/* Enable RX/TX */
 //	wemac_write_reg(sc, EMAC_CTL, 0x7);
@@ -863,7 +805,6 @@ root@android:/ # [  295.300000] eth0: no IPv6 routers present
 	/* Tell the upper layer we support VLAN over-sized frames. */
 	ifp->if_hdrlen = sizeof(struct ether_vlan_header);
 
-//        printf("------- WEMAC 2 --------------\n");
 	error = bus_setup_intr(dev, sc->wemac_irq, INTR_TYPE_NET | INTR_MPSAFE,
 	    NULL, wemac_intr, sc, &sc->wemac_intrhand);
 	if (error != 0) {

@@ -1,6 +1,5 @@
 /*
- * Copyright (C) 2013 Ganbold Tsagaankhuu
- * Copyright (C) 2010 Andrew Turner
+ * Copyright (C) 2013 Ganbold Tsagaankhuu <ganbold@gmail.com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -27,7 +26,7 @@
  */
 
 /*
- * A simple driver for the A10 WEMAC, based on Davicom 9000
+ * A simple driver for the A10 WEMAC
  */
 
 #include <sys/cdefs.h>

@@ -232,99 +232,103 @@ wemac_stop(struct wemac_softc *sc)
 	callout_stop(&sc->wemac_tick_ch);
 }
 
-static int
+//static int
+static void
 wemac_rxeof(struct wemac_softc *sc)
 {
 	struct ifnet *ifp;
 	struct mbuf *m;
 	int len;
-	uint32_t reg_val;
+	uint32_t reg_val, rxcount;
 	const int pad = ETHER_HDR_LEN % sizeof(uint32_t);
 
 	WEMAC_ASSERT_LOCKED(sc);
 
 	ifp = sc->wemac_ifp;
 
-	/* Read the first byte to check it correct */
-	reg_val = wemac_read_reg(sc, EMAC_RX_FBC);
-	if (!reg_val) {
-		sc->wemac_rx_completed_flag = 1;
-		reg_val = wemac_read_reg(sc, EMAC_INT_CTL);
-		reg_val |= (0xf << 0) | (0x01 << 8);
-		wemac_write_reg(sc, EMAC_INT_CTL, reg_val);
+	while(1){
+		/* Read the first byte to check it correct */
+		rxcount = wemac_read_reg(sc, EMAC_RX_FBC);
+		if (!rxcount) {
+			sc->wemac_rx_completed_flag = 1;
+			reg_val = wemac_read_reg(sc, EMAC_INT_CTL);
+			reg_val |= (0xf << 0) | (0x01 << 8);
+			wemac_write_reg(sc, EMAC_INT_CTL, reg_val);
 
-		/* Had one stuck? */
-		reg_val = wemac_read_reg(sc, EMAC_RX_FBC);
-		if (!reg_val)
-			return -1;
-	}
-
-	reg_val = wemac_read_reg(sc, EMAC_RX_IO_DATA);
-	if (reg_val != 0x0143414d) {
-		/* Disable RX */
-		reg_val = wemac_read_reg(sc, EMAC_CTL);
-		reg_val &= ~EMAC_CTL_RX_EN;
-		wemac_write_reg(sc, EMAC_CTL, reg_val);
-
-		/* Flush RX FIFO */
-		reg_val = wemac_read_reg(sc, EMAC_RX_CTL);
-		reg_val |= (1 << 3);
-		wemac_write_reg(sc, EMAC_RX_CTL, reg_val);
-
-		while (wemac_read_reg(sc, EMAC_RX_CTL) & (1 << 3))
-			;
-
-		/* Enable RX */
-		reg_val = wemac_read_reg(sc, EMAC_CTL);
-		reg_val |= EMAC_CTL_RX_EN;
-		wemac_write_reg(sc, EMAC_CTL, reg_val);
-
-		reg_val = wemac_read_reg(sc, EMAC_INT_CTL);
-		reg_val |= (0xf << 0) | (0x01 << 8);
-		wemac_write_reg(sc, EMAC_INT_CTL, reg_val);
-
-		sc->wemac_rx_completed_flag = 1;
-
-		return 1;
-	}
-	reg_val = bus_space_read_4(sc->wemac_tag, sc->wemac_handle, EMAC_RX_IO_DATA);
-	len = reg_val & 0xFFFF;
-
-	MGETHDR(m, M_DONTWAIT, MT_DATA);
-	if (m == NULL)
-		return -1;
-
-	if (len > (MHLEN - pad)) {
-//	if (len > MHLEN) {
-		MCLGET(m, M_DONTWAIT);
-		if (!(m->m_flags & M_EXT)) {
-			m_freem(m);
-			return -1;
+			/* Had one stuck? */
+			rxcount = wemac_read_reg(sc, EMAC_RX_FBC);
+			if (!rxcount)
+				return;
 		}
+
+		reg_val = wemac_read_reg(sc, EMAC_RX_IO_DATA);
+		if (reg_val != 0x0143414d) {
+			/* Disable RX */
+			reg_val = wemac_read_reg(sc, EMAC_CTL);
+			reg_val &= ~EMAC_CTL_RX_EN;
+			wemac_write_reg(sc, EMAC_CTL, reg_val);
+
+			/* Flush RX FIFO */
+			reg_val = wemac_read_reg(sc, EMAC_RX_CTL);
+			reg_val |= (1 << 3);
+			wemac_write_reg(sc, EMAC_RX_CTL, reg_val);
+
+			while (wemac_read_reg(sc, EMAC_RX_CTL) & (1 << 3))
+				;
+
+			/* Enable RX */
+			reg_val = wemac_read_reg(sc, EMAC_CTL);
+			reg_val |= EMAC_CTL_RX_EN;
+			wemac_write_reg(sc, EMAC_CTL, reg_val);
+
+			reg_val = wemac_read_reg(sc, EMAC_INT_CTL);
+			reg_val |= (0xf << 0) | (0x01 << 8);
+			wemac_write_reg(sc, EMAC_INT_CTL, reg_val);
+
+			sc->wemac_rx_completed_flag = 1;
+
+			return;
+		}
+		reg_val = bus_space_read_4(sc->wemac_tag, sc->wemac_handle, EMAC_RX_IO_DATA);
+		len = reg_val & 0xffff;
+
+		MGETHDR(m, M_DONTWAIT, MT_DATA);
+		if (m == NULL)
+			return;
+
+		if (len > (MHLEN - pad)) {
+////		if (len > MHLEN) {
+			MCLGET(m, M_DONTWAIT);
+			if (!(m->m_flags & M_EXT)) {
+				m_freem(m);
+				return;
+			}
+		}
+
+//		printf("pad: %d, len: %d\n", pad, len);
+
+		/* XXX Read the data ? */
+		bus_space_read_multi_4(sc->wemac_tag, sc->wemac_handle,
+		    EMAC_RX_IO_DATA, mtod(m, uint32_t *),
+		    roundup(pad + len, sizeof(uint32_t)) >> 2);
+
+//		bus_space_read_multi_2(sc->wemac_tag, sc->wemac_handle, EMAC_RX_IO_DATA,
+//		    mtod(m, uint16_t *), (len + 1) / 2);
+
+		len += pad;
+		m->m_data += pad;
+		m->m_pkthdr.rcvif = ifp;
+		m->m_len = m->m_pkthdr.len = len;
+//		m->m_len = m->m_pkthdr.len = (len - ETHER_CRC_LEN);
+		m_adj(m, ETHER_ALIGN);
+
+		BPF_MTAP(ifp, m);
+
+		ifp->if_ipackets++;
+		WEMAC_UNLOCK(sc);
+		(*ifp->if_input)(ifp, m);
+		WEMAC_LOCK(sc);
 	}
-
-	/* XXX Read the data ? */
-	bus_space_read_multi_4(sc->wemac_tag, sc->wemac_handle,
-	    EMAC_RX_IO_DATA, mtod(m, uint32_t *),
-	    roundup(pad + len, sizeof(uint32_t)) >> 2);
-
-//	bus_space_read_multi_2(sc->wemac_tag, sc->wemac_handle, EMAC_RX_IO_DATA,
-//	    mtod(m, uint16_t *), (len + 1) / 2);
-
-	m->m_data += pad;
-	m->m_pkthdr.rcvif = ifp;
-//	m->m_len = m->m_pkthdr.len = len;
-	m->m_len = m->m_pkthdr.len = (len - ETHER_CRC_LEN);
-	m_adj(m, ETHER_ALIGN);
-
-	BPF_MTAP(ifp, m);
-
-	ifp->if_ipackets++;
-	WEMAC_UNLOCK(sc);
-	(*ifp->if_input)(ifp, m);
-	WEMAC_LOCK(sc);
-
-	return 0;
 }
 
 static void
@@ -416,9 +420,9 @@ wemac_intr(void *arg)
 		sc->wemac_rx_completed_flag = 0;
 
 		/* Read the packets off the device */
-//		wemac_rxeof(sc);
-		while(wemac_rxeof(sc) == 0)
-			continue;
+		wemac_rxeof(sc);
+//		while(wemac_rxeof(sc) == 0)
+//			continue;
 	}
 
 	/* Transmit Interrupt check */

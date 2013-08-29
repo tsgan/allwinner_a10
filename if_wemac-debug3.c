@@ -146,9 +146,7 @@ wemac_start_locked(struct ifnet *ifp)
 {
 	struct wemac_softc *sc;
 	struct mbuf *m, *mp;
-//	struct mbuf *m;
 	int len, total_len;
-//	int total_len;
 	uint32_t reg_val;
         unsigned d;
         uint8_t *p;
@@ -240,7 +238,8 @@ wemac_rxeof(struct wemac_softc *sc)
 	struct mbuf *m;
 	int len;
 	uint32_t reg_val, rxcount;
-	const int pad = ETHER_HDR_LEN % sizeof(uint32_t);
+//	const int pad = ETHER_HDR_LEN % sizeof(uint32_t);
+	int pad;
 
 	WEMAC_ASSERT_LOCKED(sc);
 
@@ -289,15 +288,18 @@ wemac_rxeof(struct wemac_softc *sc)
 
 			return;
 		}
-		reg_val = bus_space_read_4(sc->wemac_tag, sc->wemac_handle, EMAC_RX_IO_DATA);
-		len = reg_val & 0xffff;
-
 		MGETHDR(m, M_DONTWAIT, MT_DATA);
 		if (m == NULL)
 			return;
 
+		/* get packet size */
+		reg_val = bus_space_read_4(sc->wemac_tag, sc->wemac_handle, EMAC_RX_IO_DATA);
+		len = reg_val & 0xffff;
+
+		pad = len % sizeof(uint32_t);
+
 		if (len > (MHLEN - pad)) {
-////		if (len > MHLEN) {
+//		if (len > MHLEN) {
 			MCLGET(m, M_DONTWAIT);
 			if (!(m->m_flags & M_EXT)) {
 				m_freem(m);
@@ -305,7 +307,8 @@ wemac_rxeof(struct wemac_softc *sc)
 			}
 		}
 
-//		printf("pad: %d, len: %d\n", pad, len);
+//		printf("MHLEN: %d, MLEN: %d\n", MHLEN, MLEN);
+//		printf("pad: %d, orig len: %d, len: %d\n", pad, len, len + pad);
 
 		/* XXX Read the data ? */
 		bus_space_read_multi_4(sc->wemac_tag, sc->wemac_handle,
@@ -315,11 +318,14 @@ wemac_rxeof(struct wemac_softc *sc)
 //		bus_space_read_multi_2(sc->wemac_tag, sc->wemac_handle, EMAC_RX_IO_DATA,
 //		    mtod(m, uint16_t *), (len + 1) / 2);
 
+                if (pad > 0) {
+                        /* Zero out the bytes in the pad area. */
+                        bzero(mtod(m, char *) + m->m_pkthdr.len, pad);
+                }
 		len += pad;
 		m->m_data += pad;
 		m->m_pkthdr.rcvif = ifp;
 		m->m_len = m->m_pkthdr.len = len;
-//		m->m_len = m->m_pkthdr.len = (len - ETHER_CRC_LEN);
 		m_adj(m, ETHER_ALIGN);
 
 		BPF_MTAP(ifp, m);

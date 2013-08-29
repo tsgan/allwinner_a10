@@ -322,7 +322,8 @@ wemac_rxeof(struct wemac_softc *sc)
                         /* Zero out the bytes in the pad area. */
                         bzero(mtod(m, char *) + m->m_pkthdr.len, pad);
                 }
-		len += pad;
+
+//		m->m_data += ETHER_HDR_LEN;
 		m->m_data += pad;
 		m->m_pkthdr.rcvif = ifp;
 		m->m_len = m->m_pkthdr.len = len;

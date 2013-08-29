@@ -299,7 +299,6 @@ wemac_rxeof(struct wemac_softc *sc)
 		pad = len % sizeof(uint32_t);
 
 		if (len > (MHLEN - pad)) {
-//		if (len > MHLEN) {
 			MCLGET(m, M_DONTWAIT);
 			if (!(m->m_flags & M_EXT)) {
 				m_freem(m);
@@ -324,7 +323,8 @@ wemac_rxeof(struct wemac_softc *sc)
                 }
 
 //		m->m_data += ETHER_HDR_LEN;
-		m->m_data += pad;
+//		m->m_data += pad;
+		m->m_data += 2;
 		m->m_pkthdr.rcvif = ifp;
 		m->m_len = m->m_pkthdr.len = len;
 		m_adj(m, ETHER_ALIGN);

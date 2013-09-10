@@ -118,28 +118,6 @@ static devclass_t a10_ccm_devclass;
 DRIVER_MODULE(a10_ccm, simplebus, a10_ccm_driver, a10_ccm_devclass, 0, 0);
 
 int
-a10_clk_mmc_activate(void)
-{
-	struct a10_ccm_softc *sc = a10_ccm_sc;
-	uint32_t reg_value;
-
-	if (sc == NULL)
-		return ENXIO;
-
-	/* Gating AHB clock for MMC */
-	reg_value = ccm_read_4(sc, CCM_AHB_GATING0);
-	reg_value |= CCM_AHB_GATING_MMC0; /* AHB clock gate mmc0 */
-	ccm_write_4(sc, CCM_AHB_GATING0, reg_value);
-
-	/* Enable clock for MMC */
-	reg_value = ccm_read_4(sc, CCM_MMC0_SCLK_CFG);
-	reg_value |= CCM_MMC0_SCLK_ON; /* Clock on */
-	ccm_write_4(sc, CCM_MMC0_SCLK_CFG, reg_value);
-
-	return (0);
-}
-
-int
 a10_clk_usb_activate(void)
 {
 	struct a10_ccm_softc *sc = a10_ccm_sc;
@@ -190,5 +168,38 @@ a10_clk_usb_deactivate(void)
 	ccm_write_4(sc, CCM_AHB_GATING0, reg_value);
 
 	return (0);
+}
+
+int
+a10_clk_mmc_activate(void)
+{
+	struct a10_ccm_softc *sc = a10_ccm_sc;
+	uint32_t reg_value;
+	unsigned int pll5_clk;
+	unsigned int divider;
+	unsigned int n, k, p;
+
+	if (sc == NULL)
+		return ENXIO;
+
+	/* Gating AHB clock for SDMMC0 */
+	reg_value = ccm_read_4(sc, CCM_AHB_GATING0);
+	reg_value |= CCM_AHB_GATING_SDMMC0;
+	ccm_write_4(sc, CCM_AHB_GATING0, reg_value);
+
+	/* config mod clock */
+	reg_value = ccm_read_4(sc, CCM_PLL5_CFG);
+	n = (reg_value >> 8) & 0x1f;
+	k = ((reg_value >> 4) & 3) + 1;
+	p = 1 << ((reg_value >> 16) & 3);
+	pll5_clk = 24000000 * n * k / p;
+	if (pll5_clk > 400000000)
+		divider = 4;
+	else
+		divider = 3;
+	ccm_write_4(sc, CCM_MMC0_SCLK_CFG, (1U << 31) | (2U << 24) | divider);
+	printf("MMC0 MODE_CLK: 0x%08x\n", pll5_clk / (divider + 1));
+
+	return 0;
 }
 

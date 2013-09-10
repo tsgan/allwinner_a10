@@ -23,7 +23,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  * 
- * $FreeBSD$
+ * $FreeBSD: head/sys/boot/fdt/dts/cubieboard2.dts 254056 2013-08-07 11:07:56Z ganbold $
  */
 
 /dts-v1/;
@@ -129,6 +129,30 @@
 			clock-frequency = < 24000000 >;
 			busy-detect = <1>;
 			broken-txfifo = <1>;
+		};
+
+		mmc@0x01c0f000 {
+			compatible = "allwinner,sun4i-mmc";
+			reg = <0x01c0f000 0x1000>;
+			interrupts = <32>;
+			interrupt-parent = <&GIC>;
+		};
+
+		wemac@01c0b000 {
+			compatible = "allwinner,wemac";
+			reg = <0x01c0b000 0x1000>;
+			interrupts = <55>;
+			interrupt-parent = <&GIC>;
+			phy-handle = <&phy0>;
+			mdio@0 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				compatible = "allwinner,mdio";
+
+				phy0: ethernet-phy@0 {
+					reg = <0x0>;
+				};
+			};
 		};
 	};
 

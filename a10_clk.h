@@ -103,17 +103,15 @@
 #define CCM_AHB_GATING_USB0	(1 << 0)
 #define CCM_AHB_GATING_EHCI0	(1 << 1)
 #define CCM_AHB_GATING_EHCI1	(1 << 3)
-#define CCM_AHB_GATING_MMC0	(1 << 8)
+#define CCM_AHB_GATING_SDMMC0 (1 << 8)
 
 #define CCM_USB_PHY		(1 << 8)
 #define CCM_USB0_RESET		(1 << 0)
 #define CCM_USB1_RESET		(1 << 1)
 #define CCM_USB2_RESET		(1 << 2)
 
-#define CCM_MMC0_SCLK_ON	(1 << 31)
-
-int a10_clk_mmc_activate(void);
 int a10_clk_usb_activate(void);
 int a10_clk_usb_deactivate(void);
+int a10_clk_mmc_activate(void);
 
 #endif /* _A10_CLK_H_ */

@@ -224,6 +224,8 @@ a10_clk_ahci_activate(void)
 	/* 
 	 * Config mod clock.
 	 * SATA needs PLL6 to be a 100MHz clock.
+	 * Below codes are just copied from MMC clk activate.
+	 * Need to fix it.
 	 */
 	reg_value = ccm_read_4(sc, CCM_PLL6_CFG);
 	n = (reg_value >> 8) & 0x1f;

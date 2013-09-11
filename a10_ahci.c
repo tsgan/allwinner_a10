@@ -111,8 +111,6 @@ struct a10_ahci_softc {
 
 #define GPIO_AHCI_PWR		40
 
-#define CCMU_PLL6_VBASE		0xe1c20028
-
 static int	a10_ahci_probe(device_t dev);
 static int	a10_ahci_attach(device_t dev);
 static int	a10_ahci_detach(device_t dev);
@@ -488,7 +486,7 @@ static driver_t a10_ahci_driver = {
 
 devclass_t a10_ahci_devclass;
 
-DRIVER_MODULE(ahci, simplebus, a10_ahci_driver, a10_ahci_devclass, 0, 0);
-MODULE_VERSION(ahci, 1);
-MODULE_DEPEND(ahci, cam, 1, 1, 1);
+DRIVER_MODULE(a10_ahci, simplebus, a10_ahci_driver, a10_ahci_devclass, 0, 0);
+//MODULE_VERSION(a10_ahci, 1);
+//MODULE_DEPEND(a10_ahci, cam, 1, 1, 1);
 

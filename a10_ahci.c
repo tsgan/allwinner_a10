@@ -42,6 +42,7 @@ __FBSDID("$FreeBSD$");
 #include <sys/sema.h>
 #include <sys/taskqueue.h>
 #include <vm/uma.h>
+#include <sys/gpio.h>
 #include <machine/bus.h>
 #include <machine/resource.h>
 
@@ -56,11 +57,14 @@ __FBSDID("$FreeBSD$");
 #include <dev/ofw/ofw_bus.h>
 #include <dev/ofw/ofw_bus_subr.h>
 
+#include "gpio_if.h"
+
+#include "a10_clk.h"
+
 #include "ata_if.h"
 
 #define SATA_CHAN_NUM			1
 
-/* Identification section. */
 struct a10_ahci_softc {
 	device_t		sc_dev;
 	unsigned int		sc_version;
@@ -75,51 +79,45 @@ struct a10_ahci_softc {
 	} sc_interrupt[SATA_CHAN_NUM];
 };
 
+#define AHCI_READ_4(sc, reg)             \
+        bus_space_read_4((sc)->sc_mem_res_bustag, (sc)->sc_mem_res_bushdl, reg)
 
-#define	ahci_readl(base,offset)		\
-	(*((volatile uint32_t *)((base)+(offset))))
-#define ahci_writel(base,offset,val)	\
-	(*((volatile uint32_t *)((base)+(offset))) = (val))
+#define AHCI_WRITE_4(sc, reg, data)      \
+        bus_space_write_4((sc)->sc_mem_res_bustag, (sc)->sc_mem_res_bushdl, reg, data)
 
-#define SW_AHCI_BASE			0xe1c18000
+#define SW_AHCI_BISTAFR		0x00A0
+#define SW_AHCI_BISTCR		0x00A4
+#define SW_AHCI_BISTFCTR	0x00A8
+#define SW_AHCI_BISTSR		0x00AC
+#define SW_AHCI_BISTDECR	0x00B0
+#define SW_AHCI_DIAGNR		0x00B4
+#define SW_AHCI_DIAGNR1		0x00B8
+#define SW_AHCI_OOBR		0x00BC
+#define SW_AHCI_PHYCS0R		0x00C0
+#define SW_AHCI_PHYCS1R		0x00C4
+#define SW_AHCI_PHYCS2R		0x00C8
+#define SW_AHCI_TIMER1MS	0x00E0
+#define SW_AHCI_GPARAM1R	0x00E8
+#define SW_AHCI_GPARAM2R	0x00EC
+#define SW_AHCI_PPARAMR		0x00F0
+#define SW_AHCI_TESTR		0x00F4
+#define SW_AHCI_VERSIONR	0x00F8
+#define SW_AHCI_IDR		0x00FC
+#define SW_AHCI_RWCR		0x00FC
 
-#define SW_AHCI_BISTAFR_OFFSET		0x00A0
-#define SW_AHCI_BISTCR_OFFSET		0x00A4
-#define SW_AHCI_BISTFCTR_OFFSET		0x00A8
-#define SW_AHCI_BISTSR_OFFSET		0x00AC
-#define SW_AHCI_BISTDECR_OFFSET		0x00B0
-#define SW_AHCI_DIAGNR_OFFSET		0x00B4
-#define SW_AHCI_DIAGNR1_OFFSET		0x00B8
-#define SW_AHCI_OOBR_OFFSET		0x00BC
-#define SW_AHCI_PHYCS0R_OFFSET		0x00C0
-#define SW_AHCI_PHYCS1R_OFFSET		0x00C4
-#define SW_AHCI_PHYCS2R_OFFSET		0x00C8
-#define SW_AHCI_TIMER1MS_OFFSET		0x00E0
-#define SW_AHCI_GPARAM1R_OFFSET		0x00E8
-#define SW_AHCI_GPARAM2R_OFFSET		0x00EC
-#define SW_AHCI_PPARAMR_OFFSET		0x00F0
-#define SW_AHCI_TESTR_OFFSET		0x00F4
-#define SW_AHCI_VERSIONR_OFFSET		0x00F8
-#define SW_AHCI_IDR_OFFSET		0x00FC
-#define SW_AHCI_RWCR_OFFSET		0x00FC
+#define SW_AHCI_P0DMACR		0x0170
+#define SW_AHCI_P0PHYCR		0x0178
+#define SW_AHCI_P0PHYSR		0x017C
 
-#define SW_AHCI_P0DMACR_OFFSET		0x0170
-#define SW_AHCI_P0PHYCR_OFFSET		0x0178
-#define SW_AHCI_P0PHYSR_OFFSET		0x017C
+#define GPIO_AHCI_PWR		40
 
-#define SW_AHCI_ACCESS_LOCK(base,x)	\
-	(*((volatile uint32_t *)((base)+SW_AHCI_RWCR_OFFSET)) = (x))
+#define CCMU_PLL6_VBASE		0xe1c20028
 
-#define INTC_IRQNO_AHCI			56
-
-#define CCMU_PLL6_VBASE			0xe1c20028
-
-
-/* Controller functions */
 static int	a10_ahci_probe(device_t dev);
 static int	a10_ahci_attach(device_t dev);
 static int	a10_ahci_detach(device_t dev);
 static void	a10_ahci_intr(void*);
+static void 	a10_ahci_phy_init(device_t dev);
 static struct resource * a10_ahci_alloc_resource(device_t dev, device_t child,
     int type, int *rid, u_long start, u_long end, u_long count, u_int flags);
 static int	a10_ahci_release_resource(device_t dev, device_t child, int type,
@@ -129,7 +127,6 @@ static int	a10_ahci_setup_intr(device_t dev, device_t child,
     driver_intr_t *function, void *argument, void **cookiep);
 static int	a10_ahci_teardown_intr(device_t dev, device_t child,
     struct resource *irq, void *cookie);
-
 
 static int
 a10_ahci_probe(device_t dev)
@@ -141,106 +138,99 @@ a10_ahci_probe(device_t dev)
 	return (0);
 }
 
-static int
-a10_ahci_attach(device_t dev)
+static void 
+a10_ahci_phy_init(device_t dev)
 {
 	struct a10_ahci_softc *sc;
-	int mem_id, irq_id, error, i;
-	device_t child;
-	uint32_t tmp;
-	uint32_t timeout_val = 0x100000;
-	uint32_t timeout = timeout_val;
+	uint32_t reg_val;
+	uint32_t timeout;
 
 	sc = device_get_softc(dev);
 	sc->sc_dev = dev;
-	mem_id = 0;
-	irq_id = 0;
 
 	printf("---------- 10 ------------\n");
 
-	/*Enable SATA Clock in SATA PLL*/
-	ahci_writel(CCMU_PLL6_VBASE, 0, ahci_readl(CCMU_PLL6_VBASE, 0)|(0x1<<14));
-
-	for(tmp=0; tmp<0x1000; tmp++);
-
-	/* phy init */
-
-	printf("---------- 10 next ------------\n");
-
-//	volatile uint32_t *base = (uint32_t *) 0xe1c180fc;
-//	*base = 0;
-
-	SW_AHCI_ACCESS_LOCK(SW_AHCI_BASE, 0);
+	DELAY(5000);
+	AHCI_WRITE_4(sc, SW_AHCI_RWCR, 0);
+	DELAY(10);
 
 	printf("---------- 100 ------------\n");
 
-	tmp = ahci_readl(SW_AHCI_BASE, SW_AHCI_PHYCS1R_OFFSET);
-	tmp |= (0x1<<19);
-	ahci_writel(SW_AHCI_BASE, SW_AHCI_PHYCS1R_OFFSET, tmp);
+	reg_val = AHCI_READ_4(sc, SW_AHCI_PHYCS1R);
+	reg_val |= (0x1<<19);
+	AHCI_WRITE_4(sc, SW_AHCI_PHYCS1R, reg_val);
+	DELAY(10);
 
 	printf("---------- 1001 ------------\n");
 
-	tmp = ahci_readl(SW_AHCI_BASE, SW_AHCI_PHYCS0R_OFFSET);
-	tmp |= 0x1<<23;
-	tmp |= 0x1<<18;
-	tmp &= ~(0x7<<24);
-	tmp |= 0x5<<24;
-	ahci_writel(SW_AHCI_BASE, SW_AHCI_PHYCS0R_OFFSET, tmp);
+	reg_val = AHCI_READ_4(sc, SW_AHCI_PHYCS0R);
+	reg_val |= 0x1<<23;
+	reg_val |= 0x1<<18;
+	reg_val &= ~(0x7<<24);
+	reg_val |= 0x5<<24;
+	AHCI_WRITE_4(sc, SW_AHCI_PHYCS0R, reg_val);
+	DELAY(10);
 
 	printf("---------- 1002 ------------\n");
 
-	tmp = ahci_readl(SW_AHCI_BASE, SW_AHCI_PHYCS1R_OFFSET);
-	tmp &= ~(0x3<<16);
-	tmp |= (0x2<<16);
-	tmp &= ~(0x1f<<8);
-	tmp |= (6<<8);
-	tmp &= ~(0x3<<6);
-	tmp |= (2<<6);
-	ahci_writel(SW_AHCI_BASE, SW_AHCI_PHYCS1R_OFFSET, tmp);
+	reg_val = AHCI_READ_4(sc, SW_AHCI_PHYCS1R);
+	reg_val &= ~(0x3<<16);
+	reg_val |= (0x2<<16);
+	reg_val &= ~(0x1f<<8);
+	reg_val |= (6<<8);
+	reg_val &= ~(0x3<<6);
+	reg_val |= (2<<6);
+	AHCI_WRITE_4(sc, SW_AHCI_PHYCS1R, reg_val);
+	DELAY(10);
 
 	printf("---------- 1003 ------------\n");
 
-	tmp = ahci_readl(SW_AHCI_BASE, SW_AHCI_PHYCS1R_OFFSET);
-	tmp |= (0x1<<28);
-	tmp |= (0x1<<15);
-	ahci_writel(SW_AHCI_BASE, SW_AHCI_PHYCS1R_OFFSET, tmp);
+	reg_val = AHCI_READ_4(sc, SW_AHCI_PHYCS1R);
+	reg_val |= (0x1<<28);
+	reg_val |= (0x1<<15);
+	AHCI_WRITE_4(sc, SW_AHCI_PHYCS1R, reg_val);
+	DELAY(10);
 
 	printf("---------- 1004 ------------\n");
 
-	tmp = ahci_readl(SW_AHCI_BASE, SW_AHCI_PHYCS1R_OFFSET);
-	tmp &= ~(0x1<<19);
-	ahci_writel(SW_AHCI_BASE, SW_AHCI_PHYCS1R_OFFSET, tmp);
+	reg_val = AHCI_READ_4(sc, SW_AHCI_PHYCS1R);
+	reg_val &= ~(0x1<<19);
+	AHCI_WRITE_4(sc, SW_AHCI_PHYCS1R, reg_val);
+	DELAY(10);
 
 	printf("---------- 1005 ------------\n");
 
-	tmp = ahci_readl(SW_AHCI_BASE, SW_AHCI_PHYCS0R_OFFSET);
-	tmp &= ~(0x7<<20);
-	tmp |= (0x03<<20);
-	ahci_writel(SW_AHCI_BASE, SW_AHCI_PHYCS0R_OFFSET, tmp);
+	reg_val = AHCI_READ_4(sc, SW_AHCI_PHYCS0R);
+	reg_val &= ~(0x7<<20);
+	reg_val |= (0x03<<20);
+	AHCI_WRITE_4(sc, SW_AHCI_PHYCS0R, reg_val);
+	DELAY(10);
 
 	printf("---------- 1006 ------------\n");
 
-	tmp = ahci_readl(SW_AHCI_BASE, SW_AHCI_PHYCS2R_OFFSET);
-	tmp &= ~(0x1f<<5);
-	tmp |= (0x19<<5);
-	ahci_writel(SW_AHCI_BASE, SW_AHCI_PHYCS2R_OFFSET, tmp);
+	reg_val = AHCI_READ_4(sc, SW_AHCI_PHYCS2R);
+	reg_val &= ~(0x1f<<5);
+	reg_val |= (0x19<<5);
+	AHCI_WRITE_4(sc, SW_AHCI_PHYCS2R, reg_val);
+	DELAY(20);
 
 	printf("---------- 110 XXX ------------\n");
 
-	for(tmp=0; tmp<0x1000; tmp++);
-
-	tmp = ahci_readl(SW_AHCI_BASE, SW_AHCI_PHYCS0R_OFFSET);
-	tmp |= 0x1<<19;
-	ahci_writel(SW_AHCI_BASE, SW_AHCI_PHYCS0R_OFFSET, tmp);
+	DELAY(5000);
+	reg_val = AHCI_READ_4(sc, SW_AHCI_PHYCS0R);
+	reg_val |= 0x1<<19;
+	AHCI_WRITE_4(sc, SW_AHCI_PHYCS0R, reg_val);
+	DELAY(20);
 
 	printf("---------- 110 ------------\n");
 
-	timeout = timeout_val;
+	timeout = 1000;
 	do{
-		tmp = ahci_readl(SW_AHCI_BASE, SW_AHCI_PHYCS0R_OFFSET);
+		DELAY(10);
+		reg_val = AHCI_READ_4(sc, SW_AHCI_PHYCS0R);
 		timeout --;
 		if(!timeout) break;
-	}while((tmp&(0x7<<28))!=(0x02<<28));
+	}while((reg_val&(0x7<<28))!=(0x02<<28));
 
 	printf("---------- 1100 ------------\n");
 
@@ -249,18 +239,19 @@ a10_ahci_attach(device_t dev)
 		device_printf(dev, "SATA AHCI Phy Power Failed!!\n");
 	}
 
-	tmp = ahci_readl(SW_AHCI_BASE, SW_AHCI_PHYCS2R_OFFSET);
-	tmp |= 0x1<<24;
-	ahci_writel(SW_AHCI_BASE, SW_AHCI_PHYCS2R_OFFSET, tmp);
+	reg_val = AHCI_READ_4(sc, SW_AHCI_PHYCS2R);
+	reg_val |= 0x1<<24;
+	AHCI_WRITE_4(sc, SW_AHCI_PHYCS2R, reg_val);
 
 	printf("---------- 11000 ------------\n");
 
-	timeout = timeout_val;
+	timeout = 1000;
 	do{
-		tmp = ahci_readl(SW_AHCI_BASE, SW_AHCI_PHYCS2R_OFFSET);
+		DELAY(10);
+		reg_val = AHCI_READ_4(sc, SW_AHCI_PHYCS2R);
 		timeout --;
 		if(!timeout) break;
-	}while(tmp&(0x1<<24));
+	}while(reg_val&(0x1<<24));
 
 	printf("---------- 111 ------------\n");
 
@@ -268,11 +259,23 @@ a10_ahci_attach(device_t dev)
 	{
 		device_printf(dev, "SATA AHCI Phy Calibration Failed!!\n");
 	}
-	for(tmp=0; tmp<0x3000; tmp++);
 
-	SW_AHCI_ACCESS_LOCK(SW_AHCI_BASE, 0x07);
+	DELAY(15000);
+	AHCI_WRITE_4(sc, SW_AHCI_RWCR, 0x07);
 
 	printf("---------- 11 ------------\n");
+}
+
+static int
+a10_ahci_attach(device_t dev)
+{
+	struct a10_ahci_softc *sc;
+	int mem_id, irq_id, error, i;
+	device_t child;
+        device_t sc_gpio_dev;
+
+	sc = device_get_softc(dev);
+	sc->sc_dev = dev;
 
 	/* Allocate resources */
 	sc->sc_mem_res = bus_alloc_resource_any(dev, SYS_RES_MEMORY,
@@ -299,7 +302,25 @@ a10_ahci_attach(device_t dev)
 		goto err;
 	}
 
+	/* Enable SATA Clock in SATA PLL */
+	a10_clk_ahci_activate();
+
+	/* Init phy */
+	a10_ahci_phy_init(dev);
+
 	printf("---------- 0 ------------\n");
+        /* Get the GPIO device, we need this to give power to USB */
+        sc_gpio_dev = devclass_get_device(devclass_find("gpio"), 0);
+        if (sc_gpio_dev == NULL) {
+                device_printf(dev, "Error: failed to get the GPIO device\n");
+                goto err;
+        }
+
+        /* Give power to SATA */
+        GPIO_PIN_SETFLAGS(sc_gpio_dev, GPIO_AHCI_PWR, GPIO_PIN_OUTPUT);
+        GPIO_PIN_SET(sc_gpio_dev, GPIO_AHCI_PWR, GPIO_PIN_HIGH);
+
+	printf("---------- 1 ------------\n");
 
 	error = bus_setup_intr(dev, sc->sc_irq_res,
 	    INTR_TYPE_BIO | INTR_MPSAFE | INTR_ENTROPY,
@@ -308,8 +329,6 @@ a10_ahci_attach(device_t dev)
 		device_printf(dev, "could not setup interrupt.\n");
 		goto err;
 	}
-
-	printf("---------- 1 ------------\n");
 
 	/* Attach channels */
 	for (i = 0; i < SATA_CHAN_NUM; i++) {
@@ -324,13 +343,12 @@ a10_ahci_attach(device_t dev)
 
 	printf("---------- 2 ------------\n");
 
-
 	bus_generic_attach(dev);
 	return (0);
 
 err:
 	a10_ahci_detach(dev);
-	return (error);
+	return (ENXIO);
 }
 
 static int

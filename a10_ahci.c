@@ -131,7 +131,7 @@ static int	a10_ahci_teardown_intr(device_t dev, device_t child,
 static int
 a10_ahci_probe(device_t dev)
 {
-	if (!ofw_bus_is_compatible(dev, "a10,ahci"))
+	if (!ofw_bus_is_compatible(dev, "allwinner,ahci"))
 		return (ENXIO);
 
 	device_set_desc(dev, "Allwinner Integrated AHCI Controller");

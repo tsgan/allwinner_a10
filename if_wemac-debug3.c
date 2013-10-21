@@ -1,5 +1,4 @@
 /*-
- * Copyright (c) 2013 Tugstugi <tugstugi@gmail.com>
  * Copyright (c) 2013 Ganbold Tsagaankhuu <ganbold@gmail.com>
  * All rights reserved.
  *

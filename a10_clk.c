@@ -204,51 +204,18 @@ a10_clk_mmc_activate(void)
 }
 
 int
-a10_clk_ahci_activate(void)
-{
+a10_clk_emac_activate(void) {
 	struct a10_ccm_softc *sc = a10_ccm_sc;
 	uint32_t reg_value;
-	unsigned int pll6_clk;
-	unsigned int divider;
-	unsigned int n, k, p;
 
 	if (sc == NULL)
 		return ENXIO;
 
-	/* Gating AHB clock for SATA */
+	/* Gating AHB clock for EMAC */
 	reg_value = ccm_read_4(sc, CCM_AHB_GATING0);
-	reg_value |= CCM_AHB_GATING_SATA;
+	reg_value |= CCM_AHB_GATING_EMAC;
 	ccm_write_4(sc, CCM_AHB_GATING0, reg_value);
-	DELAY(1000);
 
-	/* 
-	 * Config mod clock.
-	 * SATA needs PLL6 to be a 100MHz clock.
-	 * Below codes are just copied from MMC clk activate.
-	 * Need to fix it.
-	 */
-	reg_value = ccm_read_4(sc, CCM_PLL6_CFG);
-	n = (reg_value >> 8) & 0x1f;
-	k = ((reg_value >> 4) & 3) + 1;
-	p = 1 << ((reg_value >> 16) & 3);
-
-	/*
-	 * Output freq is 24MHz * n * k / m / 6.
-	 * To get to 100MHz, k & m must be equal and n must be 25.
-	 */
-	pll6_clk = 24000000 * n * k / p;
-	if (pll6_clk > 400000000)
-		divider = 4;
-	else
-		divider = 3;
-
-	printf("n = %d, k = %d, p = %d, pll6_clk = %d, divider = %d\n", n, k, p, pll6_clk, divider);
-	printf("((1U << 31) | (2U << 24) | divider) = %d\n", (1U << 31) | (2U << 24) | divider);
-
-//	ccm_write_4(sc, CCM_SATA_CLK, (1U << 31));
-	ccm_write_4(sc, CCM_SATA_CLK, (1U << 31) | (2U << 24) | divider);
-	printf("SATA MODE_CLK: 0x%08x\n", pll6_clk / (divider + 1));
-
-	return 0;
+	return (0);
 }
 

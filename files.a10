@@ -1,4 +1,4 @@
-# $FreeBSD: head/sys/arm/allwinner/files.a10 246660 2013-02-11 11:31:23Z gonzo $
+# $FreeBSD: head/sys/arm/allwinner/files.a10 254056 2013-08-07 11:07:56Z ganbold $
 kern/kern_clocksource.c			standard
 
 arm/arm/bus_space_asm_generic.S		standard
@@ -9,15 +9,16 @@ arm/arm/cpufunc_asm_arm11.S		standard
 arm/arm/cpufunc_asm_armv7.S		standard
 arm/arm/irq_dispatch.S			standard
 
-arm/allwinner/uart_dev_ns8250_a10.c	optional	uart
 arm/allwinner/a10_clk.c			standard
+arm/allwinner/a10_sramc.c		standard
 arm/allwinner/a10_gpio.c		optional	gpio
-arm/allwinner/a10_sdhci.c		optional	sdhci
 arm/allwinner/a10_ehci.c		optional	ehci
+arm/allwinner/a10_mmc.c			optional	mmc
+arm/allwinner/if_wemac-debug3.c		optional	wemac
 arm/allwinner/a10_wdog.c		standard
 arm/allwinner/timer.c			standard
 arm/allwinner/aintc.c			standard
 arm/allwinner/bus_space.c		standard
 arm/allwinner/common.c			standard
-#arm/allwinner/console.c			standard
+#arm/allwinner/console.c		standard
 arm/allwinner/a10_machdep.c		standard

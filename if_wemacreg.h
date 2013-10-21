@@ -160,8 +160,8 @@
 /* 0: Normal(default), 1: Inverse Filtering */
 #define EMAC_RX_SAIF		(1 << 25)
 
-#define EMAC_RX_SETUP		(EMAC_RX_POR | EMAC_RX_UCAD | EMAC_RX_DAF | \
-    EMAC_RX_MCO | EMAC_RX_BCO)
+#define EMAC_RX_SETUP		(EMAC_RX_POR | EMAC_RX_UCAD | \
+    EMAC_RX_DAF | EMAC_RX_MCO | EMAC_RX_BCO)
 
 /* 0: Disable, 1: Enable Receive Flow Control(default) */
 #define EMAC_MAC_CTL0_RFC	(1 << 2)

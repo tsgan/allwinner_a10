@@ -27,7 +27,7 @@
  *
  */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: head/sys/arm/allwinner/a10_gpio.c 246955 2013-02-19 02:01:35Z ganbold $");
+__FBSDID("$FreeBSD: head/sys/arm/allwinner/a10_gpio.c 249449 2013-04-13 21:21:13Z dim $");
 
 #include <sys/param.h>
 #include <sys/systm.h>
@@ -53,6 +53,7 @@ __FBSDID("$FreeBSD: head/sys/arm/allwinner/a10_gpio.c 246955 2013-02-19 02:01:35
 #include <dev/ofw/ofw_bus_subr.h>
 
 #include "gpio_if.h"
+#include "a10_gpio.h"
 
 /*
  * A10 have 9 banks of gpio.
@@ -102,6 +103,8 @@ struct a10_gpio_softc {
 #define	A10_GPIO_GP_INT_CTL		0x210
 #define	A10_GPIO_GP_INT_STA		0x214
 #define	A10_GPIO_GP_INT_DEB		0x218
+
+static struct a10_gpio_softc *a10_gpio_sc = NULL;
 
 #define	A10_GPIO_WRITE(_sc, _off, _val)		\
     bus_space_write_4(_sc->sc_bst, _sc->sc_bsh, _off, _val)
@@ -300,8 +303,8 @@ a10_gpio_pin_setflags(device_t dev, uint32_t pin, uint32_t flags)
 	if (i >= sc->sc_gpio_npins)
 		return (EINVAL);
 
-	/* Filter out unwanted flags. */
-	if ((flags &= sc->sc_gpio_pins[i].gp_caps) != flags)
+	/* Check for unwanted flags. */
+	if ((flags & sc->sc_gpio_pins[i].gp_caps) != flags)
 		return (EINVAL);
 
 	/* Can't mix input/output together. */
@@ -426,6 +429,9 @@ a10_gpio_attach(device_t dev)
 	int i, rid;
 	phandle_t gpio;
 
+	if (a10_gpio_sc)
+		return (ENXIO);
+
 	sc->sc_dev = dev;
 
 	mtx_init(&sc->sc_mtx, "a10 gpio", "gpio", MTX_DEF);
@@ -470,6 +476,9 @@ a10_gpio_attach(device_t dev)
 
 	device_add_child(dev, "gpioc", device_get_unit(dev));
 	device_add_child(dev, "gpiobus", device_get_unit(dev));
+
+	a10_gpio_sc = sc;
+
 	return (bus_generic_attach(dev));
 
 fail:
@@ -507,6 +516,33 @@ static device_method_t a10_gpio_methods[] = {
 };
 
 static devclass_t a10_gpio_devclass;
+
+int a10_emac_gpio_config(void) {
+	struct a10_gpio_softc *sc = a10_gpio_sc;
+	uint32_t reg_val;
+
+	if (sc == NULL)
+		return ENXIO;
+
+	reg_val = A10_GPIO_READ(sc, 0x00);
+	reg_val &= 0xAAAAAAAA;
+	reg_val |= 0x22222222;
+	A10_GPIO_WRITE(sc, 0x00, reg_val);
+
+	reg_val = A10_GPIO_READ(sc, 0x04);
+	reg_val &= 0xAAAAAAAA;
+	reg_val |= 0x22222222;
+	A10_GPIO_WRITE(sc, 0x04, reg_val);
+
+	reg_val = A10_GPIO_READ(sc, 0x08);
+	reg_val &= 0xffffffAA;
+	reg_val |= 0x00000022;
+	A10_GPIO_WRITE(sc, 0x08, reg_val);
+
+	//0x104
+
+	return (0);
+}
 
 static driver_t a10_gpio_driver = {
 	"gpio",

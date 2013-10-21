@@ -61,7 +61,14 @@
 			#interrupt-cells = <1>;
 		};
 
-		cpu-cfg@01c20000 {
+		sramc@01c00000 {
+			compatible = "allwinner,sun4i-sramc";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			reg = < 0x01c00000 0x400 >;
+		};
+
+		cpu-cfg@01c25c00 {
 			compatible = "allwinner,sun7i-cpu-cfg";
 			#address-cells = <1>;
 			#size-cells = <1>;

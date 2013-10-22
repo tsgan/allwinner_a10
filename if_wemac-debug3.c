@@ -264,6 +264,13 @@ wemac_txeof(struct wemac_softc *sc)
 	printf("------- txeof\n");
 
 	ifp = sc->wemac_ifp;
+
+        ifp->if_opackets++;
+
+        ifp->if_drv_flags &= ~IFF_DRV_OACTIVE;
+
+        /* Unarm watchdog timer if no TX */
+        sc->wemac_watchdog_timer = 0;
 }
 
 static void
@@ -342,7 +349,7 @@ wemac_rxeof(struct wemac_softc *sc)
 		len = reg_val & 0xffff;
 		status = (reg_val >> 16) & 0xffff;
 
-		printf("------ len=%i status=%i\n", len, status);
+//		printf("------ len=%i status=%i\n", len, status);
 
 		if (len < 0x40) {
 			good_packet = 0;
@@ -399,6 +406,43 @@ wemac_rxeof(struct wemac_softc *sc)
 		}
 		sc->wemac_rx_completed_flag = 1;
 	}
+}
+
+static void
+wemac_watchdog(struct wemac_softc *sc)
+{
+        struct ifnet *ifp;
+
+        WEMAC_ASSERT_LOCKED(sc);
+
+        if (sc->wemac_watchdog_timer == 0 || --sc->wemac_watchdog_timer)
+                return;
+
+        ifp = sc->wemac_ifp;
+        if_printf(sc->wemac_ifp, "watchdog timeout -- resetting\n");
+        ifp->if_oerrors++;
+        ifp->if_drv_flags &= ~IFF_DRV_RUNNING;
+        wemac_init_locked(sc);
+        if (!IFQ_DRV_IS_EMPTY(&ifp->if_snd))
+                wemac_start_locked(ifp);
+}
+
+static void
+wemac_tick(void *arg)
+{
+        struct wemac_softc *sc;
+        struct mii_data *mii;
+
+        sc = (struct wemac_softc *)arg;
+        mii = device_get_softc(sc->wemac_miibus);
+        mii_tick(mii);
+        if((sc->wemac_flags & WEMAC_FLAG_LINK) == 0)
+                wemac_miibus_statchg(sc->wemac_dev);
+
+//      wemac_txeof(sc);
+        wemac_watchdog(sc);
+
+        callout_reset(&sc->wemac_tick_ch, hz, wemac_tick, sc);
 }
 
 static void
@@ -463,7 +507,10 @@ wemac_init_locked(struct wemac_softc *sc)
 	sc->wemac_tx_fifo_stat = 0;
 	sc->buf_len = 0;
 	sc->wemac_rx_completed_flag = 1;
+
+	callout_reset(&sc->wemac_tick_ch, hz, wemac_tick, sc);
 }
+
 
 static void
 wemac_start(struct ifnet *ifp)
@@ -510,7 +557,10 @@ wemac_start_locked(struct ifnet *ifp)
 				continue;
 			total_len += len;
 
-			bus_space_write_multi_2(sc->wemac_tag, sc->wemac_handle, EMAC_TX_IO_DATA, mtod(mp, uint16_t *), (len + 1) / 2);
+                        /* Write data */
+			bus_space_write_multi_2(sc->wemac_tag, sc->wemac_handle, 
+				EMAC_TX_IO_DATA, mtod(mp, uint16_t *), 
+				(len + 1) / 2);
 		}
 
 		/* Send the data lengh. */
@@ -526,6 +576,9 @@ wemac_start_locked(struct ifnet *ifp)
 		BPF_MTAP(ifp, m);
 		m_freem(m);
 	}
+        /* set timeout */
+        sc->wemac_watchdog_timer = 5;
+
 	ifp->if_drv_flags |= IFF_DRV_OACTIVE;
 }
 
@@ -536,7 +589,7 @@ wemac_stop(struct wemac_softc *sc)
 	printf("------- initializing stopping...\n");
 
 	WEMAC_ASSERT_LOCKED(sc);
-	//callout_stop(&sc->wemac_tick_ch);
+	callout_stop(&sc->wemac_tick_ch);
 }
 
 static void
@@ -606,7 +659,7 @@ wemac_ioctl(struct ifnet *ifp, u_long command, caddr_t data)
 				wemac_stop(sc);
 			}
 		}		
-		//wemac_setmode(sc);
+//		wemac_setmode(sc);
 		WEMAC_UNLOCK(sc);
 		break;
 	case SIOCGIFMEDIA:
@@ -755,7 +808,6 @@ wemac_miibus_readreg(device_t dev, int phy, int reg)
 	//	return (0);
 
 	sc = device_get_softc(dev);
-	//WEMAC_LOCK(sc);
 	
 	/* issue the phy address and reg */
 	wemac_write_reg(sc, EMAC_MAC_MADR, (1 << 8) | reg);
@@ -767,7 +819,6 @@ wemac_miibus_readreg(device_t dev, int phy, int reg)
 	wemac_write_reg(sc, EMAC_MAC_MCMD, 0x0);
 	/* and read data */
 	rval = wemac_read_reg(sc, EMAC_MAC_MRDD);
-	//WEMAC_UNLOCK(sc);
 	
 	return (rval);
 }
@@ -781,7 +832,6 @@ wemac_miibus_writereg(device_t dev, int phy, int reg, int data)
 	//	return (0);
 
 	sc = device_get_softc(dev);
-	//WEMAC_LOCK(sc);
 	
 	/* issue the phy address and reg */
 	wemac_write_reg(sc, EMAC_MAC_MADR, (1 << 8) | reg);
@@ -793,7 +843,6 @@ wemac_miibus_writereg(device_t dev, int phy, int reg, int data)
 	wemac_write_reg(sc, EMAC_MAC_MCMD, 0x0);
 	/* and write data */
 	wemac_write_reg(sc, EMAC_MAC_MWTD, data);
-	//WEMAC_UNLOCK(sc);
 	
 	return (0);
 }

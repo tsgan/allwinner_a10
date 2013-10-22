@@ -119,7 +119,9 @@ static devclass_t a10_sramc_devclass;
 
 DRIVER_MODULE(a10_sramc, simplebus, a10_sramc_driver, a10_sramc_devclass, 0, 0);
 
-int a10_map_to_emac(void) {
+int
+a10_map_to_emac(void)
+{
 	struct a10_sramc_softc *sc = a10_sramc_sc;
 	uint32_t reg_value;
 

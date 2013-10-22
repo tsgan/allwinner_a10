@@ -517,7 +517,17 @@ static device_method_t a10_gpio_methods[] = {
 
 static devclass_t a10_gpio_devclass;
 
-int a10_emac_gpio_config(void) {
+static driver_t a10_gpio_driver = {
+	"gpio",
+	a10_gpio_methods,
+	sizeof(struct a10_gpio_softc),
+};
+
+DRIVER_MODULE(a10_gpio, simplebus, a10_gpio_driver, a10_gpio_devclass, 0, 0);
+
+int
+a10_emac_gpio_config(void)
+{
 	struct a10_gpio_softc *sc = a10_gpio_sc;
 	uint32_t reg_val;
 
@@ -543,11 +553,3 @@ int a10_emac_gpio_config(void) {
 
 	return (0);
 }
-
-static driver_t a10_gpio_driver = {
-	"gpio",
-	a10_gpio_methods,
-	sizeof(struct a10_gpio_softc),
-};
-
-DRIVER_MODULE(a10_gpio, simplebus, a10_gpio_driver, a10_gpio_devclass, 0, 0);

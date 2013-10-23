@@ -528,6 +528,7 @@ wemac_start_locked(struct ifnet *ifp)
 	struct mbuf *m, *mp;
 	uint32_t reg_val;
 	int len, total_len;
+	uint32_t zero = 0;
 
 	printf("------- starting wemac...\n");
 
@@ -553,6 +554,15 @@ wemac_start_locked(struct ifnet *ifp)
 
 			if (len == 0)
 				continue;
+
+		        /* Align on 4-byte boundary */
+		        if (len % 4) {
+                		if (m_append(mp, 4 - (len % 4), (void *)&zero) != 1)
+		                	panic("wemac: m_append() failed!");
+ 
+                		len += 4 - (len % 4);
+		        }
+ 
 			total_len += len;
 
 	                /* Write data */
@@ -560,14 +570,14 @@ wemac_start_locked(struct ifnet *ifp)
 //				EMAC_TX_IO_DATA, mtod(mp, uint16_t *), 
 //				(len + 1) / 2);
 
-	                if (mp->m_len > 3)
+	                if (len > 3)
         	                bus_space_write_multi_4(sc->wemac_tag, sc->wemac_handle,
                 	            EMAC_TX_IO_DATA, (u_int32_t *)mtod(mp, caddr_t),
-                        	    mp->m_len / 4);
-	                if (mp->m_len & 3)
+                        	    len / 4);
+	                if (len & 3)
         	                bus_space_write_multi_1(sc->wemac_tag, sc->wemac_handle,
-                	            EMAC_TX_IO_DATA,  mtod(mp, caddr_t) + (mp->m_len & ~3), 
-				    mp->m_len & 3);
+                	            EMAC_TX_IO_DATA,  mtod(mp, caddr_t) + (len & ~3), 
+				    len & 3);
 
 		}
 

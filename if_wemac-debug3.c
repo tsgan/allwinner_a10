@@ -99,7 +99,6 @@ struct wemac_softc {
 	int			wemac_watchdog_timer;
 	int			wemac_rx_completed_flag;
 	unsigned char		*buffer;
-	int			buf_len;
 };
 
 static int wemac_probe(device_t);
@@ -505,7 +504,6 @@ wemac_init_locked(struct wemac_softc *sc)
 	ifp->if_drv_flags &= ~IFF_DRV_OACTIVE;
 
 	sc->wemac_tx_fifo_stat = 0;
-	sc->buf_len = 0;
 	sc->wemac_rx_completed_flag = 1;
 
 	callout_reset(&sc->wemac_tick_ch, hz, wemac_tick, sc);
@@ -557,10 +555,20 @@ wemac_start_locked(struct ifnet *ifp)
 				continue;
 			total_len += len;
 
-                        /* Write data */
-			bus_space_write_multi_2(sc->wemac_tag, sc->wemac_handle, 
-				EMAC_TX_IO_DATA, mtod(mp, uint16_t *), 
-				(len + 1) / 2);
+	                /* Write data */
+//			bus_space_write_multi_2(sc->wemac_tag, sc->wemac_handle, 
+//				EMAC_TX_IO_DATA, mtod(mp, uint16_t *), 
+//				(len + 1) / 2);
+
+	                if (mp->m_len > 3)
+        	                bus_space_write_multi_4(sc->wemac_tag, sc->wemac_handle,
+                	            EMAC_TX_IO_DATA, (u_int32_t *)mtod(mp, caddr_t),
+                        	    mp->m_len / 4);
+	                if (mp->m_len & 3)
+        	                bus_space_write_multi_1(sc->wemac_tag, sc->wemac_handle,
+                	            EMAC_TX_IO_DATA,  mtod(mp, caddr_t) + (mp->m_len & ~3), 
+				    mp->m_len & 3);
+
 		}
 
 		/* Send the data lengh. */

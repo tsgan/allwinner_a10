@@ -1,4 +1,5 @@
 /*-
+ * Copyright (c) 2013 Ganbold Tsagaankhuu <ganbold@gmail.com>
  * Copyright (c) 2013 Ian Lepore <ian@freebsd.org>
  * All rights reserved.
  *
@@ -108,7 +109,7 @@ struct wemac_softc {
 	bus_dma_tag_t		rxbuf_tag;
 	struct wemac_bufmap	rxbuf_map[RX_DESC_COUNT];
 	uint32_t		rx_idx;
-        int                     rx_completed_flag;
+	int			rx_completed_flag;
 
 	bus_dma_tag_t		txdesc_tag;
 	bus_dmamap_t		txdesc_map;
@@ -144,9 +145,9 @@ static void
 wemac_sys_setup()
 {
 
-        a10_clk_emac_activate();
-        a10_emac_gpio_config();
-        a10_map_to_emac();
+	a10_clk_emac_activate();
+	a10_emac_gpio_config();
+	a10_map_to_emac();
 }
 
 static inline uint16_t
@@ -204,61 +205,63 @@ static void
 wemac_reset(struct wemac_softc *sc)
 {
 
-        printf("------- resetting wemac...\n");
+	printf("------- resetting wemac...\n");
 
-        WR4(sc, EMAC_CTL, 0);
-        DELAY(200);
-        WR4(sc, EMAC_CTL, 1);
-        DELAY(200);
+	WR4(sc, EMAC_CTL, 0);
+	DELAY(200);
+	WR4(sc, EMAC_CTL, 1);
+	DELAY(200);
 }
 
 static int
 wemac_miibus_readreg(device_t dev, int phy, int reg)
 {
-        struct wemac_softc *sc;
-        int rval;
-        //printf("-- readreg %i\n", phy);
-        //if (phy != 1)
-        //      return (0);
+	struct wemac_softc *sc;
+	int rval;
 
-        sc = device_get_softc(dev);
+	//printf("-- readreg %i\n", phy);
+	//if (phy != 1)
+	//      return (0);
 
-        /* issue the phy address and reg */
-        WR4(sc, EMAC_MAC_MADR, (1 << 8) | reg);
-        /* pull up the phy io line */
-        WR4(sc, EMAC_MAC_MCMD, 0x1);
-        /* Wait read complete */
-        DELAY(10);
-        /* push down the phy io line */
-        WR4(sc, EMAC_MAC_MCMD, 0x0);
-        /* and read data */
-        rval = RD4(sc, EMAC_MAC_MRDD);
+	sc = device_get_softc(dev);
 
-        return (rval);
+	/* issue the phy address and reg */
+	WR4(sc, EMAC_MAC_MADR, (1 << 8) | reg);
+	/* pull up the phy io line */
+	WR4(sc, EMAC_MAC_MCMD, 0x1);
+	/* Wait read complete */
+	DELAY(10);
+	/* push down the phy io line */
+	WR4(sc, EMAC_MAC_MCMD, 0x0);
+	/* and read data */
+	rval = RD4(sc, EMAC_MAC_MRDD);
+
+	return (rval);
 }
 
 static int
 wemac_miibus_writereg(device_t dev, int phy, int reg, int data)
 {
-        struct wemac_softc *sc;
-        //printf("-- writereg %i\n", phy);
-        //if (phy != 1)
-        //      return (0);
+	struct wemac_softc *sc;
 
-        sc = device_get_softc(dev);
+	//printf("-- writereg %i\n", phy);
+	//if (phy != 1)
+	//      return (0);
 
-        /* issue the phy address and reg */
-        WR4(sc, EMAC_MAC_MADR, (1 << 8) | reg);
-        /* pull up the phy io line */
-        WR4(sc, EMAC_MAC_MCMD, 0x1);
-        /* Wait read complete */
-        DELAY(10);
-        /* push down the phy io line */
-        WR4(sc, EMAC_MAC_MCMD, 0x0);
-        /* and write data */
-        WR4(sc, EMAC_MAC_MWTD, data);
+	sc = device_get_softc(dev);
 
-        return (0);
+	/* issue the phy address and reg */
+	WR4(sc, EMAC_MAC_MADR, (1 << 8) | reg);
+	/* pull up the phy io line */
+	WR4(sc, EMAC_MAC_MCMD, 0x1);
+	/* Wait read complete */
+	DELAY(10);
+	/* push down the phy io line */
+	WR4(sc, EMAC_MAC_MCMD, 0x0);
+	/* and write data */
+	WR4(sc, EMAC_MAC_MWTD, data);
+
+	return (0);
 }
 
 static void
@@ -266,7 +269,7 @@ wemac_miibus_statchg(device_t dev)
 {
 	struct wemac_softc *sc;
 	struct mii_data *mii;
-        struct ifnet *ifp;
+	struct ifnet *ifp;
 
 	/*
 	 * Called by the MII bus driver when the PHY establishes link to set the
@@ -277,9 +280,9 @@ wemac_miibus_statchg(device_t dev)
 
 	WEMAC_ASSERT_LOCKED(sc);
 
-        ifp = sc->ifp;
-        if ((ifp->if_drv_flags & IFF_DRV_RUNNING) == 0)
-                return;
+	ifp = sc->ifp;
+	if ((ifp->if_drv_flags & IFF_DRV_RUNNING) == 0)
+		return;
 
 	mii = sc->mii_softc;
 
@@ -295,7 +298,6 @@ wemac_media_status(struct ifnet * ifp, struct ifmediareq *ifmr)
 {
 	struct wemac_softc *sc;
 	struct mii_data *mii;
-
 
 	sc = ifp->if_softc;
 	mii = sc->mii_softc;
@@ -330,99 +332,99 @@ wemac_media_change(struct ifnet * ifp)
 static void
 wemac_powerup(struct wemac_softc *sc)
 {
-        uint32_t reg_val;
-        int phy_val;
-        uint32_t duplex_flag;
-        device_t dev;
+	uint32_t reg_val;
+	int phy_val;
+	uint32_t duplex_flag;
+	device_t dev;
 
-        printf("------- powerup wemac...\n");
+	printf("------- powerup wemac...\n");
 
-        dev = sc->dev;
+	dev = sc->dev;
 
-        /* initial EMAC */
-        /* flush RX FIFO */
-        reg_val = RD4(sc, EMAC_RX_CTL);
-        reg_val |= 0x8;
-        WR4(sc, EMAC_RX_CTL, reg_val);
-        DELAY(1);
+	/* initial EMAC */
+	/* flush RX FIFO */
+	reg_val = RD4(sc, EMAC_RX_CTL);
+	reg_val |= 0x8;
+	WR4(sc, EMAC_RX_CTL, reg_val);
+	DELAY(1);
 
-        /* soft reset MAC */
-        reg_val = RD4(sc, EMAC_MAC_CTL0);
-        reg_val &= (~EMAC_MAC_CTL0_SOFT_RST);
-        WR4(sc, EMAC_MAC_CTL0, reg_val);
+	/* soft reset MAC */
+	reg_val = RD4(sc, EMAC_MAC_CTL0);
+	reg_val &= (~EMAC_MAC_CTL0_SOFT_RST);
+	WR4(sc, EMAC_MAC_CTL0, reg_val);
 
-        /* set MII clock */
-        reg_val = RD4(sc, EMAC_MAC_MCFG);
-        reg_val &= (~(0xf << 2));
-        reg_val |= (0xd << 2);
-        WR4(sc, EMAC_MAC_MCFG, reg_val);
+	/* set MII clock */
+	reg_val = RD4(sc, EMAC_MAC_MCFG);
+	reg_val &= (~(0xf << 2));
+	reg_val |= (0xd << 2);
+	WR4(sc, EMAC_MAC_MCFG, reg_val);
 
-        /* clear RX counter */
-        WR4(sc, EMAC_RX_FBC, 0);
+	/* clear RX counter */
+	WR4(sc, EMAC_RX_FBC, 0);
 
-        /* disable all interrupt and clear interrupt status */
-        WR4(sc, EMAC_INT_CTL, 0);
-        reg_val = RD4(sc, EMAC_INT_STA);
-        WR4(sc, EMAC_INT_STA, reg_val);
-        DELAY(1);
+	/* disable all interrupt and clear interrupt status */
+	WR4(sc, EMAC_INT_CTL, 0);
+	reg_val = RD4(sc, EMAC_INT_STA);
+	WR4(sc, EMAC_INT_STA, reg_val);
+	DELAY(1);
 
-        // emac setup
+	// emac setup
 
-        /* Set up TX */
-        reg_val = RD4(sc, EMAC_TX_MODE);
-        reg_val |= EMAC_TX_AB_M;
-        reg_val &= EMAC_TX_TM;
-        WR4(sc, EMAC_TX_MODE, reg_val);
+	/* Set up TX */
+	reg_val = RD4(sc, EMAC_TX_MODE);
+	reg_val |= EMAC_TX_AB_M;
+	reg_val &= EMAC_TX_TM;
+	WR4(sc, EMAC_TX_MODE, reg_val);
 
-        /* Set up RX */
-        reg_val = RD4(sc, EMAC_RX_CTL);
-        reg_val |= EMAC_RX_SETUP;
-        reg_val &= EMAC_RX_TM;
-        WR4(sc, EMAC_RX_CTL, reg_val);
+	/* Set up RX */
+	reg_val = RD4(sc, EMAC_RX_CTL);
+	reg_val |= EMAC_RX_SETUP;
+	reg_val &= EMAC_RX_TM;
+	WR4(sc, EMAC_RX_CTL, reg_val);
 
-        /* Set up MAC CTL0. */
-        reg_val = RD4(sc, EMAC_MAC_CTL0);
-        reg_val |= EMAC_MAC_CTL0_SETUP;
-        WR4(sc, EMAC_MAC_CTL0, reg_val);
+	/* Set up MAC CTL0. */
+	reg_val = RD4(sc, EMAC_MAC_CTL0);
+	reg_val |= EMAC_MAC_CTL0_SETUP;
+	WR4(sc, EMAC_MAC_CTL0, reg_val);
 
-        /* Set up MAC CTL1. */
-        reg_val = RD4(sc, EMAC_MAC_CTL1);
-        DELAY(10);
-        phy_val = wemac_miibus_readreg(dev, 0, 0);
-        duplex_flag = !!(phy_val & EMAC_PHY_DUPLEX);
-        if (duplex_flag)
-                reg_val |= EMAC_MAC_CTL1_DUP;
-        else
-                reg_val &= (EMAC_MAC_CTL1_DUP);
-        reg_val |= EMAC_MAC_CTL1_SETUP;
-        WR4(sc, EMAC_MAC_CTL1, reg_val);
+	/* Set up MAC CTL1. */
+	reg_val = RD4(sc, EMAC_MAC_CTL1);
+	DELAY(10);
+	phy_val = wemac_miibus_readreg(dev, 0, 0);
+	duplex_flag = !!(phy_val & EMAC_PHY_DUPLEX);
+	if (duplex_flag)
+		reg_val |= EMAC_MAC_CTL1_DUP;
+	else
+		reg_val &= (EMAC_MAC_CTL1_DUP);
+	reg_val |= EMAC_MAC_CTL1_SETUP;
+	WR4(sc, EMAC_MAC_CTL1, reg_val);
 
-        /* Set up IPGT */
-        WR4(sc, EMAC_MAC_IPGT, EMAC_MAC_IPGT_FD);
+	/* Set up IPGT */
+	WR4(sc, EMAC_MAC_IPGT, EMAC_MAC_IPGT_FD);
 
-        /* Set up IPGR */
-        WR4(sc, EMAC_MAC_IPGR, EMAC_MAC_NBTB_IPG2 | (EMAC_MAC_NBTB_IPG1 << 8));
+	/* Set up IPGR */
+	WR4(sc, EMAC_MAC_IPGR, EMAC_MAC_NBTB_IPG2 | (EMAC_MAC_NBTB_IPG1 << 8));
 
-        /* Set up Collison window */
-        WR4(sc, EMAC_MAC_CLRT, EMAC_MAC_RM | (EMAC_MAC_CW << 8));
+	/* Set up Collison window */
+	WR4(sc, EMAC_MAC_CLRT, EMAC_MAC_RM | (EMAC_MAC_CW << 8));
 
-        /* Set up Max Frame Length */
-        WR4(sc, EMAC_MAC_MAXF, EMAC_MAC_MFL);
+	/* Set up Max Frame Length */
+	WR4(sc, EMAC_MAC_MAXF, EMAC_MAC_MFL);
 
-        /* XXX: Hardcode the ethernet address for now */
-        eaddr[0] = 0x4e;
-        eaddr[0] &= 0xfe;       /* the 48bit must set 0 */
-        eaddr[0] |= 0x02;       /* the 47bit must set 1 */
+	/* XXX: Hardcode the ethernet address for now */
+	eaddr[0] = 0x4e;
+	eaddr[0] &= 0xfe;       /* the 48bit must set 0 */
+	eaddr[0] |= 0x02;       /* the 47bit must set 1 */
 
-        eaddr[1] = 0x34;
-        eaddr[2] = 0x84;
-        eaddr[3] = 0xd3;
-        eaddr[4] = 0xd3;
-        eaddr[5] = 0xa9;
+	eaddr[1] = 0x34;
+	eaddr[2] = 0x84;
+	eaddr[3] = 0xd3;
+	eaddr[4] = 0xd3;
+	eaddr[5] = 0xa9;
 
-        /* Write ethernet address to register */
-        WR4(sc, EMAC_MAC_A1, eaddr[0] << 16 | eaddr[1] << 8 | eaddr[2]);
-        WR4(sc, EMAC_MAC_A0, eaddr[3] << 16 | eaddr[4] << 8 | eaddr[5]);
+	/* Write ethernet address to register */
+	WR4(sc, EMAC_MAC_A1, eaddr[0] << 16 | eaddr[1] << 8 | eaddr[2]);
+	WR4(sc, EMAC_MAC_A0, eaddr[3] << 16 | eaddr[4] << 8 | eaddr[5]);
 }
 
 static void
@@ -461,20 +463,20 @@ wemac_tick(void *arg)
 	/* Schedule another check one second from now. */
 	callout_reset(&sc->wemac_callout, hz, wemac_tick, sc);
 }
-
+/*
 static void
 fix_mbuf(struct mbuf *m, int sramc_align)
 {
-        uint16_t *src, *dst;
-        int i;
+	uint16_t *src, *dst;
+	int i;
 
-        src = mtod(m, uint16_t *);
-        dst = src - (sramc_align - ETHER_ALIGN) / sizeof *src;
-        for (i = 0; i < (m->m_len / sizeof(uint16_t) + 1); i++)
-                *dst++ = *src++;
-        m->m_data -= sramc_align - ETHER_ALIGN;
+	src = mtod(m, uint16_t *);
+	dst = src - (sramc_align - ETHER_ALIGN) / sizeof *src;
+	for (i = 0; i < (m->m_len / sizeof(uint16_t) + 1); i++)
+		*dst++ = *src++;
+	m->m_data -= sramc_align - ETHER_ALIGN;
 }
-
+*/
 inline static uint32_t
 wemac_setup_txdesc(struct wemac_softc *sc, int idx, bus_addr_t paddr, 
     uint32_t len)
@@ -532,7 +534,7 @@ wemac_txstart_locked(struct wemac_softc *sc)
 	struct ifnet *ifp;
 	struct mbuf *m;
 	int enqueued;
-        uint32_t reg_val;
+	uint32_t reg_val;
 
 	WEMAC_ASSERT_LOCKED(sc);
 
@@ -546,8 +548,8 @@ wemac_txstart_locked(struct wemac_softc *sc)
 
 	enqueued = 0;
 
-        /* Select channel */
-        WR4(sc, EMAC_TX_INS, 0); // TODO: use multiple buffers
+	/* Select channel */
+	WR4(sc, EMAC_TX_INS, 0); // TODO: use multiple buffers
 
 	for (;;) {
 		if (sc->txcount == (TX_DESC_COUNT-1)) {
@@ -561,15 +563,15 @@ wemac_txstart_locked(struct wemac_softc *sc)
 			IFQ_DRV_PREPEND(&ifp->if_snd, m);
 			break;
 		}
-                /* Send the data lengh. */
-                WR4(sc, EMAC_TX_PL0, m->m_len);
+		/* Send the data lengh. */
+		WR4(sc, EMAC_TX_PL0, m->m_len);
 
-                /* Start translate from fifo to phy. */
-                reg_val = RD4(sc, EMAC_TX_CTL0);
-                reg_val |= 1;
-                WR4(sc, EMAC_TX_CTL0, reg_val);
+		/* Start translate from fifo to phy. */
+		reg_val = RD4(sc, EMAC_TX_CTL0);
+		reg_val |= 1;
+		WR4(sc, EMAC_TX_CTL0, reg_val);
 
-                printf("------- sending %i bytes\n", m->m_len);
+		printf("------- sending %i bytes\n", m->m_len);
 
 		BPF_MTAP(ifp, m);
 		sc->tx_idx_head = next_txidx(sc, sc->tx_idx_head);
@@ -724,8 +726,8 @@ wemac_rxfinish_onebuf(struct wemac_softc *sc, int len)
 	m->m_pkthdr.len = len;
 	m->m_pkthdr.rcvif = sc->ifp;
 
-        // align the IP header
-//        fix_mbuf(m, 4);
+	// align the IP header
+//	fix_mbuf(m, 4);
 
 	sc->ifp->if_input(sc->ifp, m);
 
@@ -741,91 +743,90 @@ wemac_rxfinish_onebuf(struct wemac_softc *sc, int len)
 static void
 wemac_rxfinish_locked(struct wemac_softc *sc)
 {
-        struct ifnet *ifp;
-        uint32_t reg_val, rxcount;
-        int16_t len;
-        uint16_t status;
-        int good_packet;
+	struct ifnet *ifp;
+	uint32_t reg_val, rxcount;
+	int16_t len;
+	uint16_t status;
+	int good_packet;
 
-        ifp = sc->ifp;
+	ifp = sc->ifp;
 
 	WEMAC_ASSERT_LOCKED(sc);
 
 	for (;;) {
 
-                /*
-                 * Race warning: The first packet might arrive with
-                 * the interrupts disabled, but the second will fix
-                 */
-                rxcount = RD4(sc, EMAC_RX_FBC);
-                if (!rxcount) {
-                        /* Had one stuck? */
-                        rxcount = RD4(sc, EMAC_RX_FBC);
-                        if (!rxcount) {
-                                sc->rx_completed_flag = 1;
-                                return;
-                        }
-                }
+		/*
+		 * Race warning: The first packet might arrive with
+		 * the interrupts disabled, but the second will fix
+		 */
+		rxcount = RD4(sc, EMAC_RX_FBC);
+		if (!rxcount) {
+			/* Had one stuck? */
+			rxcount = RD4(sc, EMAC_RX_FBC);
+			if (!rxcount) {
+				sc->rx_completed_flag = 1;
+				return;
+			}
+		}
 
-                // packet header
-                reg_val = RD4(sc, EMAC_RX_IO_DATA);
-                if (reg_val != 0x0143414d) {
-                        // packet header wrong
+		// packet header
+		reg_val = RD4(sc, EMAC_RX_IO_DATA);
+		if (reg_val != 0x0143414d) {
+			// packet header wrong
 
-                        /* Disable RX */
-                        reg_val = RD4(sc, EMAC_CTL);
-                        reg_val &= ~EMAC_CTL_RX_EN;
-                        WR4(sc, EMAC_CTL, reg_val);
+			/* Disable RX */
+			reg_val = RD4(sc, EMAC_CTL);
+			reg_val &= ~EMAC_CTL_RX_EN;
+			WR4(sc, EMAC_CTL, reg_val);
 
-                        /* Flush RX FIFO */
-                        reg_val = RD4(sc, EMAC_RX_CTL);
-                        reg_val |= (1 << 3);
-                        WR4(sc, EMAC_RX_CTL, reg_val);
-                        while (RD4(sc, EMAC_RX_CTL) & (1 << 3))
-                                ;
+			/* Flush RX FIFO */
+			reg_val = RD4(sc, EMAC_RX_CTL);
+			reg_val |= (1 << 3);
+			WR4(sc, EMAC_RX_CTL, reg_val);
+			while (RD4(sc, EMAC_RX_CTL) & (1 << 3))
+				;
 
-                        /* Enable RX */
-                        reg_val = RD4(sc, EMAC_CTL);
-                        reg_val |= EMAC_CTL_RX_EN;
-                        WR4(sc, EMAC_CTL, reg_val);
+			/* Enable RX */
+			reg_val = RD4(sc, EMAC_CTL);
+			reg_val |= EMAC_CTL_RX_EN;
+			WR4(sc, EMAC_CTL, reg_val);
 
-                        sc->rx_completed_flag = 1;
-                        return;
-                }
+			sc->rx_completed_flag = 1;
+			return;
+		}
 
-                good_packet = 1;
+		good_packet = 1;
 
-                /* get packet size */
-                reg_val = RD4(sc, EMAC_RX_IO_DATA);
+		/* get packet size */
+		reg_val = RD4(sc, EMAC_RX_IO_DATA);
 
-                len = reg_val & 0xffff;
-                status = (reg_val >> 16) & 0xffff;
+		len = reg_val & 0xffff;
+		status = (reg_val >> 16) & 0xffff;
 
-//              printf("------ len=%i status=%i\n", len, status);
+//		printf("------ len=%i status=%i\n", len, status);
 
-                if (len < 0x40) {
-                        good_packet = 0;
-                        printf("------ bad packet: len=%i status=%i< 0x40\n", len, status);
-                }
+		if (len < 0x40) {
+			good_packet = 0;
+			printf("------ bad packet: len=%i status=%i< 0x40\n", len, status);
+		}
 
-                /* rx_status is identical to RSR register. */
-                if (0 & status & (EMAC_CRCERR | EMAC_LENERR)) {
-                        good_packet = 0;
-                        printf("------ error\n");
-                        if (status & EMAC_CRCERR)
-                                printf("------ crc error\n");
-                        if (status & EMAC_LENERR)
-                                printf("------ length error\n");
-                }
+		/* rx_status is identical to RSR register. */
+		if (0 & status & (EMAC_CRCERR | EMAC_LENERR)) {
+			good_packet = 0;
+			printf("------ error\n");
+			if (status & EMAC_CRCERR)
+				printf("------ crc error\n");
+			if (status & EMAC_LENERR)
+				printf("------ length error\n");
+		}
 
-                if (good_packet) {
-
+		if (good_packet) {
 			/*
 			 *  Normal case: a good frame all in one buffer.
 			 */
 			wemac_rxfinish_onebuf(sc, len);
 		}
-                sc->rx_completed_flag = 1;
+		sc->rx_completed_flag = 1;
 
 		sc->rx_idx = next_rxidx(sc, sc->rx_idx);
 	}
@@ -890,56 +891,56 @@ static void
 wemac_init_locked(struct wemac_softc *sc)
 {
 	struct ifnet *ifp = sc->ifp;
-        uint32_t reg_val;
-        int phy_reg;
-        device_t dev;
+	uint32_t reg_val;
+	int phy_reg;
+	device_t dev;
 
 	if (ifp->if_drv_flags & IFF_DRV_RUNNING)
 		return;
 
-        printf("------- initializing wemac...\n");
+	printf("------- initializing wemac...\n");
 
-        dev = sc->dev;
+	dev = sc->dev;
 
-        //wemac_reset(sc); // TODO: reset?
+	//wemac_reset(sc); // TODO: reset?
 
-        // TODO:
-        // need GPIO power
-        // DELAY(50);
+	// TODO:
+	// need GPIO power
+	// DELAY(50);
 
-        /* PHY POWER UP */
-        phy_reg = wemac_miibus_readreg(dev, 0, 0);
-        wemac_miibus_writereg(dev, 0, 0, phy_reg & (~(1 << 11)));
-        DELAY(4500);
+	/* PHY POWER UP */
+	phy_reg = wemac_miibus_readreg(dev, 0, 0);
+	wemac_miibus_writereg(dev, 0, 0, phy_reg & (~(1 << 11)));
+	DELAY(4500);
 
-        phy_reg = wemac_miibus_readreg(dev, 0, 0);
+	phy_reg = wemac_miibus_readreg(dev, 0, 0);
 
-        /* set EMAC SPEED, depend on PHY */
-        reg_val = RD4(sc, EMAC_MAC_SUPP);
-        reg_val &= (~(0x1 << 8));
-        reg_val |= (((phy_reg & (1 << 13)) >> 13) << 8);
-        WR4(sc, EMAC_MAC_SUPP, reg_val);
+	/* set EMAC SPEED, depend on PHY */
+	reg_val = RD4(sc, EMAC_MAC_SUPP);
+	reg_val &= (~(0x1 << 8));
+	reg_val |= (((phy_reg & (1 << 13)) >> 13) << 8);
+	WR4(sc, EMAC_MAC_SUPP, reg_val);
 
-        /* set duplex depend on phy */
-        reg_val = RD4(sc, EMAC_MAC_CTL1);
-        reg_val &= (~(0x1 << 0));
-        reg_val |= (((phy_reg & (1 << 8)) >> 8) << 0);
-        WR4(sc, EMAC_MAC_CTL1, reg_val);
+	/* set duplex depend on phy */
+	reg_val = RD4(sc, EMAC_MAC_CTL1);
+	reg_val &= (~(0x1 << 0));
+	reg_val |= (((phy_reg & (1 << 8)) >> 8) << 0);
+	WR4(sc, EMAC_MAC_CTL1, reg_val);
 
-        /* enable RX/TX */
-        reg_val = RD4(sc, EMAC_CTL);
-        WR4(sc, EMAC_CTL, reg_val | EMAC_CTL_RST | EMAC_CTL_TX_EN | EMAC_CTL_RX_EN);
+	/* enable RX/TX */
+	reg_val = RD4(sc, EMAC_CTL);
+	WR4(sc, EMAC_CTL, reg_val | EMAC_CTL_RST | EMAC_CTL_TX_EN | EMAC_CTL_RX_EN);
 
-        /* enable RX/TX0/RX Hlevel interrupt */
-        reg_val = RD4(sc, EMAC_INT_CTL);
-        reg_val |= (0xf << 0) | (0x01 << 8);
-        WR4(sc, EMAC_INT_CTL, reg_val);
+	/* enable RX/TX0/RX Hlevel interrupt */
+	reg_val = RD4(sc, EMAC_INT_CTL);
+	reg_val |= (0xf << 0) | (0x01 << 8);
+	WR4(sc, EMAC_INT_CTL, reg_val);
 
-        ifp->if_drv_flags |= IFF_DRV_RUNNING;
+	ifp->if_drv_flags |= IFF_DRV_RUNNING;
 
-        sc->rx_completed_flag = 1;
+	sc->rx_completed_flag = 1;
 
-       /*
+	/*
 	* Call mii_mediachg() which will call back into wemac_miibus_statchg() to
 	* set up the remaining config registers based on the current media.
 	*/
@@ -961,40 +962,40 @@ wemac_init(void *if_softc)
 static void
 wemac_intr(void *arg)
 {
-        struct wemac_softc *sc = (struct wemac_softc *)arg;
-        struct ifnet *ifp;
-        uint32_t int_status, reg_val;
+	struct wemac_softc *sc = (struct wemac_softc *)arg;
+	struct ifnet *ifp;
+	uint32_t int_status, reg_val;
 
-        ifp = sc->ifp;
+	ifp = sc->ifp;
 
-        WEMAC_LOCK(sc);
+	WEMAC_LOCK(sc);
 
-        /* Disable all interrupts */
-        WR4(sc, EMAC_INT_CTL, 0);
-        /* Get WEMAC interrupt status */
-        int_status = RD4(sc, EMAC_INT_STA); /* Got ISR */
-        WR4(sc, EMAC_INT_STA, int_status); /* Clear ISR status */
+	/* Disable all interrupts */
+	WR4(sc, EMAC_INT_CTL, 0);
+	/* Get WEMAC interrupt status */
+	int_status = RD4(sc, EMAC_INT_STA); /* Got ISR */
+	WR4(sc, EMAC_INT_STA, int_status); /* Clear ISR status */
 
-        /* Received the coming packet */
-        if ((int_status & 0x100) && (sc->rx_completed_flag == 1)) {
-                sc->rx_completed_flag = 0;
-                wemac_rxfinish_locked(sc);
-        }
+	/* Received the coming packet */
+	if ((int_status & 0x100) && (sc->rx_completed_flag == 1)) {
+		sc->rx_completed_flag = 0;
+		wemac_rxfinish_locked(sc);
+	}
 
-        /* Transmit Interrupt check */
-        if (int_status & (0x01 | 0x02)){
-                wemac_txfinish_locked(sc);
-                if (!IFQ_DRV_IS_EMPTY(&ifp->if_snd))
-                        wemac_txstart_locked(sc);
-        }
+	/* Transmit Interrupt check */
+	if (int_status & (0x01 | 0x02)){
+		wemac_txfinish_locked(sc);
+		if (!IFQ_DRV_IS_EMPTY(&ifp->if_snd))
+			wemac_txstart_locked(sc);
+	}
 
-        /* Re-enable interrupt mask */
-        if (sc->rx_completed_flag == 1) {
-                reg_val = RD4(sc, EMAC_INT_CTL);
-                reg_val |= (0xf << 0) | (0x01 << 8);
-                WR4(sc, EMAC_INT_CTL, reg_val);
-        }
-        WEMAC_UNLOCK(sc);
+	/* Re-enable interrupt mask */
+	if (sc->rx_completed_flag == 1) {
+		reg_val = RD4(sc, EMAC_INT_CTL);
+		reg_val |= (0xf << 0) | (0x01 << 8);
+		WR4(sc, EMAC_INT_CTL, reg_val);
+	}
+	WEMAC_UNLOCK(sc);
 }
 
 static int
@@ -1013,9 +1014,8 @@ wemac_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 	case SIOCSIFFLAGS:
 		WEMAC_LOCK(sc);
 		if (ifp->if_flags & IFF_UP) {
-                        if ((ifp->if_drv_flags & IFF_DRV_RUNNING)==0) {
-                                wemac_init_locked(sc);
-                        }
+			if ((ifp->if_drv_flags & IFF_DRV_RUNNING)==0)
+				wemac_init_locked(sc);
 		} else {
 			if (ifp->if_drv_flags & IFF_DRV_RUNNING)
 				wemac_stop_locked(sc);
@@ -1301,9 +1301,9 @@ wemac_attach(device_t dev)
 		}
 	}
 
-        wemac_sys_setup();
-        wemac_powerup(sc);
-        wemac_reset(sc);
+	wemac_sys_setup();
+	wemac_powerup(sc);
+	wemac_reset(sc);
 
 	/* Setup interrupt handler. */
 	error = bus_setup_intr(dev, sc->irq_res, INTR_TYPE_NET | INTR_MPSAFE,
@@ -1356,8 +1356,8 @@ static int
 wemac_probe(device_t dev)
 {
 
-        if (!ofw_bus_is_compatible(dev, "allwinner,wemac"))
-                return (ENXIO);
+	if (!ofw_bus_is_compatible(dev, "allwinner,wemac"))
+		return (ENXIO);
 
         device_set_desc(dev, "Allwinner A10 WEMAC");
 	return (0);

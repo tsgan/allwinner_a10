@@ -240,16 +240,16 @@
  */
 struct wemac_hwdesc
 {
-        uint32_t        buf_paddr;
+	uint32_t buf_paddr;
 };
 
 /*
  * The hardware imposes alignment restrictions on various objects involved in
  * DMA transfers.  These values are expressed in bytes (not bits).
  */
-#define EMAC_DESC_RING_ALIGN             4
-#define EMAC_RXBUF_ALIGN                 4
-#define EMAC_TXBUF_ALIGN                 4
+#define EMAC_DESC_RING_ALIGN	4
+#define EMAC_RXBUF_ALIGN	4
+#define EMAC_TXBUF_ALIGN	4
 
 
 #endif

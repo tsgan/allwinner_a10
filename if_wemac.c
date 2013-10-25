@@ -656,7 +656,7 @@ wemac_setup_rxbuf(struct wemac_softc *sc, int idx, struct mbuf * m)
 	struct bus_dma_segment seg;
 
 	/* hardware required 4 byte alignment */
-//	m_adj(m, 4);
+	m_adj(m, 4);
 
 	error = bus_dmamap_load_mbuf_sg(sc->rxbuf_tag, sc->rxbuf_map[idx].map,
 	    m, &seg, &nsegs, 0);
@@ -689,6 +689,7 @@ wemac_rxfinish_onebuf(struct wemac_softc *sc, int len)
 {
 	struct mbuf *m, *newmbuf;
 	struct wemac_bufmap *bmap;
+//	uint8_t *dst, *src;
 	int error;
 
 	/*
@@ -717,7 +718,7 @@ wemac_rxfinish_onebuf(struct wemac_softc *sc, int len)
 	WEMAC_UNLOCK(sc);
 
 	bmap = &sc->rxbuf_map[sc->rx_idx];
-//	len -= ETHER_CRC_LEN;
+	len -= ETHER_CRC_LEN;
 	bus_dmamap_sync(sc->rxbuf_tag, bmap->map, BUS_DMASYNC_POSTREAD);
 	bus_dmamap_unload(sc->rxbuf_tag, bmap->map);
 	m = bmap->mbuf;
@@ -725,6 +726,11 @@ wemac_rxfinish_onebuf(struct wemac_softc *sc, int len)
 	m->m_len = len;
 	m->m_pkthdr.len = len;
 	m->m_pkthdr.rcvif = sc->ifp;
+
+//	src = mtod(m, uint8_t*);
+//	dst = src - ETHER_ALIGN;
+//	bcopy(src, dst, len);
+//	m->m_data = dst;
 
 	// align the IP header
 //	fix_mbuf(m, 4);
@@ -1126,7 +1132,6 @@ wemac_attach(device_t dev)
 	struct mbuf *m;
 	phandle_t ofw_node;
 	int error, rid;
-	uint8_t eaddr[ETHER_ADDR_LEN];
 	uint32_t idx;
 
 	sc = device_get_softc(dev);
@@ -1202,7 +1207,7 @@ wemac_attach(device_t dev)
 
 	error = bus_dma_tag_create(
 	    bus_get_dma_tag(dev),	/* Parent tag. */
-	    EMAC_TXBUF_ALIGN, 0,		/* alignment, boundary */
+	    EMAC_TXBUF_ALIGN, 0,	/* alignment, boundary */
 	    BUS_SPACE_MAXADDR_32BIT,	/* lowaddr */
 	    BUS_SPACE_MAXADDR,		/* highaddr */
 	    NULL, NULL,			/* filter, filterarg */

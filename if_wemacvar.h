@@ -28,9 +28,9 @@
 #ifndef __IF_WEMACVAR_H__
 #define __IF_WEMACVAR_H__
 
-#define WEMAC_LOCK(cs)		mtx_lock(&(sc)->wemac_mtx)
-#define WEMAC_UNLOCK(cs)	mtx_unlock(&(sc)->wemac_mtx)
-#define WEMAC_ASSERT_LOCKED(sc)	mtx_assert(&(sc)->wemac_mtx, MA_OWNED);
+//#define WEMAC_LOCK(cs)		mtx_lock(&(sc)->wemac_mtx)
+//#define WEMAC_UNLOCK(cs)	mtx_unlock(&(sc)->wemac_mtx)
+//#define WEMAC_ASSERT_LOCKED(sc)	mtx_assert(&(sc)->wemac_mtx, MA_OWNED);
 
 #define WEMAC_TIMEOUT		5000
 

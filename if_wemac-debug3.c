@@ -529,6 +529,7 @@ wemac_start_locked(struct ifnet *ifp)
 	uint32_t reg_val;
 	int len, total_len;
 	uint32_t z = 0;
+//	uint32_t *p;
 
 	printf("------- starting wemac...\n");
 
@@ -549,29 +550,28 @@ wemac_start_locked(struct ifnet *ifp)
 		DELAY(5); // TODO: check buffer
 
 		total_len = 0;
+
+
 		for (mp = m; mp != NULL; mp = mp->m_next) {
 			len = mp->m_len;
 
 			if (len == 0)
 				continue;
 
-		        /* Align on 4-byte boundary */
-/*
-		        if (len % 4) {
-                		if (m_append(mp, 4 - (len % 4), (void *)&zero) != 1)
-		                	panic("wemac: m_append() failed!");
- 
-                		len += 4 - (len % 4);
-		        }
-*/ 
-
 			printf("---- mp->m_data: %x\n", (uint32_t) mp->m_data);
 			printf("---- mp: %x\n", (uint32_t) mtod(mp, uint32_t *));
 
 			z = ((uint32_t) mtod(mp, uint32_t *)) % 4;
 			printf("---- z: %d\n", z);
-			if(z > 0)
-				m_adj(mp, z);
+//			if(z > 0) {
+//				m_adj(mp, z);
+//			}
+
+			mp = m_pullup(mp, sizeof(uint32_t));
+			if (mp == NULL) {
+				printf("---- FAILED m_pullup()\n");
+				return;
+			}
 
 			printf("---- AFTER mp->m_data: %x\n", (uint32_t) mp->m_data);
 			printf("---- AFTER mp: %x\n", (uint32_t) mtod(mp, uint32_t *));
@@ -582,16 +582,23 @@ wemac_start_locked(struct ifnet *ifp)
 //			bus_space_write_multi_2(sc->wemac_tag, sc->wemac_handle, 
 //				EMAC_TX_IO_DATA, mtod(mp, uint16_t *), 
 //				(len + 1) / 2);
+/*
+			p = mtod(mp, uint32_t *);
+			for(i = 0; i < len / 4; i++){
+
+				wemac_write_reg(sc, EMAC_TX_IO_DATA, *p++);
+			}
+*/
 
 	                if (len > 3)
         	                bus_space_write_multi_4(sc->wemac_tag, sc->wemac_handle,
-                	            EMAC_TX_IO_DATA, (u_int32_t *)mtod(mp, caddr_t),
+                	            EMAC_TX_IO_DATA, mtod(mp, uint32_t *),
                         	    len / 4);
+
 	                if (len & 3)
         	                bus_space_write_multi_1(sc->wemac_tag, sc->wemac_handle,
-                	            EMAC_TX_IO_DATA,  mtod(mp, caddr_t) + (len & ~3), 
+                	            EMAC_TX_IO_DATA,  mtod(mp, uint8_t *) + (len & ~3), 
 				    len & 3);
-
 		}
 
 		/* Send the data lengh. */
@@ -605,7 +612,7 @@ wemac_start_locked(struct ifnet *ifp)
 		printf("------- sending %i bytes\n", total_len);
 		
 		BPF_MTAP(ifp, m);
-		m_freem(m);
+//		m_freem(m);
 	}
         /* set timeout */
         sc->wemac_watchdog_timer = 5;

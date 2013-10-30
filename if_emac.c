@@ -336,19 +336,21 @@ emac_rxeof(struct emac_softc *sc)
 
 		if (len < 0x40) {
 			good_packet = 0;
-			printf("bad packet: len=%i status=%i< 0x40\n", len, 
-			    status);
+			if_printf(ifp, "bad packet: len = %i status = %i\n",
+			    len, status);
+			ifp->if_oerrors++;
 		}
+#if 0
 		/* rx_status is identical to RSR register. */
-		if (0 & status & (EMAC_CRCERR | EMAC_LENERR)) {
+		if (status & (EMAC_CRCERR | EMAC_LENERR)) {
 			good_packet = 0;
-			printf("error\n");
+			ifp->if_oerrors++;
 			if (status & EMAC_CRCERR)
-				printf("crc error\n");
+				if_printf(ifp, "crc error\n");
 			if (status & EMAC_LENERR)
-				printf("length error\n");
+				if_printf(ifp, "length error\n");
 		}
-
+#endif
 		if (good_packet) {
 			MGETHDR(m, M_DONTWAIT, MT_DATA);
 			if (m == NULL) {
@@ -519,7 +521,7 @@ emac_start_locked(struct ifnet *ifp)
 		/* Address needs to be 4 byte aligned */
 		m = m_defrag(m, M_NOWAIT);
 		if (m == NULL) {
-			printf("FAILED m_defrag()\n");
+			if_printf(ifp, "FAILED m_defrag()\n");
 			continue;
 		}
 		/* Write data */

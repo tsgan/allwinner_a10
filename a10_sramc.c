@@ -62,9 +62,9 @@ struct a10_sramc_softc {
 
 static struct a10_sramc_softc *a10_sramc_sc = NULL;
 
-#define sramc_read_4(sc, reg)		\
+#define	sramc_read_4(sc, reg)		\
     bus_space_read_4((sc)->bst, (sc)->bsh, (reg))
-#define sramc_write_4(sc, reg, val)	\
+#define	sramc_write_4(sc, reg, val)	\
     bus_space_write_4((sc)->bst, (sc)->bsh, (reg), (val))
 
 
@@ -128,6 +128,7 @@ a10_map_to_emac(void)
 	if (sc == NULL)
 		return ENXIO;
 
+	/* Map SRAM to EMAC */
 	reg_value = sramc_read_4(sc, 0x04);
 	reg_value |= 0x5<<2;
 	sramc_write_4(sc, 0x04, reg_value);

@@ -27,7 +27,7 @@
  *
  */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: head/sys/arm/allwinner/a10_gpio.c 249449 2013-04-13 21:21:13Z dim $");
+__FBSDID("$FreeBSD: head/sys/arm/allwinner/a10_gpio.c 257200 2013-10-27 01:34:10Z ian $");
 
 #include <sys/param.h>
 #include <sys/systm.h>
@@ -45,7 +45,6 @@ __FBSDID("$FreeBSD: head/sys/arm/allwinner/a10_gpio.c 249449 2013-04-13 21:21:13
 #include <machine/cpufunc.h>
 #include <machine/resource.h>
 #include <machine/fdt.h>
-#include <machine/frame.h>
 #include <machine/intr.h>
 
 #include <dev/fdt/fdt_common.h>
@@ -534,6 +533,7 @@ a10_emac_gpio_config(void)
 	if (sc == NULL)
 		return ENXIO;
 
+	/* Configure pin mux settings for MII */
 	reg_val = A10_GPIO_READ(sc, 0x00);
 	reg_val &= 0xAAAAAAAA;
 	reg_val |= 0x22222222;
@@ -548,8 +548,6 @@ a10_emac_gpio_config(void)
 	reg_val &= 0xffffffAA;
 	reg_val |= 0x00000022;
 	A10_GPIO_WRITE(sc, 0x08, reg_val);
-
-	//0x104
 
 	return (0);
 }

@@ -74,7 +74,6 @@ __FBSDID("$FreeBSD$");
 #include <dev/mii/miivar.h>
 
 #include <arm/allwinner/if_emacreg.h>
-#include <arm/allwinner/if_emacvar.h>
 
 #include "miibus_if.h"
 

@@ -219,4 +219,8 @@
 #define	EMAC_CRCERR		(1 << 4)
 #define	EMAC_LENERR		(3 << 5)
 
+#define	EMAC_LOCK(cs)		mtx_lock(&(sc)->emac_mtx)
+#define	EMAC_UNLOCK(cs)		mtx_unlock(&(sc)->emac_mtx)
+#define	EMAC_ASSERT_LOCKED(sc)	mtx_assert(&(sc)->emac_mtx, MA_OWNED);
+
 #endif /* __IF_EMACREG_H__ */

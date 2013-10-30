@@ -137,9 +137,11 @@ static uint8_t eaddr[ETHER_ADDR_LEN];
 static void
 emac_sys_setup()
 {
+	int i;
 
 	a10_clk_emac_activate();
-	a10_emac_gpio_config();
+	for (i = 0; i <= 17; i++)
+		a10_emac_gpio_config(i);
 	a10_map_to_emac();
 }
 

@@ -525,32 +525,18 @@ static driver_t a10_gpio_driver = {
 DRIVER_MODULE(a10_gpio, simplebus, a10_gpio_driver, a10_gpio_devclass, 0, 0);
 
 int
-a10_emac_gpio_config(void)
+a10_emac_gpio_config(uint32_t pin)
 {
 	struct a10_gpio_softc *sc = a10_gpio_sc;
-	uint32_t reg_val;
 
 	if (sc == NULL)
 		return ENXIO;
 
 	/* Configure pin mux settings for MII */
-	/* PA0 - PA7 */
-	reg_val = A10_GPIO_READ(sc, 0x00);
-	reg_val &= 0xAAAAAAAA;
-	reg_val |= 0x22222222;
-	A10_GPIO_WRITE(sc, 0x00, reg_val);
-
-	/* PA8 - PA15 */
-	reg_val = A10_GPIO_READ(sc, 0x04);
-	reg_val &= 0xAAAAAAAA;
-	reg_val |= 0x22222222;
-	A10_GPIO_WRITE(sc, 0x04, reg_val);
-
-	/* PA16 - PA17 */
-	reg_val = A10_GPIO_READ(sc, 0x08);
-	reg_val &= 0xFFFFFFAA;
-	reg_val |= 0x00000022;
-	A10_GPIO_WRITE(sc, 0x08, reg_val);
+	/* PA0 - PA17 */
+	A10_GPIO_LOCK(sc);
+	a10_gpio_set_function(sc, pin, A10_GPIO_PULLDOWN);
+	A10_GPIO_UNLOCK(sc);
 
 	return (0);
 }

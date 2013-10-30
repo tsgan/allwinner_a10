@@ -534,18 +534,21 @@ a10_emac_gpio_config(void)
 		return ENXIO;
 
 	/* Configure pin mux settings for MII */
+	/* PA0 - PA7 */
 	reg_val = A10_GPIO_READ(sc, 0x00);
 	reg_val &= 0xAAAAAAAA;
 	reg_val |= 0x22222222;
 	A10_GPIO_WRITE(sc, 0x00, reg_val);
 
+	/* PA8 - PA15 */
 	reg_val = A10_GPIO_READ(sc, 0x04);
 	reg_val &= 0xAAAAAAAA;
 	reg_val |= 0x22222222;
 	A10_GPIO_WRITE(sc, 0x04, reg_val);
 
+	/* PA16 - PA17 */
 	reg_val = A10_GPIO_READ(sc, 0x08);
-	reg_val &= 0xffffffAA;
+	reg_val &= 0xFFFFFFAA;
 	reg_val |= 0x00000022;
 	A10_GPIO_WRITE(sc, 0x08, reg_val);
 

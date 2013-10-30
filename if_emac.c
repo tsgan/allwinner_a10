@@ -49,6 +49,7 @@ __FBSDID("$FreeBSD$");
 #include <machine/intr.h>
 
 #include <net/if.h>
+#include <net/if_var.h>
 #include <net/if_arp.h>
 #include <net/if_dl.h>
 #include <net/if_media.h>
@@ -620,6 +621,10 @@ emac_ioctl(struct ifnet *ifp, u_long command, caddr_t data)
 		}
 		EMAC_UNLOCK(sc);
 		break;
+        case SIOCADDMULTI:
+        case SIOCDELMULTI:
+                error = EINVAL;
+                break;
 	case SIOCGIFMEDIA:
 	case SIOCSIFMEDIA:
 		mii = device_get_softc(sc->emac_miibus);

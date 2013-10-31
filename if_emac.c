@@ -155,7 +155,7 @@ emac_powerup(struct emac_softc *sc)
 {
 	uint32_t reg_val;
 	int phy_val;
-	uint32_t duplex_flag;
+	uint32_t duplex_flag, rnd;
 	device_t dev;
 
 	dev = sc->emac_dev;
@@ -231,14 +231,13 @@ emac_powerup(struct emac_softc *sc)
 	emac_write_reg(sc, EMAC_MAC_MAXF, EMAC_MAC_MFL);
 
 	/* XXX: Hardcode the ethernet address for now */
-	eaddr[0] = 0x4e;
-	eaddr[0] &= 0xfe;	/* the 48bit must set 0 */
-	eaddr[0] |= 0x02;	/* the 47bit must set 1 */
-	eaddr[1] = 0x34;
-	eaddr[2] = 0x84;
-	eaddr[3] = 0xd3;
-	eaddr[4] = 0xd3;
-	eaddr[5] = 0xa9;
+	rnd = arc4random() & 0x00ffffff;
+	eaddr[0] = 'b';
+	eaddr[1] = 's';
+	eaddr[2] = 'd';
+	eaddr[3] = rnd >> 16;
+	eaddr[4] = rnd >>  8;
+	eaddr[5] = rnd >>  0;
 
 	/* Write ethernet address to register */
 	emac_write_reg(sc, EMAC_MAC_A1, eaddr[0] << 16 | 

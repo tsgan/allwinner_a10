@@ -814,7 +814,7 @@ emac_miibus_readreg(device_t dev, int phy, int reg)
 	sc = device_get_softc(dev);
 
 	/* Issue phy address and reg */
-	emac_write_reg(sc, EMAC_MAC_MADR, (1 << 8) | reg);
+	emac_write_reg(sc, EMAC_MAC_MADR, (phy << 8) | reg);
 	/* Pull up the phy io line */
 	emac_write_reg(sc, EMAC_MAC_MCMD, 0x1);
 	/* Wait read complete */
@@ -836,7 +836,7 @@ emac_miibus_writereg(device_t dev, int phy, int reg, int data)
 	sc = device_get_softc(dev);
 	
 	/* Issue phy address and reg */
-	emac_write_reg(sc, EMAC_MAC_MADR, (1 << 8) | reg);
+	emac_write_reg(sc, EMAC_MAC_MADR, (phy << 8) | reg);
 	/* Pull up the phy io line */
 	emac_write_reg(sc, EMAC_MAC_MCMD, 0x1);
 	/* Wait read complete */

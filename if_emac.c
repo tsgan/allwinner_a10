@@ -672,7 +672,7 @@ static int
 emac_probe(device_t dev)
 {
 
-	if (!ofw_bus_is_compatible(dev, "allwinner,emac"))
+	if (!ofw_bus_is_compatible(dev, "allwinner,sun4i-emac"))
 		return (ENXIO);
 
 	device_set_desc(dev, "Allwinner A10/A20 EMAC");

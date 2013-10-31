@@ -32,9 +32,9 @@
  * EMAC register definitions
  */
 #define	EMAC_CTL		0x00
-#define	EMAC_CTL_RST		(1<<0)
-#define	EMAC_CTL_TX_EN		(1<<1)
-#define	EMAC_CTL_RX_EN		(1<<2)
+#define	EMAC_CTL_RST		(1 << 0)
+#define	EMAC_CTL_TX_EN		(1 << 1)
+#define	EMAC_CTL_RX_EN		(1 << 2)
 
 #define	EMAC_TX_MODE		0x04
 #define	EMAC_TX_FLOW		0x08

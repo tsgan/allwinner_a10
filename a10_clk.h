@@ -105,7 +105,7 @@
 #define CCM_AHB_GATING_EHCI1	(1 << 3)
 #define CCM_AHB_GATING_SDMMC0	(1 << 8)
 #define CCM_AHB_GATING_SATA	(1 << 25)
-#define	CCM_AHB_GATING_EMAC	(1 << 17)
+#define CCM_AHB_GATING_EMAC	(1 << 17)
 
 #define CCM_USB_PHY		(1 << 8)
 #define CCM_USB0_RESET		(1 << 0)

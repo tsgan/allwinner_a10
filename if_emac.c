@@ -140,8 +140,13 @@ emac_sys_setup()
 	int i;
 
 	a10_clk_emac_activate();
+	/*
+	 * Configure pin mux settings for MII.
+	 * Pins PA0 from PA17.
+	 */
 	for (i = 0; i <= 17; i++)
 		a10_emac_gpio_config(i);
+	/* Map sram */
 	a10_map_to_emac();
 }
 

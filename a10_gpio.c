@@ -532,8 +532,7 @@ a10_emac_gpio_config(uint32_t pin)
 	if (sc == NULL)
 		return ENXIO;
 
-	/* Configure pin mux settings for MII */
-	/* PA0 - PA17 */
+	/* Configure pin mux settings for MII. */
 	A10_GPIO_LOCK(sc);
 	a10_gpio_set_function(sc, pin, A10_GPIO_PULLDOWN);
 	A10_GPIO_UNLOCK(sc);

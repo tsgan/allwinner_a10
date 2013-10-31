@@ -97,7 +97,6 @@ struct emac_softc {
 	uint32_t		emac_flags;
 	struct mtx		emac_mtx;
 	struct callout		emac_tick_ch;
-	int			emac_tx_fifo_stat;
 	int			emac_watchdog_timer;
 	int			emac_rx_completed_flag;
 };
@@ -290,9 +289,7 @@ emac_txeof(struct emac_softc *sc)
 	struct ifnet *ifp;
 
 	ifp = sc->emac_ifp;
-
 	ifp->if_opackets++;
-
 	ifp->if_drv_flags &= ~IFF_DRV_OACTIVE;
 
         /* Unarm watchdog timer if no TX */
@@ -479,6 +476,8 @@ emac_init_locked(struct emac_softc *sc)
 	device_t dev;
 
 	dev = sc->emac_dev;
+	if ((ifp->if_drv_flags & IFF_DRV_RUNNING) != 0)
+		return;
 
 	/* PHY POWER UP */
 	phy_reg = emac_miibus_readreg(dev, 0, 0);
@@ -512,7 +511,6 @@ emac_init_locked(struct emac_softc *sc)
 	ifp->if_drv_flags |= IFF_DRV_RUNNING;
 	ifp->if_drv_flags &= ~IFF_DRV_OACTIVE;
 
-	sc->emac_tx_fifo_stat = 0;
 	sc->emac_rx_completed_flag = 1;
 
 	callout_reset(&sc->emac_tick_ch, hz, emac_tick, sc);
@@ -539,6 +537,8 @@ emac_start_locked(struct ifnet *ifp)
 
 	sc = ifp->if_softc;
 	if (ifp->if_drv_flags & IFF_DRV_OACTIVE)
+		return;
+	if (IFQ_IS_EMPTY(&ifp->if_snd))
 		return;
 
 	/* Select channel */
@@ -571,13 +571,13 @@ emac_start_locked(struct ifnet *ifp)
 		reg_val |= 1;
 		emac_write_reg(sc, EMAC_TX_CTL0, reg_val);
 
+		/* Set timeout */
+		sc->emac_watchdog_timer = 5;
+
+		ifp->if_drv_flags |= IFF_DRV_OACTIVE;
 		BPF_MTAP(ifp, m);
 		m_freem(m);
 	}
-	/* Set timeout */
-	sc->emac_watchdog_timer = 5;
-
-	ifp->if_drv_flags |= IFF_DRV_OACTIVE;
 }
 
 static void
@@ -655,10 +655,10 @@ emac_ioctl(struct ifnet *ifp, u_long command, caddr_t data)
 		}
 		EMAC_UNLOCK(sc);
 		break;
-        case SIOCADDMULTI:
-        case SIOCDELMULTI:
-                error = EINVAL;
-                break;
+	case SIOCADDMULTI:
+	case SIOCDELMULTI:
+		error = EINVAL;
+		break;
 	case SIOCGIFMEDIA:
 	case SIOCSIFMEDIA:
 		mii = device_get_softc(sc->emac_miibus);

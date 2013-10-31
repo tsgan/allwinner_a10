@@ -24,7 +24,7 @@ Index: cubieboard2.dts
  		};
 +
 +		emac@01c0b000 {
-+			compatible = "allwinner,emac";
++			compatible = "allwinner,sun4i-emac";
 +			reg = <0x01c0b000 0x1000>;
 +			interrupts = <55>;
 +			interrupt-parent = <&GIC>;
@@ -56,7 +56,7 @@ Index: cubieboard.dts
  		};
 +
 +		emac@01c0b000 {
-+			compatible = "allwinner,emac";
++			compatible = "allwinner,sun4i-emac";
 +			reg = <0x01c0b000 0x1000>;
 +			interrupts = <55>;
 +			interrupt-parent = <&AINTC>;

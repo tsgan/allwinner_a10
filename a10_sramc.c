@@ -128,9 +128,9 @@ a10_map_to_emac(void)
 	if (sc == NULL)
 		return ENXIO;
 
-	/* Map SRAM to EMAC */
+	/* Map SRAM to EMAC, set bit 2 and 4. */
 	reg_value = sramc_read_4(sc, 0x04);
-	reg_value |= 0x5<<2;
+	reg_value |= 0x5 << 2;
 	sramc_write_4(sc, 0x04, reg_value);
 
 	return (0);

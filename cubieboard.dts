@@ -125,21 +125,11 @@
 			broken-txfifo = <1>;
 		};
 
-		wemac@01c0b000 {
+		emac@01c0b000 {
 			compatible = "allwinner,emac";
 			reg = <0x01c0b000 0x1000>;
 			interrupts = <55>;
 			interrupt-parent = <&AINTC>;
-
-			mdio@0 {
-				#address-cells = <1>;
-				#size-cells = <0>;
-				compatible = "allwinner,mdio";
-
-				phy0: ethernet-phy@0 {
-					reg = <0x0>;
-				};
-			};
 		};
 	};
 

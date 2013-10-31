@@ -14,7 +14,7 @@ arm/allwinner/a10_sramc.c		standard
 arm/allwinner/a10_gpio.c		optional	gpio
 arm/allwinner/a10_ehci.c		optional	ehci
 arm/allwinner/a10_mmc.c			optional	mmc
-arm/allwinner/if_wemac-debug3.c		optional	wemac
+arm/allwinner/if_emac.c			optional	emac
 arm/allwinner/a10_wdog.c		standard
 arm/allwinner/timer.c			standard
 arm/allwinner/aintc.c			standard

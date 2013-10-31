@@ -125,6 +125,7 @@ device		bpf
 
 # USB ethernet support, requires miibus
 device		miibus
+device		emac
 
 # Flattened Device Tree
 options		FDT

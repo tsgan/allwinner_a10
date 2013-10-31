@@ -109,6 +109,7 @@ static int emac_detach(device_t);
 static void emac_sys_setup();
 static void emac_reset(struct emac_softc *sc);
 static void emac_powerup(struct emac_softc *sc);
+static void emac_powerdown(struct emac_softc *sc);
 
 static void emac_init_locked(struct emac_softc *);
 static void emac_start_locked(struct ifnet *ifp);
@@ -245,6 +246,32 @@ emac_powerup(struct emac_softc *sc)
 	    eaddr[1] << 8 | eaddr[2]);
 	emac_write_reg(sc, EMAC_MAC_A0, eaddr[3] << 16 | 
 	    eaddr[4] << 8 | eaddr[5]);
+}
+
+static void
+emac_powerdown(struct emac_softc *sc)
+{
+	device_t dev;
+	int reg_val;
+
+	dev = sc->emac_dev;
+
+	/* Reset phy */
+	reg_val = emac_miibus_readreg(dev, 0, 0);
+	emac_miibus_writereg(dev, 0, 0, reg_val & (1 << 15));
+	DELAY(10);
+	/* Power down phy */
+	emac_miibus_writereg(dev, 0, 0, reg_val | (1 << 11));
+
+	/* Disable all interrupt and clear interrupt status */
+	emac_write_reg(sc, EMAC_INT_CTL, 0);
+	reg_val = emac_read_reg(sc, EMAC_INT_STA);
+	emac_write_reg(sc, EMAC_INT_STA, reg_val);
+
+	/* Disable RX/TX */
+	reg_val = emac_read_reg(sc, EMAC_CTL);
+	reg_val &= ~0x7;
+	emac_write_reg(sc, EMAC_CTL, reg_val);
 }
 
 static void
@@ -515,7 +542,7 @@ emac_start_locked(struct ifnet *ifp)
 		return;
 
 	/* Select channel */
-	emac_write_reg(sc, EMAC_TX_INS, 0); /* TODO: use multiple buffers */
+	emac_write_reg(sc, EMAC_TX_INS, 0);
 
 	while (!IFQ_DRV_IS_EMPTY(&ifp->if_snd)) {
 		IFQ_DRV_DEQUEUE(&ifp->if_snd, m);
@@ -661,14 +688,31 @@ emac_detach(device_t dev)
 	struct emac_softc *sc;
 
 	sc = device_get_softc(dev);
-	KASSERT(mtx_initialized(&sc->emac_mtx), 
-	    ("emac mutex not initialized"));
 
-	/* TODO: Cleanup correctly */
-	if (sc->emac_res)
+	emac_powerdown(sc);
+	sc->emac_ifp->if_drv_flags &= ~IFF_DRV_RUNNING;
+
+	if (sc->emac_ifp != NULL)
+		if_free(sc->emac_ifp);
+
+	callout_drain(&sc->emac_tick_ch);
+
+	if (sc->emac_intrhand != NULL)
+		bus_teardown_intr(sc->emac_dev, sc->emac_irq, sc->emac_intrhand);
+
+	if (sc->emac_miibus != NULL) {
+		device_delete_child(sc->emac_dev, sc->emac_miibus);
+		bus_generic_detach(sc->emac_dev);
+	}
+
+	if (sc->emac_res != NULL)
 		bus_release_resource(dev, SYS_RES_MEMORY, 0, sc->emac_res);
 
-	mtx_destroy(&sc->emac_mtx);
+	if (sc->emac_irq != NULL)
+		bus_release_resource(dev, SYS_RES_IRQ, 0, sc->emac_irq);
+
+	if (mtx_initialized(&sc->emac_mtx))
+		mtx_destroy(&sc->emac_mtx);
 
 	return (0);
 }
@@ -776,7 +820,8 @@ emac_miibus_readreg(device_t dev, int phy, int reg)
 	/* Pull up the phy io line */
 	emac_write_reg(sc, EMAC_MAC_MCMD, 0x1);
 	/* Wait read complete */
-	DELAY(10);
+	while(emac_read_reg(sc, EMAC_MAC_MIND) & 0x1)
+		;
 	/* Push down the phy io line */
 	emac_write_reg(sc, EMAC_MAC_MCMD, 0x0);
 	/* Read data */
@@ -797,7 +842,8 @@ emac_miibus_writereg(device_t dev, int phy, int reg, int data)
 	/* Pull up the phy io line */
 	emac_write_reg(sc, EMAC_MAC_MCMD, 0x1);
 	/* Wait read complete */
-	DELAY(10);
+	while(emac_read_reg(sc, EMAC_MAC_MIND) & 0x1)
+		;
 	/* Push down the phy io line */
 	emac_write_reg(sc, EMAC_MAC_MCMD, 0x0);
 	/* Write data */

@@ -23,7 +23,7 @@ Index: cubieboard2.dts
  			broken-txfifo = <1>;
  		};
 +
-+		wemac@01c0b000 {
++		emac@01c0b000 {
 +			compatible = "allwinner,emac";
 +			reg = <0x01c0b000 0x1000>;
 +			interrupts = <55>;
@@ -55,8 +55,8 @@ Index: cubieboard.dts
  			broken-txfifo = <1>;
  		};
 +
-+		wemac@01c0b000 {
-+			compatible = "allwinner,wemac";
++		emac@01c0b000 {
++			compatible = "allwinner,emac";
 +			reg = <0x01c0b000 0x1000>;
 +			interrupts = <55>;
 +			interrupt-parent = <&AINTC>;

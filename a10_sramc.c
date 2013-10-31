@@ -54,6 +54,8 @@ __FBSDID("$FreeBSD$");
 
 #include "a10_sramc.h"
 
+#define	SRAM_CTL1_CFG		0x04
+
 struct a10_sramc_softc {
 	struct resource		*res;
 	bus_space_tag_t		bst;
@@ -129,9 +131,9 @@ a10_map_to_emac(void)
 		return ENXIO;
 
 	/* Map SRAM to EMAC, set bit 2 and 4. */
-	reg_value = sramc_read_4(sc, 0x04);
+	reg_value = sramc_read_4(sc, SRAM_CTL1_CFG);
 	reg_value |= 0x5 << 2;
-	sramc_write_4(sc, 0x04, reg_value);
+	sramc_write_4(sc, SRAM_CTL1_CFG, reg_value);
 
 	return (0);
 }

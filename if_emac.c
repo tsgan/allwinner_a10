@@ -550,8 +550,6 @@ emac_start_locked(struct ifnet *ifp)
 		if (m == NULL)
 			break;
 
-		DELAY(5);
-
 		/* Address needs to be 4 byte aligned */
 		m = m_defrag(m, M_NOWAIT);
 		if (m == NULL) {

@@ -1,0 +1,26 @@
+Index: CUBIEBOARD2
+===================================================================
+--- CUBIEBOARD2	(working copy)
++++ CUBIEBOARD2	(working copy)
+@@ -124,6 +124,8 @@
+ #device 	cpsw
+ device		bpf
+ 
++device		emac
++
+ # USB ethernet support, requires miibus
+ device		miibus
+ 
+Index: CUBIEBOARD
+===================================================================
+--- CUBIEBOARD	(revision 257406)
++++ CUBIEBOARD	(working copy)
+@@ -124,6 +124,8 @@
+ #device		cpsw
+ device		bpf
+ 
++device		emac
++
+ # USB ethernet support, requires miibus
+ device		miibus
+ 

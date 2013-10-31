@@ -1,0 +1,66 @@
+Index: cubieboard2.dts
+===================================================================
+--- cubieboard2.dts	(working copy)
++++ cubieboard2.dts	(working copy)
+@@ -61,7 +61,14 @@
+ 			#interrupt-cells = <1>;
+ 		};
+ 
+-		cpu-cfg@01c20000 {
++		sramc@01c00000 {
++			compatible = "allwinner,sun4i-sramc";
++			#address-cells = <1>;
++			#size-cells = <1>;
++			reg = < 0x01c00000 0x1000 >;
++		};
++
++		cpu-cfg@01c25c00 {
+ 			compatible = "allwinner,sun7i-cpu-cfg";
+ 			#address-cells = <1>;
+ 			#size-cells = <1>;
+@@ -130,6 +137,13 @@
+ 			busy-detect = <1>;
+ 			broken-txfifo = <1>;
+ 		};
++
++		wemac@01c0b000 {
++			compatible = "allwinner,emac";
++			reg = <0x01c0b000 0x1000>;
++			interrupts = <55>;
++			interrupt-parent = <&GIC>;
++		};
+ 	};
+ 
+ 	chosen {
+Index: cubieboard.dts
+===================================================================
+--- cubieboard.dts	(revision 257406)
++++ cubieboard.dts	(working copy)
+@@ -61,6 +61,13 @@
+ 			reg =   < 0x01c20400 0x400 >;
+ 		};
+ 
++		sramc@01c00000 {
++			compatible = "allwinner,sun4i-sramc";
++			#address-cells = <1>;
++			#size-cells = <1>;
++			reg = < 0x01c00000 0x1000 >;
++		};
++
+ 		ccm@01c20000 {
+ 			compatible = "allwinner,sun4i-ccm";
+ 			#address-cells = <1>;
+@@ -124,6 +131,13 @@
+ 			busy-detect = <1>;
+ 			broken-txfifo = <1>;
+ 		};
++
++		wemac@01c0b000 {
++			compatible = "allwinner,wemac";
++			reg = <0x01c0b000 0x1000>;
++			interrupts = <55>;
++			interrupt-parent = <&AINTC>;
++		};
+ 	};
+ 
+ 	chosen {

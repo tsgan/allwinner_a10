@@ -221,7 +221,6 @@
 #define	EMAC_LENERR		(3 << 5)
 
 #define	EMAC_RX_FLUSH_FIFO	(1 << 3)
-#define	EMAC_TX_RX_EN		0x7	
 #define	EMAC_PHY_RESET		(1 << 15)
 #define	EMAC_PHY_PWRDOWN	(1 << 11)
 

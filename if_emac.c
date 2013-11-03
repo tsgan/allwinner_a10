@@ -266,7 +266,7 @@ emac_powerdown(struct emac_softc *sc)
 
 	/* Disable RX/TX */
 	reg_val = emac_read_reg(sc, EMAC_CTL);
-	reg_val &= ~EMAC_TX_RX_EN;
+	reg_val &= ~(EMAC_CTL_RST | EMAC_CTL_TX_EN | EMAC_CTL_RX_EN);
 	emac_write_reg(sc, EMAC_CTL, reg_val);
 }
 

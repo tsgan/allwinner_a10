@@ -91,15 +91,6 @@
 
 #define	EMAC_PHY_DUPLEX		(1 << 8)
 
-#define	EMAC_PLATF_8BITONLY	(1 << 0)
-#define	EMAC_PLATF_16BITONLY	(1 << 1)
-#define	EMAC_PLATF_32BITONLY	(1 << 2)
-#define	EMAC_PLATF_EXT_PHY	(1 << 3)
-#define	EMAC_PLATF_NO_EEPROM	(1 << 4)
-
-/* Use NSR to find link status */
-#define	EMAC_PLATF_SIMPLE_PHY	(1 << 5)
-
 /*
  * Each received packet has 8 bytes header:
  * Byte 0: Packet valid flag: 0x01 valid, 0x00 not valid

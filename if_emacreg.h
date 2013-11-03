@@ -152,7 +152,7 @@
 /* Inverse Filtering */
 #define	EMAC_RX_SAIF		(1 << 25)
 
-#define	EMAC_RX_SETUP		(EMAC_RX_POR | EMAC_RX_UCAD |
+#define	EMAC_RX_SETUP		(EMAC_RX_POR | EMAC_RX_UCAD | \
     EMAC_RX_DAF | EMAC_RX_MCO | EMAC_RX_BCO)
 
 /* Enable Receive Flow Control */
@@ -199,7 +199,7 @@
 #define	EMAC_MAC_CTL1_BNB	(1 << 13)
 #define	EMAC_MAC_CTL1_ED	(1 << 14)
 
-#define	EMAC_MAC_CTL1_SETUP	(EMAC_MAC_CTL1_FLC | EMAC_MAC_CTL1_CRC |
+#define	EMAC_MAC_CTL1_SETUP	(EMAC_MAC_CTL1_FLC | EMAC_MAC_CTL1_CRC | \
     EMAC_MAC_CTL1_PC)
 
 /* half duplex */

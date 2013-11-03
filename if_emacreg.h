@@ -208,7 +208,7 @@
 /* full duplex */
 #define	EMAC_MAC_IPGT_FD	0x15
 
-#define	EMAC_MAC_NBTB_IPG1	0xc
+#define	EMAC_MAC_NBTB_IPG1	0xC
 #define	EMAC_MAC_NBTB_IPG2	0x12
 
 #define	EMAC_MAC_CW		0x37

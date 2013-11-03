@@ -344,7 +344,8 @@ emac_rxeof(struct emac_softc *sc)
 			reg_val = emac_read_reg(sc, EMAC_RX_CTL);
 			reg_val |= EMAC_RX_FLUSH_FIFO;
 			emac_write_reg(sc, EMAC_RX_CTL, reg_val);
-			while (emac_read_reg(sc, EMAC_RX_CTL) & EMAC_RX_FLUSH_FIFO)
+			while (emac_read_reg(sc, EMAC_RX_CTL) &
+			    EMAC_RX_FLUSH_FIFO)
 				;
 			/* Enable RX */
 			reg_val = emac_read_reg(sc, EMAC_CTL);
@@ -596,8 +597,9 @@ emac_intr(void *arg)
 	/* Disable all interrupts */
 	emac_write_reg(sc, EMAC_INT_CTL, 0);
 	/* Get EMAC interrupt status */
-	int_status = emac_read_reg(sc, EMAC_INT_STA); /* Get ISR */
-	emac_write_reg(sc, EMAC_INT_STA, int_status); /* Clear ISR status */
+	int_status = emac_read_reg(sc, EMAC_INT_STA);
+	/* Clear ISR status */
+	emac_write_reg(sc, EMAC_INT_STA, int_status); 
 
 	/* Received incoming packet */
 	if ((int_status & 0x100) && (sc->emac_rx_completed_flag == 1)) {

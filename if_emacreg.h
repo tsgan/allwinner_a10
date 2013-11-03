@@ -100,99 +100,109 @@
 /* Use NSR to find link status */
 #define	EMAC_PLATF_SIMPLE_PHY	(1 << 5)
 
-#define	EMAC_EEPROM_MAGIC	(0x444d394b)
-#define	EMAC_UNDOCUMENTED_MAGIC	(0x0143414d)
+/*
+ * Each received packet has 8 bytes header:
+ * Byte 0: Packet valid flag: 0x01 valid, 0x00 not valid
+ * Byte 1: 0x43 -> Ascii code 'C'
+ * Byte 2: 0x41 -> Ascii code 'A'
+ * Byte 3: 0x4d -> Ascii code 'M'
+ * Byte 4: High byte of received packet's status
+ * Byte 5: Low byte of received packet's status
+ * Byte 6: High byte of packet size
+ * Byte 7: Low byte of packet size
+ */
+#define	EMAC_PACKET_HEADER	(0x0143414d)
 
-/* 0: Disable, 1: Aborted frame enable(default) */
+/* Aborted frame enable */
 #define	EMAC_TX_AB_M		(1 << 0)
 
-/* 0: CPU, 1: DMA */
+/* 0: Enable CPU mode for TX, 1: DMA */
 #define	EMAC_TX_TM		~(1 << 1)
 
-/* 0: DRQ asserted, 1: DRQ automatically(default) */
+/* 0: DRQ asserted, 1: DRQ automatically */
 #define	EMAC_RX_DRQ_MODE	(1 << 1)
 
-/* 0: CPU, 1: DMA */
+/* 0: Enable CPU mode for RX, 1: DMA */
 #define	EMAC_RX_TM		~(1 << 2)
 
-/* 0: Normal(default), 1: Pass all Frames */
+/* Pass all Frames */
 #define	EMAC_RX_PA		(1 << 4)
 
-/* 0: Normal(default), 1: Pass Control Frames */
+/* Pass Control Frames */
 #define	EMAC_RX_PCF		(1 << 5)
 
-/* 0: Normal(default), 1: Pass Frames with CRC Error */
+/* Pass Frames with CRC Error */
 #define	EMAC_RX_PCRCE		(1 << 6)
 
-/* 0: Normal(default), 1: Pass Frames with Length Error */
+/* Pass Frames with Length Error */
 #define	EMAC_RX_PLE		(1 << 7)
 
-/* 0: Normal, 1: Pass Frames length out of range(default) */
+/* Pass Frames length out of range */
 #define	EMAC_RX_POR		(1 << 8)
 
-/* 0: Not accept, 1: Accept unicast Packets(default) */
+/* Accept unicast Packets */
 #define	EMAC_RX_UCAD		(1 << 16)
 
-/* 0: Normal(default), 1: DA Filtering */
+/* Enable DA Filtering */
 #define	EMAC_RX_DAF		(1 << 17)
 
-/* 0: Not accept, 1: Accept multicast Packets(default) */
+/* Accept multicast Packets */
 #define	EMAC_RX_MCO		(1 << 20)
 
-/* 0: Disable(default), 1: Enable Hash filter */
+/* Enable Hash filter */
 #define	EMAC_RX_MHF		(1 << 21)
 
-/* 0: Not accept, 1: Accept Broadcast Packets(default) */
+/* Accept Broadcast Packets */
 #define	EMAC_RX_BCO		(1 << 22)
 
-/* 0: Disable(default), 1: Enable SA Filtering */
+/* Enable SA Filtering */
 #define	EMAC_RX_SAF		(1 << 24)
 
-/* 0: Normal(default), 1: Inverse Filtering */
+/* Inverse Filtering */
 #define	EMAC_RX_SAIF		(1 << 25)
 
 #define	EMAC_RX_SETUP		(EMAC_RX_POR | EMAC_RX_UCAD | \
     EMAC_RX_DAF | EMAC_RX_MCO | EMAC_RX_BCO)
 
-/* 0: Disable, 1: Enable Receive Flow Control(default) */
+/* Enable Receive Flow Control */
 #define	EMAC_MAC_CTL0_RFC	(1 << 2)
 
-/* 0: Disable, 1: Enable Transmit Flow Control(default) */
+/* Enable Transmit Flow Control */
 #define	EMAC_MAC_CTL0_TFC	(1 << 3)
 
-/* Soft reset */
+/* Enable soft reset */
 #define	EMAC_MAC_CTL0_SOFT_RST	(1 << 15)
 
 #define	EMAC_MAC_CTL0_SETUP	(EMAC_MAC_CTL0_RFC | EMAC_MAC_CTL0_TFC)
 
-/* duplex */
+/* Enable duplex */
 #define	EMAC_MAC_CTL1_DUP	(1 << 0)
 
-/* 0: Disable, 1: Enable MAC Frame Length Checking(default) */
+/* Enable MAC Frame Length Checking */
 #define	EMAC_MAC_CTL1_FLC	(1 << 1)
 
-/* 0: Disable(default), 1: Enable Huge Frame */
+/* Enable Huge Frame */
 #define	EMAC_MAC_CTL1_HF	(1 << 2)
 
-/* 0: Disable(default), 1: Enable MAC Delayed CRC */
+/* Enable MAC Delayed CRC */
 #define	EMAC_MAC_CTL1_DCRC	(1 << 3)
 
-/* 0: Disable, 1: Enable MAC CRC(default) */
+/* Enable MAC CRC */
 #define	EMAC_MAC_CTL1_CRC	(1 << 4)
 
-/* 0: Disable, 1: Enable MAC PAD Short frames(default) */
+/* Enable MAC PAD Short frames */
 #define	EMAC_MAC_CTL1_PC	(1 << 5)
 
-/* 0: Disable(default), 1: Enable MAC PAD Short frames and append CRC */
+/* Enable MAC PAD Short frames and append CRC */
 #define	EMAC_MAC_CTL1_VC	(1 << 6)
 
-/* 0: Disable(default), 1: Enable MAC auto detect Short frames */
+/* Enable MAC auto detect Short frames */
 #define	EMAC_MAC_CTL1_ADP	(1 << 7)
 
 #define	EMAC_MAC_CTL1_PRE	(1 << 8)
 #define	EMAC_MAC_CTL1_LPE	(1 << 9)
 
-/* 0: Disable(default), 1: Enable no back off */
+/* Enable no back off */
 #define	EMAC_MAC_CTL1_NB	(1 << 12)
 
 #define	EMAC_MAC_CTL1_BNB	(1 << 13)

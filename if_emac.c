@@ -333,10 +333,10 @@ emac_rxeof(struct emac_softc *sc)
 				return;
 			}
 		}
-		/* Packet header check */
+		/* Check packet header */
 		reg_val = emac_read_reg(sc, EMAC_RX_IO_DATA);
-		if (reg_val != 0x0143414d) {
-			/* Packet header wrong */
+		if (reg_val != EMAC_PACKET_HEADER) {
+			/* Packet header is wrong */
 			/* Disable RX */
 			reg_val = emac_read_reg(sc, EMAC_CTL);
 			reg_val &= ~EMAC_CTL_RX_EN;
@@ -359,19 +359,18 @@ emac_rxeof(struct emac_softc *sc)
 
 		good_packet = 1;
 
-		/* get packet size */
+		/* Get packet size and status */
 		reg_val = emac_read_reg(sc, EMAC_RX_IO_DATA);
 		len = reg_val & 0xffff;
 		status = (reg_val >> 16) & 0xffff;
 
-		if (len < 0x40) {
+		if (len < 64) {
 			good_packet = 0;
 			if_printf(ifp, "bad packet: len = %i status = %i\n",
 			    len, status);
 			ifp->if_oerrors++;
 		}
 #if 0
-		/* rx_status is identical to RSR register. */
 		if (status & (EMAC_CRCERR | EMAC_LENERR)) {
 			good_packet = 0;
 			ifp->if_oerrors++;
@@ -409,7 +408,7 @@ emac_rxeof(struct emac_softc *sc)
 
 			m->m_pkthdr.rcvif = ifp;
 			m->m_len = m->m_pkthdr.len = len;
-			/* align the IP header */
+			/* align IP header */
 			fix_mbuf(m, 4);
 
 			ifp->if_ipackets++;
@@ -485,13 +484,13 @@ emac_init_locked(struct emac_softc *sc)
 
 	phy_reg = emac_miibus_readreg(dev, 0, 0);
 
-	/* Set EMAC SPEED, depend on PHY */
+	/* Set EMAC SPEED, depends on PHY */
 	reg_val = emac_read_reg(sc, EMAC_MAC_SUPP);
 	reg_val &= (~(0x1 << 8));
 	reg_val |= (((phy_reg & (1 << 13)) >> 13) << 8);
 	emac_write_reg(sc, EMAC_MAC_SUPP, reg_val);
 
-	/* Set duplex depend on phy */
+	/* Enable duplex depends on phy */
 	reg_val = emac_read_reg(sc, EMAC_MAC_CTL1);
 	reg_val &= (~(0x1 << 0));
 	reg_val |= (((phy_reg & (1 << 8)) >> 8) << 0);
@@ -549,7 +548,7 @@ emac_start_locked(struct ifnet *ifp)
 		if (m == NULL)
 			break;
 
-		/* Address needs to be 4 byte aligned */
+		/* Address needs to be 4 bytes aligned */
 		m = m_defrag(m, M_NOWAIT);
 		if (m == NULL) {
 			if_printf(ifp, "FAILED m_defrag()\n");

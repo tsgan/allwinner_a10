@@ -159,7 +159,6 @@ emac_powerup(struct emac_softc *sc)
 
 	dev = sc->emac_dev;
 
-	/* Initial EMAC */
 	/* Flush RX FIFO */
 	reg_val = emac_read_reg(sc, EMAC_RX_CTL);
 	reg_val |= EMAC_RX_FLUSH_FIFO;
@@ -186,7 +185,6 @@ emac_powerup(struct emac_softc *sc)
 	emac_write_reg(sc, EMAC_INT_STA, reg_val);
 	DELAY(1);
 
-	/* Emac setup */
 	/* Set up TX */
 	reg_val = emac_read_reg(sc, EMAC_TX_MODE);
 	reg_val |= EMAC_TX_AB_M;
@@ -476,14 +474,14 @@ emac_init_locked(struct emac_softc *sc)
 	if ((ifp->if_drv_flags & IFF_DRV_RUNNING) != 0)
 		return;
 
-	/* PHY POWER UP */
+	/* Power up phy */
 	phy_reg = emac_miibus_readreg(dev, 0, 0);
 	emac_miibus_writereg(dev, 0, 0, phy_reg & ~EMAC_PHY_PWRDOWN);
 	DELAY(4500);
 
 	phy_reg = emac_miibus_readreg(dev, 0, 0);
 
-	/* Set EMAC SPEED, depends on PHY */
+	/* Set EMAC SPEED, depends on phy */
 	reg_val = emac_read_reg(sc, EMAC_MAC_SUPP);
 	reg_val &= (~(1 << 8));
 	reg_val |= (((phy_reg & (1 << 13)) >> 13) << 8);

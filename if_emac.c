@@ -162,7 +162,7 @@ emac_powerup(struct emac_softc *sc)
 	/* Initial EMAC */
 	/* Flush RX FIFO */
 	reg_val = emac_read_reg(sc, EMAC_RX_CTL);
-	reg_val |= 0x8;
+	reg_val |= EMAC_RX_FLUSH_FIFO;
 	emac_write_reg(sc, EMAC_RX_CTL, reg_val);
 	DELAY(1);
 
@@ -254,10 +254,10 @@ emac_powerdown(struct emac_softc *sc)
 
 	/* Reset phy */
 	reg_val = emac_miibus_readreg(dev, 0, 0);
-	emac_miibus_writereg(dev, 0, 0, reg_val & (1 << 15));
+	emac_miibus_writereg(dev, 0, 0, reg_val & EMAC_PHY_RESET);
 	DELAY(10);
 	/* Power down phy */
-	emac_miibus_writereg(dev, 0, 0, reg_val | (1 << 11));
+	emac_miibus_writereg(dev, 0, 0, reg_val | EMAC_PHY_PWRDOWN);
 
 	/* Disable all interrupt and clear interrupt status */
 	emac_write_reg(sc, EMAC_INT_CTL, 0);
@@ -266,7 +266,7 @@ emac_powerdown(struct emac_softc *sc)
 
 	/* Disable RX/TX */
 	reg_val = emac_read_reg(sc, EMAC_CTL);
-	reg_val &= ~0x7;
+	reg_val &= ~EMAC_TX_RX_EN;
 	emac_write_reg(sc, EMAC_CTL, reg_val);
 }
 
@@ -342,9 +342,9 @@ emac_rxeof(struct emac_softc *sc)
 
 			/* Flush RX FIFO */
 			reg_val = emac_read_reg(sc, EMAC_RX_CTL);
-			reg_val |= (1 << 3);
+			reg_val |= EMAC_RX_FLUSH_FIFO;
 			emac_write_reg(sc, EMAC_RX_CTL, reg_val);
-			while (emac_read_reg(sc, EMAC_RX_CTL) & (1 << 3))
+			while (emac_read_reg(sc, EMAC_RX_CTL) & EMAC_RX_FLUSH_FIFO)
 				;
 			/* Enable RX */
 			reg_val = emac_read_reg(sc, EMAC_CTL);
@@ -477,20 +477,20 @@ emac_init_locked(struct emac_softc *sc)
 
 	/* PHY POWER UP */
 	phy_reg = emac_miibus_readreg(dev, 0, 0);
-	emac_miibus_writereg(dev, 0, 0, phy_reg & (~(1 << 11)));
+	emac_miibus_writereg(dev, 0, 0, phy_reg & ~EMAC_PHY_PWRDOWN);
 	DELAY(4500);
 
 	phy_reg = emac_miibus_readreg(dev, 0, 0);
 
 	/* Set EMAC SPEED, depends on PHY */
 	reg_val = emac_read_reg(sc, EMAC_MAC_SUPP);
-	reg_val &= (~(0x1 << 8));
+	reg_val &= (~(1 << 8));
 	reg_val |= (((phy_reg & (1 << 13)) >> 13) << 8);
 	emac_write_reg(sc, EMAC_MAC_SUPP, reg_val);
 
 	/* Enable duplex depends on phy */
 	reg_val = emac_read_reg(sc, EMAC_MAC_CTL1);
-	reg_val &= (~(0x1 << 0));
+	reg_val &= ~EMAC_MAC_CTL1_DUP;
 	reg_val |= (((phy_reg & (1 << 8)) >> 8) << 0);
 	emac_write_reg(sc, EMAC_MAC_CTL1, reg_val);
 
@@ -501,7 +501,7 @@ emac_init_locked(struct emac_softc *sc)
 
 	/* Enable RX/TX0/RX Hlevel interrupt */
 	reg_val = emac_read_reg(sc, EMAC_INT_CTL);
-	reg_val |= (0xf << 0) | (0x01 << 8);
+	reg_val |= (0xf << 0) | (1 << 8);
 	emac_write_reg(sc, EMAC_INT_CTL, reg_val);
 
 	ifp->if_drv_flags |= IFF_DRV_RUNNING;
@@ -615,7 +615,7 @@ emac_intr(void *arg)
 	/* Re-enable interrupt mask */
 	if (sc->emac_rx_completed_flag == 1) {
 		reg_val = emac_read_reg(sc, EMAC_INT_CTL);
-		reg_val |= (0xf << 0) | (0x01 << 8);
+		reg_val |= (0xf << 0) | (1 << 8);
 		emac_write_reg(sc, EMAC_INT_CTL, reg_val);
 	}
 

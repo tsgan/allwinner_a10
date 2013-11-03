@@ -153,10 +153,9 @@ emac_sys_setup()
 static void
 emac_powerup(struct emac_softc *sc)
 {
-	uint32_t reg_val;
-	int phy_val;
-	uint32_t duplex_flag, rnd;
 	device_t dev;
+	uint32_t reg_val, rnd;
+	int phy_val;
 
 	dev = sc->emac_dev;
 
@@ -209,11 +208,10 @@ emac_powerup(struct emac_softc *sc)
 	reg_val = emac_read_reg(sc, EMAC_MAC_CTL1);
 	DELAY(10);
 	phy_val = emac_miibus_readreg(dev, 0, 0);
-	duplex_flag = !!(phy_val & EMAC_PHY_DUPLEX);
-	if (duplex_flag)
+	if (phy_val & EMAC_PHY_DUPLEX)
 		reg_val |= EMAC_MAC_CTL1_DUP;
 	else
-		reg_val &= (EMAC_MAC_CTL1_DUP);
+		reg_val &= ~EMAC_MAC_CTL1_DUP;
 	reg_val |= EMAC_MAC_CTL1_SETUP;
 	emac_write_reg(sc, EMAC_MAC_CTL1, reg_val);
 

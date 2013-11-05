@@ -298,7 +298,7 @@ fix_mbuf(struct mbuf *m, int sramc_align)
 	int i;
 
 	src = mtod(m, uint16_t *);
-	dst = src - (sramc_align - ETHER_ALIGN) / sizeof *src;
+	dst = src - (sramc_align - ETHER_ALIGN) / sizeof(*src);
 	for (i = 0; i < (m->m_len / sizeof(uint16_t) + 1); i++)
 		*dst++ = *src++;
 	m->m_data -= sramc_align - ETHER_ALIGN;

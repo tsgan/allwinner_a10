@@ -524,7 +524,7 @@ static void
 emac_start_locked(struct ifnet *ifp)
 {
 	struct emac_softc *sc;
-	struct mbuf *m;
+	struct mbuf *m, *m0;
 	uint32_t reg_val;
 
 	sc = ifp->if_softc;
@@ -543,11 +543,15 @@ emac_start_locked(struct ifnet *ifp)
 			break;
 
 		/* Address needs to be 4 bytes aligned */
-		m = m_defrag(m, M_NOWAIT);
-		if (m == NULL) {
+		m0 = m_defrag(m, M_NOWAIT);
+		if (m0 == NULL) {
 			if_printf(ifp, "FAILED m_defrag()\n");
-			continue;
+			m_freem(m);
+			m = NULL;
+			return;
 		}
+		m = m0;
+
 		/* Write data */
 		bus_space_write_multi_4(sc->emac_tag, sc->emac_handle,
 		    EMAC_TX_IO_DATA, mtod(m, uint32_t *),

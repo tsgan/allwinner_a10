@@ -383,8 +383,7 @@ emac_rxeof(struct emac_softc *sc)
 				sc->emac_rx_completed_flag = 1;
 				return;
 			}
-			int pad = len % sizeof(uint32_t);
-			if (len > (MHLEN - pad)) {
+			if (len > MHLEN) {
 				MCLGET(m, M_DONTWAIT);
 				if ((m->m_flags & M_EXT) == 0) {
 					m_freem(m);
@@ -399,9 +398,7 @@ emac_rxeof(struct emac_softc *sc)
 			m_adj(m, 4);
 			bus_space_read_multi_4(sc->emac_tag, sc->emac_handle,
 			    EMAC_RX_IO_DATA, mtod(m, uint32_t *),
-			    roundup(pad + len, sizeof(uint32_t)) >> 2);
-			if (pad > 0)
-				bzero(mtod(m, char *) + len, pad);
+			    roundup2(len, 4) / 4);
 
 			m->m_pkthdr.rcvif = ifp;
 			m->m_len = m->m_pkthdr.len = len;

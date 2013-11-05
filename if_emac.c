@@ -543,7 +543,6 @@ emac_start_locked(struct ifnet *ifp)
 		if (m0 == NULL) {
 			if_printf(ifp, "FAILED m_defrag()\n");
 			m_freem(m);
-			m = NULL;
 			return;
 		}
 		m = m0;

@@ -378,7 +378,11 @@ emac_rxeof(struct emac_softc *sc)
 		}
 #endif
 		if (good_packet) {
-			m = m_getcl(M_NOWAIT, MT_DATA, M_PKTHDR);
+			if (len > MHLEN)
+				m = m_getcl(M_NOWAIT, MT_DATA, M_PKTHDR);
+			else
+				m = m_gethdr(M_NOWAIT, MT_DATA);
+
 			if (m == NULL) {
 				sc->emac_rx_completed_flag = 1;
 				return;

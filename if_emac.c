@@ -378,18 +378,10 @@ emac_rxeof(struct emac_softc *sc)
 		}
 #endif
 		if (good_packet) {
-			MGETHDR(m, M_DONTWAIT, MT_DATA);
+			m = m_getcl(M_NOWAIT, MT_DATA, M_PKTHDR);
 			if (m == NULL) {
 				sc->emac_rx_completed_flag = 1;
 				return;
-			}
-			if (len > MHLEN) {
-				MCLGET(m, M_DONTWAIT);
-				if ((m->m_flags & M_EXT) == 0) {
-					m_freem(m);
-					sc->emac_rx_completed_flag = 1;
-					return;
-				}
 			}
 			/*
 			 * sram->emac mapping needs 4 bytes alignment

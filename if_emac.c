@@ -392,6 +392,7 @@ emac_rxeof(struct emac_softc *sc)
 			 * so reserving 4 bytes on the buffer head.
 			 */
 			m_adj(m, 4);
+			len -= ETHER_CRC_LEN;
 			bus_space_read_multi_4(sc->emac_tag, sc->emac_handle,
 			    EMAC_RX_IO_DATA, mtod(m, uint32_t *),
 			    roundup2(len, 4) / 4);

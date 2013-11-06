@@ -378,15 +378,12 @@ emac_rxeof(struct emac_softc *sc)
 		}
 #endif
 		if (good_packet) {
-			if (len > MHLEN)
-				m = m_getcl(M_NOWAIT, MT_DATA, M_PKTHDR);
-			else
-				m = m_gethdr(M_NOWAIT, MT_DATA);
-
+			m = m_getcl(M_NOWAIT, MT_DATA, M_PKTHDR);
 			if (m == NULL) {
 				sc->emac_rx_completed_flag = 1;
 				return;
 			}
+			m->m_len = m->m_pkthdr.len = MCLBYTES;
 			/*
 			 * sram->emac mapping needs 4 bytes alignment
 			 * so reserving 4 bytes on the buffer head.

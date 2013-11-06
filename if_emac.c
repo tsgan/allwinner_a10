@@ -120,6 +120,7 @@ static int emac_ioctl(struct ifnet *ifp, u_long command, caddr_t data);
 static void emac_rxeof(struct emac_softc *sc);
 static void emac_txeof(struct emac_softc *sc);
 
+static int emac_wait_link(device_t dev);
 static int emac_miibus_readreg(device_t dev, int phy, int reg);
 static int emac_miibus_writereg(device_t dev, int phy, int reg, int data);
 static void emac_miibus_statchg(device_t);
@@ -460,6 +461,7 @@ emac_init_locked(struct emac_softc *sc)
 	uint32_t reg_val;
 	int phy_reg;
 	device_t dev;
+	int wait_limit = 4500;
 
 	dev = sc->emac_dev;
 	if ((ifp->if_drv_flags & IFF_DRV_RUNNING) != 0)
@@ -468,7 +470,16 @@ emac_init_locked(struct emac_softc *sc)
 	/* Power up phy */
 	phy_reg = emac_miibus_readreg(dev, 0, 0);
 	emac_miibus_writereg(dev, 0, 0, phy_reg & ~EMAC_PHY_PWRDOWN);
-	DELAY(4500);
+
+	/*
+	 * Phy needs some time to boot.
+	 * This is needed to avoid situations like
+	 * having 10Mbit half-duplex link on 100Mbit network.
+	 */
+	while (emac_wait_link(dev) == 0 && wait_limit > 0) {
+		DELAY(500);
+		wait_limit -= 500;
+	}
 
 	phy_reg = emac_miibus_readreg(dev, 0, 0);
 
@@ -815,7 +826,7 @@ emac_miibus_readreg(device_t dev, int phy, int reg)
 	emac_write_reg(sc, EMAC_MAC_MCMD, 0x0);
 	/* Read data */
 	rval = emac_read_reg(sc, EMAC_MAC_MRDD);
-	
+
 	return (rval);
 }
 
@@ -825,9 +836,11 @@ emac_miibus_writereg(device_t dev, int phy, int reg, int data)
 	struct emac_softc *sc;
 
 	sc = device_get_softc(dev);
-	
+
 	/* Issue phy address and reg */
 	emac_write_reg(sc, EMAC_MAC_MADR, (phy << 8) | reg);
+	/* Write data */
+	emac_write_reg(sc, EMAC_MAC_MWTD, data);
 	/* Pull up the phy io line */
 	emac_write_reg(sc, EMAC_MAC_MCMD, 0x1);
 	/* Wait read complete */
@@ -835,9 +848,7 @@ emac_miibus_writereg(device_t dev, int phy, int reg, int data)
 		;
 	/* Push down the phy io line */
 	emac_write_reg(sc, EMAC_MAC_MCMD, 0x0);
-	/* Write data */
-	emac_write_reg(sc, EMAC_MAC_MWTD, data);
-	
+
 	return (0);
 }
 
@@ -897,6 +908,20 @@ emac_ifmedia_sts(struct ifnet *ifp, struct ifmediareq *ifmr)
 	EMAC_UNLOCK(sc);
 }
 
+static int
+emac_wait_link(device_t dev)
+{
+	int rval;
+
+	rval = emac_miibus_readreg(dev, 0, 1);
+	if (rval & 0x4) {
+		/* phy is linked */
+		return (1);
+	} else {
+		/* phy link is waiting */
+		return (0);
+	}
+}
 
 static device_method_t emac_methods[] = {
 	/* Device interface */

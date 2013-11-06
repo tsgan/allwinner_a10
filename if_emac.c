@@ -461,7 +461,7 @@ emac_init_locked(struct emac_softc *sc)
 	uint32_t reg_val;
 	int phy_reg;
 	device_t dev;
-	int wait_limit = 4500;
+	int wait_limit = 4500; /* wait up to 4.5 sec for a link */
 
 	dev = sc->emac_dev;
 	if ((ifp->if_drv_flags & IFF_DRV_RUNNING) != 0)

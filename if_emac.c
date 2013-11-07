@@ -68,6 +68,7 @@ __FBSDID("$FreeBSD$");
 #include <net/bpf.h>
 #include <net/bpfdesc.h>
 
+#include <dev/fdt/fdt_common.h>
 #include <dev/ofw/ofw_bus.h>
 #include <dev/ofw/ofw_bus_subr.h>
 
@@ -99,6 +100,7 @@ struct emac_softc {
 	struct callout		emac_tick_ch;
 	int			emac_watchdog_timer;
 	int			emac_rx_completed_flag;
+	int			emac_phy;
 };
 
 static int emac_probe(device_t);
@@ -236,7 +238,7 @@ emac_powerup(struct emac_softc *sc)
 	/* Set up MAC CTL1. */
 	reg_val = EMAC_READ_REG(sc, EMAC_MAC_CTL1);
 	DELAY(10);
-	phy_val = emac_miibus_readreg(dev, 1, MII_BMCR);
+	phy_val = emac_miibus_readreg(dev, sc->emac_phy, MII_BMCR);
 	if (phy_val & EMAC_PHY_DUPLEX)
 		reg_val |= EMAC_MAC_CTL1_DUP;
 	else
@@ -483,7 +485,7 @@ emac_init_locked(struct emac_softc *sc)
 		DELAY(500);
 		wait_limit -= 500;
 	}
-	phy_reg = emac_miibus_readreg(dev, 1, MII_BMCR);
+	phy_reg = emac_miibus_readreg(dev, sc->emac_phy, MII_BMCR);
 
 	/* Set EMAC SPEED, depends on phy */
 	reg_val = EMAC_READ_REG(sc, EMAC_MAC_SUPP);
@@ -723,12 +725,20 @@ static int
 emac_attach(device_t dev)
 {
 	struct emac_softc *sc;
+	struct emac_softc *phy_sc;
 	struct ifnet *ifp;
 	int error, rid;
 	uint8_t eaddr[ETHER_ADDR_LEN];
+	phandle_t node;
 
 	sc = device_get_softc(dev);
 	sc->emac_dev = dev;
+	node = ofw_bus_get_node(dev);
+
+	/* Get phy address from fdt */
+	if (fdt_get_phyaddr(node, sc->emac_dev, &sc->emac_phy,
+	    (void **)&phy_sc) != 0)
+		return (ENXIO);
 
 	error = 0;
 	mtx_init(&sc->emac_mtx, device_get_nameunit(dev), MTX_NETWORK_LOCK,
@@ -916,9 +926,12 @@ emac_ifmedia_sts(struct ifnet *ifp, struct ifmediareq *ifmr)
 static int
 emac_wait_link(device_t dev)
 {
+	struct emac_softc *sc;
 	int rval;
 
-	rval = emac_miibus_readreg(dev, 1, MII_BMSR);
+	sc = device_get_softc(dev);
+
+	rval = emac_miibus_readreg(dev, sc->emac_phy, MII_BMSR);
 	if (rval & BMSR_LINK)
 		return (1); /* phy is linked */
 	else

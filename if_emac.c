@@ -919,13 +919,10 @@ emac_wait_link(device_t dev)
 	int rval;
 
 	rval = emac_miibus_readreg(dev, 1, MII_BMSR);
-	if (rval & BMSR_LINK) {
-		/* phy is linked */
-		return (1);
-	} else {
-		/* phy link is waiting */
-		return (0);
-	}
+	if (rval & BMSR_LINK)
+		return (1); /* phy is linked */
+	else
+		return (0); /* phy link is waiting */
 }
 
 static device_method_t emac_methods[] = {

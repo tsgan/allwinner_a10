@@ -133,8 +133,6 @@ static void emac_ifmedia_sts(struct ifnet *ifp, struct ifmediareq *ifmr);
 #define	EMAC_WRITE_REG(sc, reg, val)	\
     bus_space_write_4(sc->emac_tag, sc->emac_handle, reg, val)
 
-static uint8_t eaddr[ETHER_ADDR_LEN];
-
 static void
 emac_sys_setup()
 {
@@ -152,10 +150,42 @@ emac_sys_setup()
 }
 
 static void
+emac_set_hwaddr(struct emac_softc *sc, uint8_t *hwaddr)
+{
+	uint32_t rnd;
+
+	/*
+	 * Set the address to a convenient locally assigned address,
+	 * 'bsd' + random 24 low-order bits.  'b' is 0x62, which has the locally
+	 * assigned bit set, and the broadcast/multicast bit clear.
+	 */
+	rnd = arc4random() & 0x00ffffff;
+	hwaddr[0] = 'b';
+	hwaddr[1] = 's';
+	hwaddr[2] = 'd';
+	hwaddr[3] = rnd >> 16;
+	hwaddr[4] = rnd >>  8;
+	hwaddr[5] = rnd >>  0;
+
+	/* Write ethernet address to register */
+	EMAC_WRITE_REG(sc, EMAC_MAC_A1, hwaddr[0] << 16 | 
+	    hwaddr[1] << 8 | hwaddr[2]);
+	EMAC_WRITE_REG(sc, EMAC_MAC_A0, hwaddr[3] << 16 | 
+	    hwaddr[4] << 8 | hwaddr[5]);
+
+	if (bootverbose) {
+		device_printf(sc->emac_dev,
+		    "MAC address %02x:%02x:%02x:%02x:%02x:%02x:\n",
+		    hwaddr[0], hwaddr[1], hwaddr[2], 
+		    hwaddr[3], hwaddr[4], hwaddr[5]);
+	}
+}
+
+static void
 emac_powerup(struct emac_softc *sc)
 {
 	device_t dev;
-	uint32_t reg_val, rnd;
+	uint32_t reg_val;
 	int phy_val;
 
 	dev = sc->emac_dev;
@@ -226,21 +256,6 @@ emac_powerup(struct emac_softc *sc)
 
 	/* Set up Max Frame Length */
 	EMAC_WRITE_REG(sc, EMAC_MAC_MAXF, EMAC_MAC_MFL);
-
-	/* XXX: Hardcode the ethernet address for now */
-	rnd = arc4random() & 0x00ffffff;
-	eaddr[0] = 'b';
-	eaddr[1] = 's';
-	eaddr[2] = 'd';
-	eaddr[3] = rnd >> 16;
-	eaddr[4] = rnd >>  8;
-	eaddr[5] = rnd >>  0;
-
-	/* Write ethernet address to register */
-	EMAC_WRITE_REG(sc, EMAC_MAC_A1, eaddr[0] << 16 | 
-	    eaddr[1] << 8 | eaddr[2]);
-	EMAC_WRITE_REG(sc, EMAC_MAC_A0, eaddr[3] << 16 | 
-	    eaddr[4] << 8 | eaddr[5]);
 }
 
 static void
@@ -723,6 +738,7 @@ emac_attach(device_t dev)
 	struct emac_softc *sc;
 	struct ifnet *ifp;
 	int error, rid;
+	uint8_t eaddr[ETHER_ADDR_LEN];
 
 	sc = device_get_softc(dev);
 	sc->emac_dev = dev;
@@ -756,6 +772,8 @@ emac_attach(device_t dev)
 	/* Setup EMAC */
 	emac_sys_setup();
 	emac_powerup(sc);
+	/* Set MAC address */
+	emac_set_hwaddr(sc, eaddr);
 	emac_reset(sc);
 
 	ifp = sc->emac_ifp = if_alloc(IFT_ETHER);

@@ -784,7 +784,7 @@ emac_attach(device_t dev)
 
 	/* Setup MII */
 	error = mii_attach(dev, &sc->emac_miibus, ifp, emac_ifmedia_upd, 
-	    emac_ifmedia_sts, BMSR_DEFCAPMASK, MII_PHY_ANY, MII_OFFSET_ANY, 0);
+	    emac_ifmedia_sts, BMSR_DEFCAPMASK, sc->emac_phy, MII_OFFSET_ANY, 0);
 	if (error != 0) {
 		device_printf(dev, "PHY probe failed\n");
 		goto fail;

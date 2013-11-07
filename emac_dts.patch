@@ -1,40 +1,6 @@
-Index: cubieboard2.dts
-===================================================================
---- cubieboard2.dts	(working copy)
-+++ cubieboard2.dts	(working copy)
-@@ -61,7 +61,14 @@
- 			#interrupt-cells = <1>;
- 		};
- 
--		cpu-cfg@01c20000 {
-+		sramc@01c00000 {
-+			compatible = "allwinner,sun4i-sramc";
-+			#address-cells = <1>;
-+			#size-cells = <1>;
-+			reg = < 0x01c00000 0x1000 >;
-+		};
-+
-+		cpu-cfg@01c25c00 {
- 			compatible = "allwinner,sun7i-cpu-cfg";
- 			#address-cells = <1>;
- 			#size-cells = <1>;
-@@ -130,6 +137,13 @@
- 			busy-detect = <1>;
- 			broken-txfifo = <1>;
- 		};
-+
-+		emac@01c0b000 {
-+			compatible = "allwinner,sun4i-emac";
-+			reg = <0x01c0b000 0x1000>;
-+			interrupts = <55>;
-+			interrupt-parent = <&GIC>;
-+		};
- 	};
- 
- 	chosen {
 Index: cubieboard.dts
 ===================================================================
---- cubieboard.dts	(revision 257406)
+--- cubieboard.dts	(revision 257740)
 +++ cubieboard.dts	(working copy)
 @@ -61,6 +61,13 @@
  			reg =   < 0x01c20400 0x400 >;
@@ -50,7 +16,7 @@ Index: cubieboard.dts
  		ccm@01c20000 {
  			compatible = "allwinner,sun4i-ccm";
  			#address-cells = <1>;
-@@ -124,6 +131,13 @@
+@@ -124,6 +131,23 @@
  			busy-detect = <1>;
  			broken-txfifo = <1>;
  		};
@@ -60,6 +26,58 @@ Index: cubieboard.dts
 +			reg = <0x01c0b000 0x1000>;
 +			interrupts = <55>;
 +			interrupt-parent = <&AINTC>;
++			phy-handle = <&phy1>;
++
++			mdio@0 {
++				phy0: ethernet-phy@0 {
++					reg = <0x0>;
++				};
++				phy1: ethernet-phy@1 {
++					reg = <0x1>;
++				};
++			};
++		};
+ 	};
+ 
+ 	chosen {
+Index: cubieboard2.dts
+===================================================================
+--- cubieboard2.dts	(revision 257740)
++++ cubieboard2.dts	(working copy)
+@@ -61,6 +61,13 @@
+ 			#interrupt-cells = <1>;
+ 		};
+ 
++		sramc@01c00000 {
++			compatible = "allwinner,sun4i-sramc";
++			#address-cells = <1>;
++			#size-cells = <1>;
++			reg = < 0x01c00000 0x1000 >;
++		};
++
+ 		cpu-cfg@01c20000 {
+ 			compatible = "allwinner,sun7i-cpu-cfg";
+ 			#address-cells = <1>;
+@@ -130,6 +137,23 @@
+ 			busy-detect = <1>;
+ 			broken-txfifo = <1>;
+ 		};
++
++		emac@01c0b000 {
++			compatible = "allwinner,sun4i-emac";
++			reg = <0x01c0b000 0x1000>;
++			interrupts = <55>;
++			interrupt-parent = <&GIC>;
++			phy-handle = <&phy1>;
++
++			mdio@0 {
++				phy0: ethernet-phy@0 {
++					reg = <0x0>;
++				};
++				phy1: ethernet-phy@1 {
++					reg = <0x1>;
++				};
++			};
 +		};
  	};
  

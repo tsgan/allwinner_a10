@@ -737,8 +737,10 @@ emac_attach(device_t dev)
 
 	/* Get phy address from fdt */
 	if (fdt_get_phyaddr(node, sc->emac_dev, &sc->emac_phy,
-	    (void **)&phy_sc) != 0)
-		return (ENXIO);
+	    (void **)&phy_sc) != 0) {
+		error = ENXIO;
+		goto fail;
+	}
 
 	error = 0;
 	mtx_init(&sc->emac_mtx, device_get_nameunit(dev), MTX_NETWORK_LOCK,

@@ -100,7 +100,6 @@ struct emac_softc {
 	struct callout		emac_tick_ch;
 	int			emac_watchdog_timer;
 	int			emac_rx_completed_flag;
-	int			emac_phy;
 };
 
 static int emac_probe(device_t);
@@ -122,7 +121,6 @@ static int emac_ioctl(struct ifnet *ifp, u_long command, caddr_t data);
 static void emac_rxeof(struct emac_softc *sc);
 static void emac_txeof(struct emac_softc *sc);
 
-static int emac_wait_link(device_t dev);
 static int emac_miibus_readreg(device_t dev, int phy, int reg);
 static int emac_miibus_writereg(device_t dev, int phy, int reg, int data);
 static void emac_miibus_statchg(device_t);
@@ -188,7 +186,6 @@ emac_powerup(struct emac_softc *sc)
 {
 	device_t dev;
 	uint32_t reg_val;
-	int phy_val;
 
 	dev = sc->emac_dev;
 
@@ -237,12 +234,6 @@ emac_powerup(struct emac_softc *sc)
 
 	/* Set up MAC CTL1. */
 	reg_val = EMAC_READ_REG(sc, EMAC_MAC_CTL1);
-	DELAY(10);
-	phy_val = emac_miibus_readreg(dev, sc->emac_phy, MII_BMCR);
-	if (phy_val & EMAC_PHY_DUPLEX)
-		reg_val |= EMAC_MAC_CTL1_DUP;
-	else
-		reg_val &= ~EMAC_MAC_CTL1_DUP;
 	reg_val |= EMAC_MAC_CTL1_SETUP;
 	EMAC_WRITE_REG(sc, EMAC_MAC_CTL1, reg_val);
 
@@ -469,35 +460,18 @@ emac_init_locked(struct emac_softc *sc)
 {
 	struct ifnet *ifp = sc->emac_ifp;
 	uint32_t reg_val;
-	int phy_reg;
 	device_t dev;
-	uint32_t wait_limit = 4500000; /* wait up to 4.5 sec for a link */
 
 	dev = sc->emac_dev;
 	if ((ifp->if_drv_flags & IFF_DRV_RUNNING) != 0)
 		return;
-	/*
-	 * Phy needs some time to boot.
+	/* 
+	 * XXX: Phy needs some time to boot.
 	 * This is needed to avoid situations like
 	 * having 10Mbit half-duplex link on 100Mbit network.
+	 * So wait 4.5 sec for a link.
 	 */
-	while (emac_wait_link(dev) == 0 && wait_limit > 0) {
-		DELAY(500);
-		wait_limit -= 500;
-	}
-	phy_reg = emac_miibus_readreg(dev, sc->emac_phy, MII_BMCR);
-
-	/* Set EMAC SPEED, depends on phy */
-	reg_val = EMAC_READ_REG(sc, EMAC_MAC_SUPP);
-	reg_val &= (~(1 << 8));
-	reg_val |= (((phy_reg & (1 << 13)) >> 13) << 8);
-	EMAC_WRITE_REG(sc, EMAC_MAC_SUPP, reg_val);
-
-	/* Enable duplex depends on phy */
-	reg_val = EMAC_READ_REG(sc, EMAC_MAC_CTL1);
-	reg_val &= ~EMAC_MAC_CTL1_DUP;
-	reg_val |= (((phy_reg & (1 << 8)) >> 8) << 0);
-	EMAC_WRITE_REG(sc, EMAC_MAC_CTL1, reg_val);
+	DELAY(4500000);
 
 	/* Enable RX/TX */
 	reg_val = EMAC_READ_REG(sc, EMAC_CTL);
@@ -725,23 +699,14 @@ static int
 emac_attach(device_t dev)
 {
 	struct emac_softc *sc;
-	struct emac_softc *phy_sc;
 	struct ifnet *ifp;
 	int error, rid;
 	uint8_t eaddr[ETHER_ADDR_LEN];
-	phandle_t node;
 
 	sc = device_get_softc(dev);
 	sc->emac_dev = dev;
-	node = ofw_bus_get_node(dev);
 
 	error = 0;
-	/* Get phy address from fdt */
-	if (fdt_get_phyaddr(node, sc->emac_dev, &sc->emac_phy,
-	    (void **)&phy_sc) != 0) {
-		error = ENXIO;
-		goto fail;
-	}
 	mtx_init(&sc->emac_mtx, device_get_nameunit(dev), MTX_NETWORK_LOCK,
 	    MTX_DEF);
 	callout_init_mtx(&sc->emac_tick_ch, &sc->emac_mtx, 0);
@@ -784,7 +749,7 @@ emac_attach(device_t dev)
 
 	/* Setup MII */
 	error = mii_attach(dev, &sc->emac_miibus, ifp, emac_ifmedia_upd, 
-	    emac_ifmedia_sts, BMSR_DEFCAPMASK, sc->emac_phy, MII_OFFSET_ANY, 0);
+	    emac_ifmedia_sts, BMSR_DEFCAPMASK, MII_PHY_ANY, MII_OFFSET_ANY, 0);
 	if (error != 0) {
 		device_printf(dev, "PHY probe failed\n");
 		goto fail;
@@ -922,21 +887,6 @@ emac_ifmedia_sts(struct ifnet *ifp, struct ifmediareq *ifmr)
 	ifmr->ifm_active = mii->mii_media_active;
 	ifmr->ifm_status = mii->mii_media_status;
 	EMAC_UNLOCK(sc);
-}
-
-static int
-emac_wait_link(device_t dev)
-{
-	struct emac_softc *sc;
-	int rval;
-
-	sc = device_get_softc(dev);
-
-	rval = emac_miibus_readreg(dev, sc->emac_phy, MII_BMSR);
-	if (rval & BMSR_LINK)
-		return (1); /* phy is linked */
-	else
-		return (0); /* phy link is waiting */
 }
 
 static device_method_t emac_methods[] = {

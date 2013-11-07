@@ -236,7 +236,7 @@ emac_powerup(struct emac_softc *sc)
 	/* Set up MAC CTL1. */
 	reg_val = EMAC_READ_REG(sc, EMAC_MAC_CTL1);
 	DELAY(10);
-	phy_val = emac_miibus_readreg(dev, 0, 0);
+	phy_val = emac_miibus_readreg(dev, 1, MII_BMCR);
 	if (phy_val & EMAC_PHY_DUPLEX)
 		reg_val |= EMAC_MAC_CTL1_DUP;
 	else
@@ -265,13 +265,6 @@ emac_powerdown(struct emac_softc *sc)
 	int reg_val;
 
 	dev = sc->emac_dev;
-
-	/* Reset phy */
-	reg_val = emac_miibus_readreg(dev, 0, 0);
-	emac_miibus_writereg(dev, 0, 0, reg_val & EMAC_PHY_RESET);
-	DELAY(10);
-	/* Power down phy */
-	emac_miibus_writereg(dev, 0, 0, reg_val | EMAC_PHY_PWRDOWN);
 
 	/* Disable all interrupt and clear interrupt status */
 	EMAC_WRITE_REG(sc, EMAC_INT_CTL, 0);
@@ -476,16 +469,11 @@ emac_init_locked(struct emac_softc *sc)
 	uint32_t reg_val;
 	int phy_reg;
 	device_t dev;
-	int wait_limit = 4500; /* wait up to 4.5 sec for a link */
+	uint32_t wait_limit = 4500000; /* wait up to 4.5 sec for a link */
 
 	dev = sc->emac_dev;
 	if ((ifp->if_drv_flags & IFF_DRV_RUNNING) != 0)
 		return;
-
-	/* Power up phy */
-	phy_reg = emac_miibus_readreg(dev, 0, 0);
-	emac_miibus_writereg(dev, 0, 0, phy_reg & ~EMAC_PHY_PWRDOWN);
-
 	/*
 	 * Phy needs some time to boot.
 	 * This is needed to avoid situations like
@@ -495,8 +483,7 @@ emac_init_locked(struct emac_softc *sc)
 		DELAY(500);
 		wait_limit -= 500;
 	}
-
-	phy_reg = emac_miibus_readreg(dev, 0, 0);
+	phy_reg = emac_miibus_readreg(dev, 1, MII_BMCR);
 
 	/* Set EMAC SPEED, depends on phy */
 	reg_val = EMAC_READ_REG(sc, EMAC_MAC_SUPP);
@@ -931,8 +918,8 @@ emac_wait_link(device_t dev)
 {
 	int rval;
 
-	rval = emac_miibus_readreg(dev, 0, 1);
-	if (rval & 0x4) {
+	rval = emac_miibus_readreg(dev, 1, MII_BMSR);
+	if (rval & BMSR_LINK) {
 		/* phy is linked */
 		return (1);
 	} else {

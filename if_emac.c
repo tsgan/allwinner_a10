@@ -94,12 +94,10 @@ struct emac_softc {
 	struct resource		*emac_res;
 	struct resource		*emac_irq;
 	void			*emac_intrhand;
-#define EMAC_FLAG_LINK		(1 << 0)
 	uint32_t		emac_flags;
 	struct mtx		emac_mtx;
 	struct callout		emac_tick_ch;
 	int			emac_watchdog_timer;
-	int			emac_rx_completed_flag;
 };
 
 static int emac_probe(device_t);
@@ -166,12 +164,6 @@ emac_set_hwaddr(struct emac_softc *sc, uint8_t *hwaddr)
 	hwaddr[3] = rnd >> 16;
 	hwaddr[4] = rnd >>  8;
 	hwaddr[5] = rnd >>  0;
-
-	/* Write ethernet address to register */
-	EMAC_WRITE_REG(sc, EMAC_MAC_A1, hwaddr[0] << 16 | 
-	    hwaddr[1] << 8 | hwaddr[2]);
-	EMAC_WRITE_REG(sc, EMAC_MAC_A0, hwaddr[3] << 16 | 
-	    hwaddr[4] << 8 | hwaddr[5]);
 
 	if (bootverbose) {
 		device_printf(sc->emac_dev,
@@ -289,7 +281,7 @@ emac_txeof(struct emac_softc *sc)
 	ifp->if_opackets++;
 	ifp->if_drv_flags &= ~IFF_DRV_OACTIVE;
 
-        /* Unarm watchdog timer if no TX */
+	/* Unarm watchdog timer if no TX */
 	sc->emac_watchdog_timer = 0;
 }
 
@@ -314,7 +306,7 @@ emac_rxeof(struct emac_softc *sc)
 	uint32_t reg_val, rxcount;
 	int16_t len;
 	uint16_t status;
-	int good_packet;
+	int good_packet, i;
 
 	ifp = sc->emac_ifp;
 	for (;;) {
@@ -326,10 +318,8 @@ emac_rxeof(struct emac_softc *sc)
 		if (!rxcount) {
 			/* Had one stuck? */
 			rxcount = EMAC_READ_REG(sc, EMAC_RX_FBC);
-			if (!rxcount) {
-				sc->emac_rx_completed_flag = 1;
+			if (!rxcount)
 				return;
-			}
 		}
 		/* Check packet header */
 		reg_val = EMAC_READ_REG(sc, EMAC_RX_IO_DATA);
@@ -344,15 +334,24 @@ emac_rxeof(struct emac_softc *sc)
 			reg_val = EMAC_READ_REG(sc, EMAC_RX_CTL);
 			reg_val |= EMAC_RX_FLUSH_FIFO;
 			EMAC_WRITE_REG(sc, EMAC_RX_CTL, reg_val);
-			while (EMAC_READ_REG(sc, EMAC_RX_CTL) &
-			    EMAC_RX_FLUSH_FIFO)
-				;
+			for (i = 10000; i > 0; i--) {
+				DELAY(1);
+				if ((EMAC_READ_REG(sc, EMAC_RX_CTL) &
+				    EMAC_RX_FLUSH_FIFO) == 0)
+					break;
+			}
+			if (i == 0) {
+				device_printf(sc->emac_dev,
+				    "flush FIFO timeout\n");
+				/* Reinitialize controller */
+				emac_init_locked(sc);
+				return;
+			}
 			/* Enable RX */
 			reg_val = EMAC_READ_REG(sc, EMAC_CTL);
 			reg_val |= EMAC_CTL_RX_EN;
 			EMAC_WRITE_REG(sc, EMAC_CTL, reg_val);
 
-			sc->emac_rx_completed_flag = 1;
 			return;
 		}
 
@@ -365,8 +364,10 @@ emac_rxeof(struct emac_softc *sc)
 
 		if (len < 64) {
 			good_packet = 0;
-			if_printf(ifp, "bad packet: len = %i status = %i\n",
-			    len, status);
+			if (bootverbose)
+				if_printf(ifp,
+				    "bad packet: len = %i status = %i\n",
+				    len, status);
 			ifp->if_oerrors++;
 		}
 #if 0
@@ -381,10 +382,8 @@ emac_rxeof(struct emac_softc *sc)
 #endif
 		if (good_packet) {
 			m = m_getcl(M_NOWAIT, MT_DATA, M_PKTHDR);
-			if (m == NULL) {
-				sc->emac_rx_completed_flag = 1;
+			if (m == NULL)
 				return;
-			}
 			m->m_len = m->m_pkthdr.len = MCLBYTES;
 			/*
 			 * sram->emac mapping needs 4 bytes alignment
@@ -406,7 +405,6 @@ emac_rxeof(struct emac_softc *sc)
 			(*ifp->if_input)(ifp, m);
 			EMAC_LOCK(sc);
 		}
-		sc->emac_rx_completed_flag = 1;
 	}
 }
 
@@ -438,8 +436,6 @@ emac_tick(void *arg)
 	sc = (struct emac_softc *)arg;
 	mii = device_get_softc(sc->emac_miibus);
 	mii_tick(mii);
-	if((sc->emac_flags & EMAC_FLAG_LINK) == 0)
-		emac_miibus_statchg(sc->emac_dev);
 
 	emac_watchdog(sc);
 	callout_reset(&sc->emac_tick_ch, hz, emac_tick, sc);
@@ -459,24 +455,22 @@ static void
 emac_init_locked(struct emac_softc *sc)
 {
 	struct ifnet *ifp = sc->emac_ifp;
+	struct mii_data *mii;
 	uint32_t reg_val;
-	device_t dev;
+	char *hwaddr;
 
-	dev = sc->emac_dev;
+	EMAC_ASSERT_LOCKED(sc);
+
 	if ((ifp->if_drv_flags & IFF_DRV_RUNNING) != 0)
 		return;
-	/* 
-	 * XXX: Phy needs some time to boot.
-	 * This is needed to avoid situations like
-	 * having 10Mbit half-duplex link on 100Mbit network.
-	 * So wait 4.5 sec for a link.
-	 */
-	DELAY(4500000);
 
-	/* Enable RX/TX */
-	reg_val = EMAC_READ_REG(sc, EMAC_CTL);
-	EMAC_WRITE_REG(sc, EMAC_CTL, reg_val | EMAC_CTL_RST | 
-	    EMAC_CTL_TX_EN | EMAC_CTL_RX_EN);
+	hwaddr = (char *)IF_LLADDR(ifp);
+
+	/* Write ethernet address to register */
+	EMAC_WRITE_REG(sc, EMAC_MAC_A1, hwaddr[0] << 16 | 
+	    hwaddr[1] << 8 | hwaddr[2]);
+	EMAC_WRITE_REG(sc, EMAC_MAC_A0, hwaddr[3] << 16 | 
+	    hwaddr[4] << 8 | hwaddr[5]);
 
 	/* Enable RX/TX0/RX Hlevel interrupt */
 	reg_val = EMAC_READ_REG(sc, EMAC_INT_CTL);
@@ -486,7 +480,9 @@ emac_init_locked(struct emac_softc *sc)
 	ifp->if_drv_flags |= IFF_DRV_RUNNING;
 	ifp->if_drv_flags &= ~IFF_DRV_OACTIVE;
 
-	sc->emac_rx_completed_flag = 1;
+	/* Switch to the current media. */
+	mii = device_get_softc(sc->emac_miibus);
+	mii_mediachg(mii);
 
 	callout_reset(&sc->emac_tick_ch, hz, emac_tick, sc);
 }
@@ -519,16 +515,15 @@ emac_start_locked(struct ifnet *ifp)
 	/* Select channel */
 	EMAC_WRITE_REG(sc, EMAC_TX_INS, 0);
 
-	while (!IFQ_DRV_IS_EMPTY(&ifp->if_snd)) {
+	if (!IFQ_DRV_IS_EMPTY(&ifp->if_snd)) {
 		IFQ_DRV_DEQUEUE(&ifp->if_snd, m);
 
 		if (m == NULL)
-			break;
+			return;
 
 		/* Address needs to be 4 bytes aligned */
 		m0 = m_defrag(m, M_NOWAIT);
 		if (m0 == NULL) {
-			if_printf(ifp, "FAILED m_defrag()\n");
 			m_freem(m);
 			return;
 		}
@@ -559,8 +554,13 @@ emac_start_locked(struct ifnet *ifp)
 static void
 emac_stop(struct emac_softc *sc)
 {
+	uint32_t reg_val;
 
 	EMAC_ASSERT_LOCKED(sc);
+	/* Disable all interrupt and clear interrupt status */
+	EMAC_WRITE_REG(sc, EMAC_INT_CTL, 0);
+	reg_val = EMAC_READ_REG(sc, EMAC_INT_STA);
+	EMAC_WRITE_REG(sc, EMAC_INT_STA, reg_val);
 	callout_stop(&sc->emac_tick_ch);
 }
 
@@ -572,7 +572,8 @@ emac_intr(void *arg)
 	uint32_t int_status, reg_val;
 
 	ifp = sc->emac_ifp;
-
+	if ((ifp->if_drv_flags & IFF_DRV_RUNNING) == 0)
+		return;
 	EMAC_LOCK(sc);
 
 	/* Disable all interrupts */
@@ -583,10 +584,8 @@ emac_intr(void *arg)
 	EMAC_WRITE_REG(sc, EMAC_INT_STA, int_status); 
 
 	/* Received incoming packet */
-	if ((int_status & 0x100) && (sc->emac_rx_completed_flag == 1)) {
-		sc->emac_rx_completed_flag = 0;
+	if (int_status & 0x100)
 		emac_rxeof(sc);
-	}
 
 	/* Transmit Interrupt check */
 	if (int_status & (0x01 | 0x02)){
@@ -596,11 +595,9 @@ emac_intr(void *arg)
 	}
 
 	/* Re-enable interrupt mask */
-	if (sc->emac_rx_completed_flag == 1) {
-		reg_val = EMAC_READ_REG(sc, EMAC_INT_CTL);
-		reg_val |= (0xf << 0) | (1 << 8);
-		EMAC_WRITE_REG(sc, EMAC_INT_CTL, reg_val);
-	}
+	reg_val = EMAC_READ_REG(sc, EMAC_INT_CTL);
+	reg_val |= (0xf << 0) | (1 << 8);
+	EMAC_WRITE_REG(sc, EMAC_INT_CTL, reg_val);
 
 	EMAC_UNLOCK(sc);
 }
@@ -655,8 +652,8 @@ emac_probe(device_t dev)
 	if (!ofw_bus_is_compatible(dev, "allwinner,sun4i-emac"))
 		return (ENXIO);
 
-	device_set_desc(dev, "Allwinner A10/A20 EMAC");
-	return (0);
+	device_set_desc(dev, "A10/A20 EMAC ethernet controller");
+	return (BUS_PROBE_DEFAULT);
 }
 
 static int
@@ -735,8 +732,6 @@ emac_attach(device_t dev)
 	/* Setup EMAC */
 	emac_sys_setup();
 	emac_powerup(sc);
-	/* Set MAC address */
-	emac_set_hwaddr(sc, eaddr);
 	emac_reset(sc);
 
 	ifp = sc->emac_ifp = if_alloc(IFT_ETHER);
@@ -762,6 +757,8 @@ emac_attach(device_t dev)
 	ifp->if_init = emac_init;
 	IFQ_SET_MAXLEN(&ifp->if_snd, IFQ_MAXLEN);
 
+	/* Set MAC address */
+	emac_set_hwaddr(sc, eaddr);
 	ether_ifattach(ifp, eaddr);
 
 	/* VLAN capability setup. */
@@ -784,6 +781,19 @@ fail:
 	return (error);
 }
 
+static boolean_t
+emac_miibus_iowait(struct emac_softc *sc)
+{
+	uint32_t timeout;
+
+	for (timeout = 10000; timeout != 0; --timeout) {
+		DELAY(1);
+		if ((EMAC_READ_REG(sc, EMAC_MAC_MIND) & 0x1) == 0)
+			return (true);
+	}
+
+	return (false);
+}
 
 /*
  * The MII bus interface
@@ -800,9 +810,10 @@ emac_miibus_readreg(device_t dev, int phy, int reg)
 	EMAC_WRITE_REG(sc, EMAC_MAC_MADR, (phy << 8) | reg);
 	/* Pull up the phy io line */
 	EMAC_WRITE_REG(sc, EMAC_MAC_MCMD, 0x1);
-	/* Wait read complete */
-	while(EMAC_READ_REG(sc, EMAC_MAC_MIND) & 0x1)
-		;
+	if (!emac_miibus_iowait(sc)) {
+		device_printf(dev, "timeout waiting for mii read\n");
+		return (0);
+	}
 	/* Push down the phy io line */
 	EMAC_WRITE_REG(sc, EMAC_MAC_MCMD, 0x0);
 	/* Read data */
@@ -824,9 +835,10 @@ emac_miibus_writereg(device_t dev, int phy, int reg, int data)
 	EMAC_WRITE_REG(sc, EMAC_MAC_MWTD, data);
 	/* Pull up the phy io line */
 	EMAC_WRITE_REG(sc, EMAC_MAC_MCMD, 0x1);
-	/* Wait read complete */
-	while(EMAC_READ_REG(sc, EMAC_MAC_MIND) & 0x1)
-		;
+	if (!emac_miibus_iowait(sc)) {
+		device_printf(dev, "timeout waiting for mii write\n");
+		return (0);
+	}
 	/* Push down the phy io line */
 	EMAC_WRITE_REG(sc, EMAC_MAC_MCMD, 0x0);
 
@@ -839,6 +851,7 @@ emac_miibus_statchg(device_t dev)
 	struct emac_softc *sc;
 	struct mii_data *mii;
 	struct ifnet *ifp;
+	uint32_t reg_val;
 
 	sc = device_get_softc(dev);
 
@@ -847,11 +860,16 @@ emac_miibus_statchg(device_t dev)
 	if ((ifp->if_drv_flags & IFF_DRV_RUNNING) == 0)
 		return;
 
+	reg_val = EMAC_READ_REG(sc, EMAC_CTL);
 	if ((mii->mii_media_status & (IFM_ACTIVE | IFM_AVALID)) ==
-	    (IFM_ACTIVE | IFM_AVALID))
-		sc->emac_flags |= EMAC_FLAG_LINK;
-	else
-		sc->emac_flags &= ~EMAC_FLAG_LINK;
+	    (IFM_ACTIVE | IFM_AVALID)) {
+		/* Enable RX/TX */
+		reg_val |= EMAC_CTL_RST | EMAC_CTL_TX_EN | EMAC_CTL_RX_EN;
+	} else {
+		/* Disable RX/TX */
+		reg_val &= ~(EMAC_CTL_RST | EMAC_CTL_TX_EN | EMAC_CTL_RX_EN);
+	}
+	EMAC_WRITE_REG(sc, EMAC_CTL, reg_val);
 }
 
 static int
@@ -860,17 +878,17 @@ emac_ifmedia_upd(struct ifnet *ifp)
 	struct emac_softc *sc;
 	struct mii_data *mii;
 	struct mii_softc *miisc;
+	int error;
 
 	sc = ifp->if_softc;
 	mii = device_get_softc(sc->emac_miibus);
+	EMAC_LOCK(sc);
 	LIST_FOREACH(miisc, &mii->mii_phys, mii_list)
 		PHY_RESET(miisc);
-
-	EMAC_LOCK(sc);
-	mii_mediachg(mii);
+	error = mii_mediachg(mii);
 	EMAC_UNLOCK(sc);
 
-	return (0);
+	return (error);
 }
 
 static void

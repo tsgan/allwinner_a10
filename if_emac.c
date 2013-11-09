@@ -215,7 +215,6 @@ emac_set_rx_mode(struct emac_softc *sc)
 	EMAC_WRITE_REG(sc, EMAC_RX_HASH1, hashes[1]);
 
 	if (ifp->if_flags & IFF_BROADCAST) {
-		/* Rx Brocast Packet Accept */
 		rcr |= EMAC_RX_BCO;
 		rcr |= EMAC_RX_MCO;
 	}

@@ -838,7 +838,6 @@ emac_attach(device_t dev)
 		goto fail;
 	}
 
-	printf("EMAC_RX_HASH0: %x, EMAC_RX_HASH1: %x\n", EMAC_READ_REG(sc, EMAC_RX_HASH0), EMAC_READ_REG(sc, EMAC_RX_HASH1));
 fail:
 	if (error != 0)
 		emac_detach(dev);

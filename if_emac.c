@@ -94,10 +94,11 @@ struct emac_softc {
 	struct resource		*emac_res;
 	struct resource		*emac_irq;
 	void			*emac_intrhand;
-	uint32_t		emac_flags;
+	int			emac_if_flags;
 	struct mtx		emac_mtx;
 	struct callout		emac_tick_ch;
 	int			emac_watchdog_timer;
+	int			emac_rx_process_limit;
 };
 
 static int emac_probe(device_t);
@@ -116,7 +117,7 @@ static void emac_stop(struct emac_softc *sc);
 static void emac_intr(void *arg);
 static int emac_ioctl(struct ifnet *ifp, u_long command, caddr_t data);
 
-static void emac_rxeof(struct emac_softc *sc);
+static void emac_rxeof(struct emac_softc *sc, int count);
 static void emac_txeof(struct emac_softc *sc);
 
 static int emac_miibus_readreg(device_t dev, int phy, int reg);
@@ -171,6 +172,66 @@ emac_set_hwaddr(struct emac_softc *sc, uint8_t *hwaddr)
 		    hwaddr[0], hwaddr[1], hwaddr[2], 
 		    hwaddr[3], hwaddr[4], hwaddr[5]);
 	}
+}
+
+static void
+emac_set_rx_mode(struct emac_softc *sc)
+{
+	struct ifnet *ifp;
+	struct ifmultiaddr *ifma;
+	uint8_t *eaddr;
+	uint32_t h, hashes[2];
+	uint32_t rcr = 0;
+
+	EMAC_ASSERT_LOCKED(sc);
+
+	ifp = sc->emac_ifp;
+
+	rcr = EMAC_READ_REG(sc, EMAC_RX_CTL);
+
+	/* Unicast packet and DA filtering */
+	rcr |= 1 << 16;
+	rcr |= 1 << 17;
+
+	hashes[0] = 0;
+	hashes[1] = 0;
+	if (ifp->if_flags & IFF_ALLMULTI) {
+		hashes[0] = 0xffffffff;
+		hashes[1] = 0xffffffff;
+	} else {
+		if_maddr_rlock(ifp);
+		TAILQ_FOREACH(ifma, &sc->emac_ifp->if_multiaddrs, ifma_link) {
+			if (ifma->ifma_addr->sa_family != AF_LINK)
+				continue;
+			h = ether_crc32_be(LLADDR((struct sockaddr_dl *)
+			    ifma->ifma_addr), ETHER_ADDR_LEN) >> 26;
+			hashes[h >> 5] |= 1 << (h & 0x1f);
+		}
+		if_maddr_runlock(ifp);
+	}
+	rcr |= 1 << 20;
+	rcr |= 1 << 21;
+	EMAC_WRITE_REG(sc, EMAC_RX_HASH0, hashes[0]);
+	EMAC_WRITE_REG(sc, EMAC_RX_HASH1, hashes[1]);
+
+	if (ifp->if_flags & IFF_BROADCAST) {
+		/* Rx Brocast Packet Accept */
+		rcr |= 1 << 22;
+		rcr |= 1 << 20;
+	}
+
+	if (ifp->if_flags & IFF_PROMISC)
+		rcr |= 1 << 4;
+	else
+		rcr |= 1 << 16;
+
+	EMAC_WRITE_REG(sc, EMAC_RX_CTL, rcr);
+
+	eaddr = IF_LLADDR(ifp);
+	EMAC_WRITE_REG(sc, EMAC_SAFX_H0, eaddr[0] << 16 | 
+	    eaddr[1] << 8 | eaddr[2]);
+	EMAC_WRITE_REG(sc, EMAC_SAFX_L0, eaddr[3] << 16 | 
+	    eaddr[4] << 8 | eaddr[5]);
 }
 
 static void
@@ -299,7 +360,7 @@ fix_mbuf(struct mbuf *m, int sramc_align)
 }
 
 static void
-emac_rxeof(struct emac_softc *sc)
+emac_rxeof(struct emac_softc *sc, int count)
 {
 	struct ifnet *ifp;
 	struct mbuf *m;
@@ -309,7 +370,8 @@ emac_rxeof(struct emac_softc *sc)
 	int good_packet, i;
 
 	ifp = sc->emac_ifp;
-	for (;;) {
+	for (; count > 0 &&
+	    (ifp->if_drv_flags & IFF_DRV_RUNNING) != 0; count--) {
 		/*
 		 * Race warning: The first packet might arrive with
 		 * the interrupts disabled, but the second will fix
@@ -457,20 +519,14 @@ emac_init_locked(struct emac_softc *sc)
 	struct ifnet *ifp = sc->emac_ifp;
 	struct mii_data *mii;
 	uint32_t reg_val;
-	char *hwaddr;
 
 	EMAC_ASSERT_LOCKED(sc);
 
 	if ((ifp->if_drv_flags & IFF_DRV_RUNNING) != 0)
 		return;
 
-	hwaddr = (char *)IF_LLADDR(ifp);
-
-	/* Write ethernet address to register */
-	EMAC_WRITE_REG(sc, EMAC_MAC_A1, hwaddr[0] << 16 | 
-	    hwaddr[1] << 8 | hwaddr[2]);
-	EMAC_WRITE_REG(sc, EMAC_MAC_A0, hwaddr[3] << 16 | 
-	    hwaddr[4] << 8 | hwaddr[5]);
+	/* Setup rx filter */
+	emac_set_rx_mode(sc);
 
 	/* Enable RX/TX0/RX Hlevel interrupt */
 	reg_val = EMAC_READ_REG(sc, EMAC_INT_CTL);
@@ -585,7 +641,7 @@ emac_intr(void *arg)
 
 	/* Received incoming packet */
 	if (int_status & 0x100)
-		emac_rxeof(sc);
+		emac_rxeof(sc, sc->emac_rx_process_limit);
 
 	/* Transmit Interrupt check */
 	if (int_status & (0x01 | 0x02)){
@@ -615,23 +671,28 @@ emac_ioctl(struct ifnet *ifp, u_long command, caddr_t data)
 
 	switch (command) {
 	case SIOCSIFFLAGS:
-		/*
-		 * Switch interface state between "running" and
-		 * "stopped", reflecting the UP flag.
-		 */
 		EMAC_LOCK(sc);
 		if (ifp->if_flags & IFF_UP) {
-			if ((ifp->if_drv_flags & IFF_DRV_RUNNING) == 0)
+			if ((ifp->if_drv_flags & IFF_DRV_RUNNING) != 0) {
+				if ((ifp->if_flags ^ sc->emac_if_flags) &
+				    (IFF_PROMISC | IFF_ALLMULTI))
+					emac_set_rx_mode(sc);
+			} else
 				emac_init_locked(sc);
 		} else {
 			if ((ifp->if_drv_flags & IFF_DRV_RUNNING) != 0)
 				emac_stop(sc);
 		}
+		sc->emac_if_flags = ifp->if_flags;
 		EMAC_UNLOCK(sc);
 		break;
 	case SIOCADDMULTI:
 	case SIOCDELMULTI:
-		error = EINVAL;
+		if (ifp->if_drv_flags & IFF_DRV_RUNNING) {
+			EMAC_LOCK(sc);
+			emac_set_rx_mode(sc);
+			EMAC_UNLOCK(sc);
+		}
 		break;
 	case SIOCGIFMEDIA:
 	case SIOCSIFMEDIA:
@@ -767,6 +828,8 @@ emac_attach(device_t dev)
 	/* Tell the upper layer we support VLAN over-sized frames. */
 	ifp->if_hdrlen = sizeof(struct ether_vlan_header);
 
+	sc->emac_rx_process_limit = 100;
+
 	error = bus_setup_intr(dev, sc->emac_irq, INTR_TYPE_NET | INTR_MPSAFE,
 	    NULL, emac_intr, sc, &sc->emac_intrhand);
 	if (error != 0) {
@@ -775,6 +838,7 @@ emac_attach(device_t dev)
 		goto fail;
 	}
 
+	printf("EMAC_RX_HASH0: %x, EMAC_RX_HASH1: %x\n", EMAC_READ_REG(sc, EMAC_RX_HASH0), EMAC_READ_REG(sc, EMAC_RX_HASH1));
 fail:
 	if (error != 0)
 		emac_detach(dev);

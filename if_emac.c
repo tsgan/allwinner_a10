@@ -190,8 +190,8 @@ emac_set_rx_mode(struct emac_softc *sc)
 	rcr = EMAC_READ_REG(sc, EMAC_RX_CTL);
 
 	/* Unicast packet and DA filtering */
-	rcr |= 1 << 16;
-	rcr |= 1 << 17;
+	rcr |= EMAC_RX_UCAD;
+	rcr |= EMAC_RX_DAF;
 
 	hashes[0] = 0;
 	hashes[1] = 0;
@@ -209,21 +209,21 @@ emac_set_rx_mode(struct emac_softc *sc)
 		}
 		if_maddr_runlock(ifp);
 	}
-	rcr |= 1 << 20;
-	rcr |= 1 << 21;
+	rcr |= EMAC_RX_MCO;
+	rcr |= EMAC_RX_MHF;
 	EMAC_WRITE_REG(sc, EMAC_RX_HASH0, hashes[0]);
 	EMAC_WRITE_REG(sc, EMAC_RX_HASH1, hashes[1]);
 
 	if (ifp->if_flags & IFF_BROADCAST) {
 		/* Rx Brocast Packet Accept */
-		rcr |= 1 << 22;
-		rcr |= 1 << 20;
+		rcr |= EMAC_RX_BCO;
+		rcr |= EMAC_RX_MCO;
 	}
 
 	if (ifp->if_flags & IFF_PROMISC)
-		rcr |= 1 << 4;
+		rcr |= EMAC_RX_PA;
 	else
-		rcr |= 1 << 16;
+		rcr |= EMAC_RX_UCAD;
 
 	EMAC_WRITE_REG(sc, EMAC_RX_CTL, rcr);
 

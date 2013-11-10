@@ -525,15 +525,15 @@ emac_init_locked(struct emac_softc *sc)
 	if ((ifp->if_drv_flags & IFF_DRV_RUNNING) != 0)
 		return;
 
-	/* Setup rx filter */
-	emac_set_rx_mode(sc);
-
 	/* Setup ethernet address */
 	eaddr = IF_LLADDR(ifp);
 	EMAC_WRITE_REG(sc, EMAC_MAC_A1, eaddr[0] << 16 | 
 	    eaddr[1] << 8 | eaddr[2]);
 	EMAC_WRITE_REG(sc, EMAC_MAC_A0, eaddr[3] << 16 | 
 	    eaddr[4] << 8 | eaddr[5]);
+
+	/* Setup rx filter */
+	emac_set_rx_mode(sc);
 
 	/* Enable RX/TX0/RX Hlevel interrupt */
 	reg_val = EMAC_READ_REG(sc, EMAC_INT_CTL);

@@ -155,7 +155,7 @@ emac_set_hwaddr(struct emac_softc *sc, uint8_t *hwaddr)
 
 	/*
 	 * Set the address to a convenient locally assigned address,
-	 * 'bsd' + random 24 low-order bits.  'b' is 0x62, which has the locally
+	 * 'bsd' + random 24 low-order bits. 'b' is 0x62, which has the locally
 	 * assigned bit set, and the broadcast/multicast bit clear.
 	 */
 	rnd = arc4random() & 0x00ffffff;

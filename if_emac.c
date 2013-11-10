@@ -518,6 +518,7 @@ emac_init_locked(struct emac_softc *sc)
 	struct ifnet *ifp = sc->emac_ifp;
 	struct mii_data *mii;
 	uint32_t reg_val;
+	uint8_t *eaddr;
 
 	EMAC_ASSERT_LOCKED(sc);
 
@@ -526,6 +527,13 @@ emac_init_locked(struct emac_softc *sc)
 
 	/* Setup rx filter */
 	emac_set_rx_mode(sc);
+
+	/* Setup ethernet address */
+	eaddr = IF_LLADDR(ifp);
+	EMAC_WRITE_REG(sc, EMAC_MAC_A1, eaddr[0] << 16 | 
+	    eaddr[1] << 8 | eaddr[2]);
+	EMAC_WRITE_REG(sc, EMAC_MAC_A0, eaddr[3] << 16 | 
+	    eaddr[4] << 8 | eaddr[5]);
 
 	/* Enable RX/TX0/RX Hlevel interrupt */
 	reg_val = EMAC_READ_REG(sc, EMAC_INT_CTL);

@@ -346,23 +346,10 @@ emac_txeof(struct emac_softc *sc)
 }
 
 static void
-fix_mbuf(struct mbuf *m, int sramc_align)
-{
-	uint16_t *src, *dst;
-	int i;
-
-	src = mtod(m, uint16_t *);
-	dst = src - (sramc_align - ETHER_ALIGN) / sizeof(*src);
-	for (i = 0; i < (m->m_len / sizeof(uint16_t) + 1); i++)
-		*dst++ = *src++;
-	m->m_data -= sramc_align - ETHER_ALIGN;
-}
-
-static void
 emac_rxeof(struct emac_softc *sc, int count)
 {
 	struct ifnet *ifp;
-	struct mbuf *m;
+	struct mbuf *m, *m0;
 	uint32_t reg_val, rxcount;
 	int16_t len;
 	uint16_t status;
@@ -446,21 +433,45 @@ emac_rxeof(struct emac_softc *sc, int count)
 			if (m == NULL)
 				return;
 			m->m_len = m->m_pkthdr.len = MCLBYTES;
-			/*
-			 * sram->emac mapping needs 4 bytes alignment
-			 * so reserving 4 bytes on the buffer head.
-			 */
-			m_adj(m, 4);
+
 			len -= ETHER_CRC_LEN;
+
+			/* Copy entire frame to mbuf first. */
 			bus_space_read_multi_4(sc->emac_tag, sc->emac_handle,
 			    EMAC_RX_IO_DATA, mtod(m, uint32_t *),
 			    roundup2(len, 4) / 4);
 
 			m->m_pkthdr.rcvif = ifp;
 			m->m_len = m->m_pkthdr.len = len;
-			/* align IP header */
-			fix_mbuf(m, 4);
 
+			/*
+			 * Emac controller needs strict aligment, so to avoid
+			 * copying over an entire frame to align, we allocate
+			 * a new mbuf and copy ethernet header to the new mbuf.
+			 * The new mbuf is prepended into the existing mbuf 
+			 * chain.
+			 */
+			if (m->m_len <= (MCLBYTES - ETHER_HDR_LEN)) {
+				bcopy(m->m_data, m->m_data + ETHER_HDR_LEN,
+				    m->m_len);
+				m->m_data += ETHER_HDR_LEN;
+			} else {
+				MGETHDR(m0, M_NOWAIT, MT_DATA);
+				if (m0 != NULL) {
+					bcopy(m->m_data, m0->m_data,
+					    ETHER_HDR_LEN);
+					m->m_data += ETHER_HDR_LEN;
+					m->m_len -= ETHER_HDR_LEN;
+					m0->m_len = ETHER_HDR_LEN;
+					M_MOVE_PKTHDR(m0, m);
+					m0->m_next = m;
+					m = m0;
+				} else {
+					m_freem(m);
+					m = NULL;
+					return;
+				}
+			}
 			ifp->if_ipackets++;
 			EMAC_UNLOCK(sc);
 			(*ifp->if_input)(ifp, m);
@@ -583,15 +594,19 @@ emac_start_locked(struct ifnet *ifp)
 
 		if (m == NULL)
 			return;
-
-		/* Address needs to be 4 bytes aligned */
-		m0 = m_defrag(m, M_NOWAIT);
-		if (m0 == NULL) {
-			m_freem(m);
-			return;
+		/*
+		 * Emac controller wants 4 byte aligned TX buffers.
+		 * We have to copy pretty much all the time.
+		 */
+		if (m->m_next != NULL || (mtod(m, uintptr_t) & 3) != 0) {
+			m0 = m_defrag(m, M_NOWAIT);
+			if (m0 == NULL) {
+				m_freem(m);
+				m = NULL;
+				return;
+			}
+			m = m0;
 		}
-		m = m0;
-
 		/* Write data */
 		bus_space_write_multi_4(sc->emac_tag, sc->emac_handle,
 		    EMAC_TX_IO_DATA, mtod(m, uint32_t *),

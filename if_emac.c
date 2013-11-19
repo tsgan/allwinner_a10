@@ -153,23 +153,36 @@ emac_sys_setup(void)
 static void
 emac_get_hwaddr(struct emac_softc *sc, uint8_t *hwaddr)
 {
-	uint32_t rnd;
+	uint32_t val0, val1, rnd;
 
 	/*
-	 * Set the address to a convenient locally assigned address,
+	 * Try to get MAC address from running hardware.
+	 * If there is something non-zero there just use it.
+	 *
+	 * Otherwise set the address to a convenient locally assigned address,
 	 * 'bsd' + random 24 low-order bits. 'b' is 0x62, which has the locally
 	 * assigned bit set, and the broadcast/multicast bit clear.
 	 */
-	rnd = arc4random() & 0x00ffffff;
-	hwaddr[0] = 'b';
-	hwaddr[1] = 's';
-	hwaddr[2] = 'd';
-	hwaddr[3] = rnd >> 16;
-	hwaddr[4] = rnd >>  8;
-	hwaddr[5] = rnd >>  0;
-
+	val0 = EMAC_READ_REG(sc, EMAC_MAC_A0);
+	val1 = EMAC_READ_REG(sc, EMAC_MAC_A1);
+	if ((val0 | val1) != 0) {
+		hwaddr[0] = val1 >> 16;
+		hwaddr[1] = val1 >> 8;
+		hwaddr[2] = val1 >> 0;
+		hwaddr[3] = val0 >> 16;
+		hwaddr[4] = val0 >> 8;
+		hwaddr[5] = val0 >> 0;
+	} else {
+		rnd = arc4random() & 0x00ffffff;
+		hwaddr[0] = 'b';
+		hwaddr[1] = 's';
+		hwaddr[2] = 'd';
+		hwaddr[3] = rnd >> 16;
+		hwaddr[4] = rnd >>  8;
+		hwaddr[5] = rnd >>  0;
+	}
 	if (bootverbose)
-		printf("MAC address %s\n", ether_sprintf(hwaddr));
+		printf("MAC address: %s\n", ether_sprintf(hwaddr));
 }
 
 static void
@@ -177,7 +190,6 @@ emac_set_rx_mode(struct emac_softc *sc)
 {
 	struct ifnet *ifp;
 	struct ifmultiaddr *ifma;
-	uint8_t *eaddr;
 	uint32_t h, hashes[2];
 	uint32_t rcr = 0;
 
@@ -219,15 +231,9 @@ emac_set_rx_mode(struct emac_softc *sc)
 
 	if (ifp->if_flags & IFF_PROMISC)
 		rcr |= EMAC_RX_PA;
-	else {
+	else
 		rcr |= EMAC_RX_UCAD;
 
-		eaddr = IF_LLADDR(ifp);
-		EMAC_WRITE_REG(sc, EMAC_SAFX_H0, eaddr[0] << 16 |
-		    eaddr[1] << 8 | eaddr[2]);
-		EMAC_WRITE_REG(sc, EMAC_SAFX_L0, eaddr[3] << 16 |
-		    eaddr[4] << 8 | eaddr[5]);
-	}
 	EMAC_WRITE_REG(sc, EMAC_RX_CTL, rcr);
 }
 
@@ -258,7 +264,7 @@ static void
 emac_rxeof(struct emac_softc *sc, int count)
 {
 	struct ifnet *ifp;
-	struct mbuf *m, *m0;
+	struct mbuf *m;
 	uint32_t reg_val, rxcount;
 	int16_t len;
 	uint16_t status;
@@ -367,23 +373,6 @@ emac_rxeof(struct emac_softc *sc, int count)
 			} else if (m->m_len > EMAC_MAC_MAXF) {
 				ifp->if_ierrors++;
 				continue;
-			} else {
-				MGETHDR(m0, M_NOWAIT, MT_DATA);
-				if (m0 != NULL) {
-					bcopy(m->m_data, m0->m_data,
-					    ETHER_HDR_LEN);
-					m->m_data += ETHER_HDR_LEN;
-					m->m_len -= ETHER_HDR_LEN;
-					m0->m_len = ETHER_HDR_LEN;
-					M_MOVE_PKTHDR(m0, m);
-					m0->m_next = m;
-					m = m0;
-				} else {
-					ifp->if_ierrors++;
-					m_freem(m);
-					m = NULL;
-					continue;
-				}
 			}
 			ifp->if_ipackets++;
 			EMAC_UNLOCK(sc);
@@ -484,7 +473,6 @@ emac_init_locked(struct emac_softc *sc)
 	/* Set up RX */
 	reg_val = EMAC_READ_REG(sc, EMAC_RX_CTL);
 	reg_val |= EMAC_RX_SETUP;
-	reg_val |= EMAC_RX_SAF;
 	reg_val &= EMAC_RX_TM;
 	EMAC_WRITE_REG(sc, EMAC_RX_CTL, reg_val);
 

@@ -264,7 +264,7 @@ static void
 emac_rxeof(struct emac_softc *sc, int count)
 {
 	struct ifnet *ifp;
-	struct mbuf *m;
+	struct mbuf *m, *m0;
 	uint32_t reg_val, rxcount;
 	int16_t len;
 	uint16_t status;
@@ -362,14 +362,26 @@ emac_rxeof(struct emac_softc *sc, int count)
 			/*
 			 * Emac controller needs strict aligment, so to avoid
 			 * copying over an entire frame to align, we allocate
-			 * a new mbuf and copy ethernet header to the new mbuf.
-			 * The new mbuf is prepended into the existing mbuf
-			 * chain.
+			 * a new mbuf and copy ethernet header + IP header to
+			 * the new mbuf. The new mbuf is prepended into the
+			 * existing mbuf chain.
 			 */
 			if (m->m_len <= (MCLBYTES - ETHER_HDR_LEN)) {
-				bcopy(m->m_data, m->m_data + ETHER_HDR_LEN,
-				    m->m_len);
-				m->m_data += ETHER_HDR_LEN;
+				MGETHDR(m0, M_NOWAIT, MT_DATA);
+				if (m0 != NULL) {
+					i = ETHER_HDR_LEN + m->m_pkthdr.l2hlen;
+					bcopy(m->m_data, m0->m_data, i);
+					m->m_data += i;
+					m->m_len -= i;
+					m0->m_len = i;
+					M_MOVE_PKTHDR(m0, m);
+					m0->m_next = m;
+					m = m0;
+				} else {
+					m_freem(m);
+					m = NULL;
+					continue;
+				}
 			} else if (m->m_len > EMAC_MAC_MAXF) {
 				ifp->if_ierrors++;
 				continue;

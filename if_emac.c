@@ -42,6 +42,7 @@ __FBSDID("$FreeBSD$");
 #include <sys/rman.h>
 #include <sys/socket.h>
 #include <sys/sockio.h>
+#include <sys/sysctl.h>
 #include <sys/gpio.h>
 
 #include <machine/bus.h>
@@ -105,10 +106,8 @@ static int emac_probe(device_t);
 static int emac_attach(device_t);
 static int emac_detach(device_t);
 
-static void emac_sys_setup();
+static void emac_sys_setup(void);
 static void emac_reset(struct emac_softc *sc);
-static void emac_powerup(struct emac_softc *sc);
-static void emac_powerdown(struct emac_softc *sc);
 
 static void emac_init_locked(struct emac_softc *);
 static void emac_start_locked(struct ifnet *ifp);
@@ -127,13 +126,16 @@ static void emac_miibus_statchg(device_t);
 static int emac_ifmedia_upd(struct ifnet *ifp);
 static void emac_ifmedia_sts(struct ifnet *ifp, struct ifmediareq *ifmr);
 
+static int sysctl_int_range(SYSCTL_HANDLER_ARGS, int, int);
+static int sysctl_emac_proc_limit(SYSCTL_HANDLER_ARGS);
+
 #define	EMAC_READ_REG(sc, reg)		\
     bus_space_read_4(sc->emac_tag, sc->emac_handle, reg)
 #define	EMAC_WRITE_REG(sc, reg, val)	\
     bus_space_write_4(sc->emac_tag, sc->emac_handle, reg, val)
 
 static void
-emac_sys_setup()
+emac_sys_setup(void)
 {
 	int i;
 
@@ -149,7 +151,7 @@ emac_sys_setup()
 }
 
 static void
-emac_set_hwaddr(struct emac_softc *sc, uint8_t *hwaddr)
+emac_get_hwaddr(struct emac_softc *sc, uint8_t *hwaddr)
 {
 	uint32_t rnd;
 
@@ -166,12 +168,8 @@ emac_set_hwaddr(struct emac_softc *sc, uint8_t *hwaddr)
 	hwaddr[4] = rnd >>  8;
 	hwaddr[5] = rnd >>  0;
 
-	if (bootverbose) {
-		device_printf(sc->emac_dev,
-		    "MAC address %02x:%02x:%02x:%02x:%02x:%02x\n",
-		    hwaddr[0], hwaddr[1], hwaddr[2], 
-		    hwaddr[3], hwaddr[4], hwaddr[5]);
-	}
+	if (bootverbose)
+		printf("MAC address %s\n", ether_sprintf(hwaddr));
 }
 
 static void
@@ -221,105 +219,16 @@ emac_set_rx_mode(struct emac_softc *sc)
 
 	if (ifp->if_flags & IFF_PROMISC)
 		rcr |= EMAC_RX_PA;
-	else
+	else {
 		rcr |= EMAC_RX_UCAD;
 
+		eaddr = IF_LLADDR(ifp);
+		EMAC_WRITE_REG(sc, EMAC_SAFX_H0, eaddr[0] << 16 |
+		    eaddr[1] << 8 | eaddr[2]);
+		EMAC_WRITE_REG(sc, EMAC_SAFX_L0, eaddr[3] << 16 |
+		    eaddr[4] << 8 | eaddr[5]);
+	}
 	EMAC_WRITE_REG(sc, EMAC_RX_CTL, rcr);
-
-	eaddr = IF_LLADDR(ifp);
-	EMAC_WRITE_REG(sc, EMAC_SAFX_H0, eaddr[0] << 16 | 
-	    eaddr[1] << 8 | eaddr[2]);
-	EMAC_WRITE_REG(sc, EMAC_SAFX_L0, eaddr[3] << 16 | 
-	    eaddr[4] << 8 | eaddr[5]);
-}
-
-static void
-emac_powerup(struct emac_softc *sc)
-{
-	device_t dev;
-	uint32_t reg_val;
-
-	dev = sc->emac_dev;
-
-	/* Flush RX FIFO */
-	reg_val = EMAC_READ_REG(sc, EMAC_RX_CTL);
-	reg_val |= EMAC_RX_FLUSH_FIFO;
-	EMAC_WRITE_REG(sc, EMAC_RX_CTL, reg_val);
-	DELAY(1);
-
-	/* Soft reset MAC */
-	reg_val = EMAC_READ_REG(sc, EMAC_MAC_CTL0);
-	reg_val &= (~EMAC_MAC_CTL0_SOFT_RST);
-	EMAC_WRITE_REG(sc, EMAC_MAC_CTL0, reg_val);
-
-	/* Set MII clock */
-	reg_val = EMAC_READ_REG(sc, EMAC_MAC_MCFG);
-	reg_val &= (~(0xf << 2));
-	reg_val |= (0xd << 2);
-	EMAC_WRITE_REG(sc, EMAC_MAC_MCFG, reg_val);
-
-	/* Clear RX counter */
-	EMAC_WRITE_REG(sc, EMAC_RX_FBC, 0);
-
-	/* Disable all interrupt and clear interrupt status */
-	EMAC_WRITE_REG(sc, EMAC_INT_CTL, 0);
-	reg_val = EMAC_READ_REG(sc, EMAC_INT_STA);
-	EMAC_WRITE_REG(sc, EMAC_INT_STA, reg_val);
-	DELAY(1);
-
-	/* Set up TX */
-	reg_val = EMAC_READ_REG(sc, EMAC_TX_MODE);
-	reg_val |= EMAC_TX_AB_M;
-	reg_val &= EMAC_TX_TM;
-	EMAC_WRITE_REG(sc, EMAC_TX_MODE, reg_val);
-
-	/* Set up RX */
-	reg_val = EMAC_READ_REG(sc, EMAC_RX_CTL);
-	reg_val |= EMAC_RX_SETUP;
-	reg_val &= EMAC_RX_TM;
-	EMAC_WRITE_REG(sc, EMAC_RX_CTL, reg_val);
-
-	/* Set up MAC CTL0. */
-	reg_val = EMAC_READ_REG(sc, EMAC_MAC_CTL0);
-	reg_val |= EMAC_MAC_CTL0_SETUP;
-	EMAC_WRITE_REG(sc, EMAC_MAC_CTL0, reg_val);
-
-	/* Set up MAC CTL1. */
-	reg_val = EMAC_READ_REG(sc, EMAC_MAC_CTL1);
-	reg_val |= EMAC_MAC_CTL1_SETUP;
-	EMAC_WRITE_REG(sc, EMAC_MAC_CTL1, reg_val);
-
-	/* Set up IPGT */
-	EMAC_WRITE_REG(sc, EMAC_MAC_IPGT, EMAC_MAC_IPGT_FD);
-
-	/* Set up IPGR */
-	EMAC_WRITE_REG(sc, EMAC_MAC_IPGR, EMAC_MAC_NBTB_IPG2 | 
-	    (EMAC_MAC_NBTB_IPG1 << 8));
-
-	/* Set up Collison window */
-	EMAC_WRITE_REG(sc, EMAC_MAC_CLRT, EMAC_MAC_RM | (EMAC_MAC_CW << 8));
-
-	/* Set up Max Frame Length */
-	EMAC_WRITE_REG(sc, EMAC_MAC_MAXF, EMAC_MAC_MFL);
-}
-
-static void
-emac_powerdown(struct emac_softc *sc)
-{
-	device_t dev;
-	int reg_val;
-
-	dev = sc->emac_dev;
-
-	/* Disable all interrupt and clear interrupt status */
-	EMAC_WRITE_REG(sc, EMAC_INT_CTL, 0);
-	reg_val = EMAC_READ_REG(sc, EMAC_INT_STA);
-	EMAC_WRITE_REG(sc, EMAC_INT_STA, reg_val);
-
-	/* Disable RX/TX */
-	reg_val = EMAC_READ_REG(sc, EMAC_CTL);
-	reg_val &= ~(EMAC_CTL_RST | EMAC_CTL_TX_EN | EMAC_CTL_RX_EN);
-	EMAC_WRITE_REG(sc, EMAC_CTL, reg_val);
 }
 
 static void
@@ -382,8 +291,8 @@ emac_rxeof(struct emac_softc *sc, int count)
 			reg_val = EMAC_READ_REG(sc, EMAC_RX_CTL);
 			reg_val |= EMAC_RX_FLUSH_FIFO;
 			EMAC_WRITE_REG(sc, EMAC_RX_CTL, reg_val);
-			for (i = 10000; i > 0; i--) {
-				DELAY(1);
+			for (i = 100; i > 0; i--) {
+				DELAY(100);
 				if ((EMAC_READ_REG(sc, EMAC_RX_CTL) &
 				    EMAC_RX_FLUSH_FIFO) == 0)
 					break;
@@ -416,12 +325,12 @@ emac_rxeof(struct emac_softc *sc, int count)
 				if_printf(ifp,
 				    "bad packet: len = %i status = %i\n",
 				    len, status);
-			ifp->if_oerrors++;
+			ifp->if_ierrors++;
 		}
 #if 0
 		if (status & (EMAC_CRCERR | EMAC_LENERR)) {
 			good_packet = 0;
-			ifp->if_oerrors++;
+			ifp->if_ierrors++;
 			if (status & EMAC_CRCERR)
 				if_printf(ifp, "crc error\n");
 			if (status & EMAC_LENERR)
@@ -448,13 +357,16 @@ emac_rxeof(struct emac_softc *sc, int count)
 			 * Emac controller needs strict aligment, so to avoid
 			 * copying over an entire frame to align, we allocate
 			 * a new mbuf and copy ethernet header to the new mbuf.
-			 * The new mbuf is prepended into the existing mbuf 
+			 * The new mbuf is prepended into the existing mbuf
 			 * chain.
 			 */
 			if (m->m_len <= (MCLBYTES - ETHER_HDR_LEN)) {
 				bcopy(m->m_data, m->m_data + ETHER_HDR_LEN,
 				    m->m_len);
 				m->m_data += ETHER_HDR_LEN;
+			} else if (m->m_len > EMAC_MAC_MAXF) {
+				ifp->if_ierrors++;
+				continue;
 			} else {
 				MGETHDR(m0, M_NOWAIT, MT_DATA);
 				if (m0 != NULL) {
@@ -467,9 +379,10 @@ emac_rxeof(struct emac_softc *sc, int count)
 					m0->m_next = m;
 					m = m0;
 				} else {
+					ifp->if_ierrors++;
 					m_freem(m);
 					m = NULL;
-					return;
+					continue;
 				}
 			}
 			ifp->if_ipackets++;
@@ -536,11 +449,73 @@ emac_init_locked(struct emac_softc *sc)
 	if ((ifp->if_drv_flags & IFF_DRV_RUNNING) != 0)
 		return;
 
+	/* Flush RX FIFO */
+	reg_val = EMAC_READ_REG(sc, EMAC_RX_CTL);
+	reg_val |= EMAC_RX_FLUSH_FIFO;
+	EMAC_WRITE_REG(sc, EMAC_RX_CTL, reg_val);
+	DELAY(1);
+
+	/* Soft reset MAC */
+	reg_val = EMAC_READ_REG(sc, EMAC_MAC_CTL0);
+	reg_val &= (~EMAC_MAC_CTL0_SOFT_RST);
+	EMAC_WRITE_REG(sc, EMAC_MAC_CTL0, reg_val);
+
+	/* Set MII clock */
+	reg_val = EMAC_READ_REG(sc, EMAC_MAC_MCFG);
+	reg_val &= (~(0xf << 2));
+	reg_val |= (0xd << 2);
+	EMAC_WRITE_REG(sc, EMAC_MAC_MCFG, reg_val);
+
+	/* Clear RX counter */
+	EMAC_WRITE_REG(sc, EMAC_RX_FBC, 0);
+
+	/* Disable all interrupt and clear interrupt status */
+	EMAC_WRITE_REG(sc, EMAC_INT_CTL, 0);
+	reg_val = EMAC_READ_REG(sc, EMAC_INT_STA);
+	EMAC_WRITE_REG(sc, EMAC_INT_STA, reg_val);
+	DELAY(1);
+
+	/* Set up TX */
+	reg_val = EMAC_READ_REG(sc, EMAC_TX_MODE);
+	reg_val |= EMAC_TX_AB_M;
+	reg_val &= EMAC_TX_TM;
+	EMAC_WRITE_REG(sc, EMAC_TX_MODE, reg_val);
+
+	/* Set up RX */
+	reg_val = EMAC_READ_REG(sc, EMAC_RX_CTL);
+	reg_val |= EMAC_RX_SETUP;
+	reg_val |= EMAC_RX_SAF;
+	reg_val &= EMAC_RX_TM;
+	EMAC_WRITE_REG(sc, EMAC_RX_CTL, reg_val);
+
+	/* Set up MAC CTL0. */
+	reg_val = EMAC_READ_REG(sc, EMAC_MAC_CTL0);
+	reg_val |= EMAC_MAC_CTL0_SETUP;
+	EMAC_WRITE_REG(sc, EMAC_MAC_CTL0, reg_val);
+
+	/* Set up MAC CTL1. */
+	reg_val = EMAC_READ_REG(sc, EMAC_MAC_CTL1);
+	reg_val |= EMAC_MAC_CTL1_SETUP;
+	EMAC_WRITE_REG(sc, EMAC_MAC_CTL1, reg_val);
+
+	/* Set up IPGT */
+	EMAC_WRITE_REG(sc, EMAC_MAC_IPGT, EMAC_MAC_IPGT_FD);
+
+	/* Set up IPGR */
+	EMAC_WRITE_REG(sc, EMAC_MAC_IPGR, EMAC_MAC_NBTB_IPG2 |
+	    (EMAC_MAC_NBTB_IPG1 << 8));
+
+	/* Set up Collison window */
+	EMAC_WRITE_REG(sc, EMAC_MAC_CLRT, EMAC_MAC_RM | (EMAC_MAC_CW << 8));
+
+	/* Set up Max Frame Length */
+	EMAC_WRITE_REG(sc, EMAC_MAC_MAXF, EMAC_MAC_MFL);
+
 	/* Setup ethernet address */
 	eaddr = IF_LLADDR(ifp);
-	EMAC_WRITE_REG(sc, EMAC_MAC_A1, eaddr[0] << 16 | 
+	EMAC_WRITE_REG(sc, EMAC_MAC_A1, eaddr[0] << 16 |
 	    eaddr[1] << 8 | eaddr[2]);
-	EMAC_WRITE_REG(sc, EMAC_MAC_A0, eaddr[3] << 16 | 
+	EMAC_WRITE_REG(sc, EMAC_MAC_A0, eaddr[3] << 16 |
 	    eaddr[4] << 8 | eaddr[5]);
 
 	/* Setup rx filter */
@@ -589,56 +564,65 @@ emac_start_locked(struct ifnet *ifp)
 	/* Select channel */
 	EMAC_WRITE_REG(sc, EMAC_TX_INS, 0);
 
-	if (!IFQ_DRV_IS_EMPTY(&ifp->if_snd)) {
-		IFQ_DRV_DEQUEUE(&ifp->if_snd, m);
+	IFQ_DRV_DEQUEUE(&ifp->if_snd, m);
 
-		if (m == NULL)
+	if (m == NULL)
+		return;
+	/*
+	 * Emac controller wants 4 byte aligned TX buffers.
+	 * We have to copy pretty much all the time.
+	 */
+	if (m->m_next != NULL || (mtod(m, uintptr_t) & 3) != 0) {
+		m0 = m_defrag(m, M_NOWAIT);
+		if (m0 == NULL) {
+			m_freem(m);
+			m = NULL;
 			return;
-		/*
-		 * Emac controller wants 4 byte aligned TX buffers.
-		 * We have to copy pretty much all the time.
-		 */
-		if (m->m_next != NULL || (mtod(m, uintptr_t) & 3) != 0) {
-			m0 = m_defrag(m, M_NOWAIT);
-			if (m0 == NULL) {
-				m_freem(m);
-				m = NULL;
-				return;
-			}
-			m = m0;
 		}
-		/* Write data */
-		bus_space_write_multi_4(sc->emac_tag, sc->emac_handle,
-		    EMAC_TX_IO_DATA, mtod(m, uint32_t *),
-		    roundup2(m->m_len, 4) / 4);
-
-		/* Send the data lengh. */
-		EMAC_WRITE_REG(sc, EMAC_TX_PL0, m->m_len);
-
-		/* Start translate from fifo to phy. */
-		reg_val = EMAC_READ_REG(sc, EMAC_TX_CTL0);
-		reg_val |= 1;
-		EMAC_WRITE_REG(sc, EMAC_TX_CTL0, reg_val);
-
-		/* Set timeout */
-		sc->emac_watchdog_timer = 5;
-
-		ifp->if_drv_flags |= IFF_DRV_OACTIVE;
-		BPF_MTAP(ifp, m);
-		m_freem(m);
+		m = m0;
 	}
+	/* Write data */
+	bus_space_write_multi_4(sc->emac_tag, sc->emac_handle,
+	    EMAC_TX_IO_DATA, mtod(m, uint32_t *),
+	    roundup2(m->m_len, 4) / 4);
+
+	/* Send the data lengh. */
+	EMAC_WRITE_REG(sc, EMAC_TX_PL0, m->m_len);
+
+	/* Start translate from fifo to phy. */
+	reg_val = EMAC_READ_REG(sc, EMAC_TX_CTL0);
+	reg_val |= 1;
+	EMAC_WRITE_REG(sc, EMAC_TX_CTL0, reg_val);
+
+	/* Set timeout */
+	sc->emac_watchdog_timer = 5;
+
+	ifp->if_drv_flags |= IFF_DRV_OACTIVE;
+	BPF_MTAP(ifp, m);
+	m_freem(m);
 }
 
 static void
 emac_stop(struct emac_softc *sc)
 {
+	struct ifnet *ifp;
 	uint32_t reg_val;
 
 	EMAC_ASSERT_LOCKED(sc);
+
+	ifp = sc->emac_ifp;
+	ifp->if_drv_flags &= ~(IFF_DRV_RUNNING | IFF_DRV_OACTIVE);
+
 	/* Disable all interrupt and clear interrupt status */
 	EMAC_WRITE_REG(sc, EMAC_INT_CTL, 0);
 	reg_val = EMAC_READ_REG(sc, EMAC_INT_STA);
 	EMAC_WRITE_REG(sc, EMAC_INT_STA, reg_val);
+
+	/* Disable RX/TX */
+	reg_val = EMAC_READ_REG(sc, EMAC_CTL);
+	reg_val &= ~(EMAC_CTL_RST | EMAC_CTL_TX_EN | EMAC_CTL_RX_EN);
+	EMAC_WRITE_REG(sc, EMAC_CTL, reg_val);
+
 	callout_stop(&sc->emac_tick_ch);
 }
 
@@ -659,7 +643,7 @@ emac_intr(void *arg)
 	/* Get EMAC interrupt status */
 	int_status = EMAC_READ_REG(sc, EMAC_INT_STA);
 	/* Clear ISR status */
-	EMAC_WRITE_REG(sc, EMAC_INT_STA, int_status); 
+	EMAC_WRITE_REG(sc, EMAC_INT_STA, int_status);
 
 	/* Received incoming packet */
 	if (int_status & 0x100)
@@ -672,11 +656,12 @@ emac_intr(void *arg)
 			emac_start_locked(ifp);
 	}
 
-	/* Re-enable interrupt mask */
-	reg_val = EMAC_READ_REG(sc, EMAC_INT_CTL);
-	reg_val |= (0xf << 0) | (1 << 8);
-	EMAC_WRITE_REG(sc, EMAC_INT_CTL, reg_val);
-
+	if ((ifp->if_drv_flags & IFF_DRV_RUNNING) != 0) {
+		/* Re-enable interrupt mask */
+		reg_val = EMAC_READ_REG(sc, EMAC_INT_CTL);
+		reg_val |= (0xf << 0) | (1 << 8);
+		EMAC_WRITE_REG(sc, EMAC_INT_CTL, reg_val);
+	}
 	EMAC_UNLOCK(sc);
 }
 
@@ -710,11 +695,11 @@ emac_ioctl(struct ifnet *ifp, u_long command, caddr_t data)
 		break;
 	case SIOCADDMULTI:
 	case SIOCDELMULTI:
+		EMAC_LOCK(sc);
 		if (ifp->if_drv_flags & IFF_DRV_RUNNING) {
-			EMAC_LOCK(sc);
 			emac_set_rx_mode(sc);
-			EMAC_UNLOCK(sc);
 		}
+		EMAC_UNLOCK(sc);
 		break;
 	case SIOCGIFMEDIA:
 	case SIOCSIFMEDIA:
@@ -746,7 +731,7 @@ emac_detach(device_t dev)
 
 	sc = device_get_softc(dev);
 
-	emac_powerdown(sc);
+	emac_stop(sc);
 	sc->emac_ifp->if_drv_flags &= ~IFF_DRV_RUNNING;
 
 	if (sc->emac_ifp != NULL)
@@ -755,7 +740,7 @@ emac_detach(device_t dev)
 	callout_drain(&sc->emac_tick_ch);
 
 	if (sc->emac_intrhand != NULL)
-		bus_teardown_intr(sc->emac_dev, sc->emac_irq, 
+		bus_teardown_intr(sc->emac_dev, sc->emac_irq,
 		    sc->emac_intrhand);
 
 	if (sc->emac_miibus != NULL) {
@@ -792,7 +777,7 @@ emac_attach(device_t dev)
 	callout_init_mtx(&sc->emac_tick_ch, &sc->emac_mtx, 0);
 
 	rid = 0;
-	sc->emac_res = bus_alloc_resource_any(dev, SYS_RES_MEMORY, &rid, 
+	sc->emac_res = bus_alloc_resource_any(dev, SYS_RES_MEMORY, &rid,
 	    RF_ACTIVE);
 	if (sc->emac_res == NULL) {
 		device_printf(dev, "unable to map memory\n");
@@ -811,10 +796,26 @@ emac_attach(device_t dev)
 		error = ENXIO;
 		goto fail;
 	}
+	/* Create device sysctl node. */
+	SYSCTL_ADD_PROC(device_get_sysctl_ctx(dev),
+	    SYSCTL_CHILDREN(device_get_sysctl_tree(dev)),
+	    OID_AUTO, "process_limit", CTLTYPE_INT | CTLFLAG_RW,
+	    &sc->emac_rx_process_limit, 0, sysctl_emac_proc_limit, "I",
+	    "max number of Rx events to process");
 
+	sc->emac_rx_process_limit = EMAC_PROC_DEFAULT;
+	error = resource_int_value(device_get_name(dev), device_get_unit(dev),
+	    "process_limit", &sc->emac_rx_process_limit);
+	if (error == 0) {
+		if (sc->emac_rx_process_limit < EMAC_PROC_MIN ||
+		    sc->emac_rx_process_limit > EMAC_PROC_MAX) {
+			device_printf(dev, "process_limit value out of range; "
+			    "using default: %d\n", EMAC_PROC_DEFAULT);
+			sc->emac_rx_process_limit = EMAC_PROC_DEFAULT;
+		}
+	}
 	/* Setup EMAC */
 	emac_sys_setup();
-	emac_powerup(sc);
 	emac_reset(sc);
 
 	ifp = sc->emac_ifp = if_alloc(IFT_ETHER);
@@ -826,7 +827,7 @@ emac_attach(device_t dev)
 	ifp->if_softc = sc;
 
 	/* Setup MII */
-	error = mii_attach(dev, &sc->emac_miibus, ifp, emac_ifmedia_upd, 
+	error = mii_attach(dev, &sc->emac_miibus, ifp, emac_ifmedia_upd,
 	    emac_ifmedia_sts, BMSR_DEFCAPMASK, MII_PHY_ANY, MII_OFFSET_ANY, 0);
 	if (error != 0) {
 		device_printf(dev, "PHY probe failed\n");
@@ -840,8 +841,8 @@ emac_attach(device_t dev)
 	ifp->if_init = emac_init;
 	IFQ_SET_MAXLEN(&ifp->if_snd, IFQ_MAXLEN);
 
-	/* Set MAC address */
-	emac_set_hwaddr(sc, eaddr);
+	/* Get MAC address */
+	emac_get_hwaddr(sc, eaddr);
 	ether_ifattach(ifp, eaddr);
 
 	/* VLAN capability setup. */
@@ -849,8 +850,6 @@ emac_attach(device_t dev)
 	ifp->if_capenable = ifp->if_capabilities;
 	/* Tell the upper layer we support VLAN over-sized frames. */
 	ifp->if_hdrlen = sizeof(struct ether_vlan_header);
-
-	sc->emac_rx_process_limit = 100;
 
 	error = bus_setup_intr(dev, sc->emac_irq, INTR_TYPE_NET | INTR_MPSAFE,
 	    NULL, emac_intr, sc, &sc->emac_intrhand);
@@ -871,8 +870,8 @@ emac_miibus_iowait(struct emac_softc *sc)
 {
 	uint32_t timeout;
 
-	for (timeout = 10000; timeout != 0; --timeout) {
-		DELAY(1);
+	for (timeout = 100; timeout != 0; --timeout) {
+		DELAY(100);
 		if ((EMAC_READ_REG(sc, EMAC_MAC_MIND) & 0x1) == 0)
 			return (true);
 	}
@@ -1022,4 +1021,31 @@ DRIVER_MODULE(emac, simplebus, emac_driver, emac_devclass, 0, 0);
 DRIVER_MODULE(miibus, emac, miibus_driver, miibus_devclass, 0, 0);
 MODULE_DEPEND(emac, miibus, 1, 1, 1);
 MODULE_DEPEND(emac, ether, 1, 1, 1);
+
+static int
+sysctl_int_range(SYSCTL_HANDLER_ARGS, int low, int high)
+{
+	int error, value;
+
+	if (!arg1)
+		return (EINVAL);
+	value = *(int *)arg1;
+	error = sysctl_handle_int(oidp, &value, 0, req);
+	if (error || !req->newptr)
+		return (error);
+	if (value < low || value > high)
+		return (EINVAL);
+	*(int *)arg1 = value;
+
+	return (0);
+}
+
+static int
+sysctl_emac_proc_limit(SYSCTL_HANDLER_ARGS)
+{
+
+	return (sysctl_int_range(oidp, arg1, arg2, req, EMAC_PROC_MIN,
+	    EMAC_PROC_MAX));
+}
+
 

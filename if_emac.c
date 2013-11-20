@@ -100,6 +100,7 @@ struct emac_softc {
 	struct callout		emac_tick_ch;
 	int			emac_watchdog_timer;
 	int			emac_rx_process_limit;
+	int			emac_link;
 };
 
 static int emac_probe(device_t);
@@ -412,7 +413,14 @@ emac_watchdog(struct emac_softc *sc)
 		return;
 
 	ifp = sc->emac_ifp;
-	if_printf(sc->emac_ifp, "watchdog timeout -- resetting\n");
+
+	if (sc->emac_link == 0) {
+		if (bootverbose)
+			if_printf(sc->emac_ifp, "watchdog timeout "
+			    "(missed link)\n");
+	} else
+		if_printf(sc->emac_ifp, "watchdog timeout -- resetting\n");
+	
 	ifp->if_oerrors++;
 	ifp->if_drv_flags &= ~IFF_DRV_RUNNING;
 	emac_init_locked(sc);
@@ -536,6 +544,8 @@ emac_init_locked(struct emac_softc *sc)
 	ifp->if_drv_flags |= IFF_DRV_RUNNING;
 	ifp->if_drv_flags &= ~IFF_DRV_OACTIVE;
 
+	sc->emac_link = 0;
+
 	/* Switch to the current media. */
 	mii = device_get_softc(sc->emac_miibus);
 	mii_mediachg(mii);
@@ -564,6 +574,8 @@ emac_start_locked(struct ifnet *ifp)
 
 	sc = ifp->if_softc;
 	if (ifp->if_drv_flags & IFF_DRV_OACTIVE)
+		return;
+	if (sc->emac_link == 0)
 		return;
 	if (IFQ_IS_EMPTY(&ifp->if_snd))
 		return;
@@ -619,6 +631,7 @@ emac_stop(struct emac_softc *sc)
 
 	ifp = sc->emac_ifp;
 	ifp->if_drv_flags &= ~(IFF_DRV_RUNNING | IFF_DRV_OACTIVE);
+	sc->emac_link = 0;
 
 	/* Disable all interrupt and clear interrupt status */
 	EMAC_WRITE_REG(sc, EMAC_INT_CTL, 0);
@@ -948,19 +961,43 @@ emac_miibus_statchg(device_t dev)
 
 	mii = device_get_softc(sc->emac_miibus);
 	ifp = sc->emac_ifp;
-	if ((ifp->if_drv_flags & IFF_DRV_RUNNING) == 0)
+	if (mii == NULL || ifp == NULL ||
+	    (ifp->if_drv_flags & IFF_DRV_RUNNING) == 0)
 		return;
 
-	reg_val = EMAC_READ_REG(sc, EMAC_CTL);
+	sc->emac_link = 0;
 	if ((mii->mii_media_status & (IFM_ACTIVE | IFM_AVALID)) ==
 	    (IFM_ACTIVE | IFM_AVALID)) {
+		switch (IFM_SUBTYPE(mii->mii_media_active)) {
+		case IFM_10_T:
+		case IFM_100_TX:
+			sc->emac_link = 1;
+			break;
+		default:
+			break;
+		}
+	}
+	/* Program MACs with resolved speed/duplex. */
+	if (sc->emac_link != 0) {
+		reg_val = EMAC_READ_REG(sc, EMAC_MAC_IPGT);
+		if ((IFM_OPTIONS(mii->mii_media_active) & IFM_FDX) != 0) {
+			reg_val &= ~EMAC_MAC_IPGT_HD;
+			reg_val |= EMAC_MAC_IPGT_FD;
+		} else {
+			reg_val &= ~EMAC_MAC_IPGT_FD;
+			reg_val |= EMAC_MAC_IPGT_HD;
+		}
+		EMAC_WRITE_REG(sc, EMAC_MAC_IPGT, reg_val);
 		/* Enable RX/TX */
+		reg_val = EMAC_READ_REG(sc, EMAC_CTL);
 		reg_val |= EMAC_CTL_RST | EMAC_CTL_TX_EN | EMAC_CTL_RX_EN;
+		EMAC_WRITE_REG(sc, EMAC_CTL, reg_val);
 	} else {
 		/* Disable RX/TX */
+		reg_val = EMAC_READ_REG(sc, EMAC_CTL);
 		reg_val &= ~(EMAC_CTL_RST | EMAC_CTL_TX_EN | EMAC_CTL_RX_EN);
+		EMAC_WRITE_REG(sc, EMAC_CTL, reg_val);
 	}
-	EMAC_WRITE_REG(sc, EMAC_CTL, reg_val);
 }
 
 static int

@@ -127,7 +127,7 @@ static int emac_ifmedia_upd(struct ifnet *ifp);
 static void emac_ifmedia_sts(struct ifnet *ifp, struct ifmediareq *ifmr);
 
 static int sysctl_int_range(SYSCTL_HANDLER_ARGS, int, int);
-static int sysctl_emac_proc_limit(SYSCTL_HANDLER_ARGS);
+static int sysctl_hw_emac_proc_limit(SYSCTL_HANDLER_ARGS);
 
 #define	EMAC_READ_REG(sc, reg)		\
     bus_space_read_4(sc->emac_tag, sc->emac_handle, reg)
@@ -165,7 +165,7 @@ emac_get_hwaddr(struct emac_softc *sc, uint8_t *hwaddr)
 	 */
 	val0 = EMAC_READ_REG(sc, EMAC_MAC_A0);
 	val1 = EMAC_READ_REG(sc, EMAC_MAC_A1);
-	if ((val0 | val1) != 0) {
+	if ((val0 | val1) != 0 && (val0 | val1) != 0xffffff) {
 		hwaddr[0] = val1 >> 16;
 		hwaddr[1] = val1 >> 8;
 		hwaddr[2] = val1 >> 0;
@@ -807,7 +807,7 @@ emac_attach(device_t dev)
 	SYSCTL_ADD_PROC(device_get_sysctl_ctx(dev),
 	    SYSCTL_CHILDREN(device_get_sysctl_tree(dev)),
 	    OID_AUTO, "process_limit", CTLTYPE_INT | CTLFLAG_RW,
-	    &sc->emac_rx_process_limit, 0, sysctl_emac_proc_limit, "I",
+	    &sc->emac_rx_process_limit, 0, sysctl_hw_emac_proc_limit, "I",
 	    "max number of Rx events to process");
 
 	sc->emac_rx_process_limit = EMAC_PROC_DEFAULT;
@@ -1034,11 +1034,11 @@ sysctl_int_range(SYSCTL_HANDLER_ARGS, int low, int high)
 {
 	int error, value;
 
-	if (!arg1)
+	if (arg1 == NULL)
 		return (EINVAL);
 	value = *(int *)arg1;
 	error = sysctl_handle_int(oidp, &value, 0, req);
-	if (error || !req->newptr)
+	if (error || req->newptr == NULL)
 		return (error);
 	if (value < low || value > high)
 		return (EINVAL);
@@ -1048,11 +1048,10 @@ sysctl_int_range(SYSCTL_HANDLER_ARGS, int low, int high)
 }
 
 static int
-sysctl_emac_proc_limit(SYSCTL_HANDLER_ARGS)
+sysctl_hw_emac_proc_limit(SYSCTL_HANDLER_ARGS)
 {
 
-	return (sysctl_int_range(oidp, arg1, arg2, req, EMAC_PROC_MIN,
-	    EMAC_PROC_MAX));
+	return (sysctl_int_range(oidp, arg1, arg2, req,
+	    EMAC_PROC_MIN, EMAC_PROC_MAX));
 }
-
 

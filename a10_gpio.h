@@ -26,7 +26,7 @@
  * $FreeBSD$
  */
 
-#ifndef _A10_GPIO_H_
+#ifndef	_A10_GPIO_H_
 #define	_A10_GPIO_H_
 
 int a10_emac_gpio_config(uint32_t pin);

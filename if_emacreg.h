@@ -25,7 +25,7 @@
  *
  */
 
-#ifndef __IF_EMACREG_H__
+#ifndef	__IF_EMACREG_H__
 #define	__IF_EMACREG_H__
 
 /*

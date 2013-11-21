@@ -27,7 +27,7 @@
  */
 
 #ifndef _A10_SRAMC_H_
-#define _A10_SRAMC_H_
+#define	_A10_SRAMC_H_
 
 int a10_map_to_emac(void);
 

@@ -26,7 +26,7 @@
  */
 
 #ifndef __IF_EMACREG_H__
-#define __IF_EMACREG_H__
+#define	__IF_EMACREG_H__
 
 /*
  * EMAC register definitions
@@ -232,4 +232,4 @@
 #define	EMAC_UNLOCK(cs)		mtx_unlock(&(sc)->emac_mtx)
 #define	EMAC_ASSERT_LOCKED(sc)	mtx_assert(&(sc)->emac_mtx, MA_OWNED);
 
-#endif /* __IF_EMACREG_H__ */
+#endif	/* __IF_EMACREG_H__ */

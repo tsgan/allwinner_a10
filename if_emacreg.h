@@ -224,9 +224,9 @@
 #define	EMAC_PHY_RESET		(1 << 15)
 #define	EMAC_PHY_PWRDOWN	(1 << 11)
 
-#define EMAC_PROC_MIN		16
-#define EMAC_PROC_MAX		255
-#define EMAC_PROC_DEFAULT	64
+#define	EMAC_PROC_MIN		16
+#define	EMAC_PROC_MAX		255
+#define	EMAC_PROC_DEFAULT	64
 
 #define	EMAC_LOCK(cs)		mtx_lock(&(sc)->emac_mtx)
 #define	EMAC_UNLOCK(cs)		mtx_unlock(&(sc)->emac_mtx)

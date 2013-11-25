@@ -106,26 +106,29 @@ struct emac_softc {
 static int emac_probe(device_t);
 static int emac_attach(device_t);
 static int emac_detach(device_t);
+static int emac_shutdown(device_t);
+static int emac_suspend(device_t);
+static int emac_resume(device_t);
 
 static void emac_sys_setup(void);
-static void emac_reset(struct emac_softc *sc);
+static void emac_reset(struct emac_softc *);
 
 static void emac_init_locked(struct emac_softc *);
-static void emac_start_locked(struct ifnet *ifp);
-static void emac_init(void *xcs);
-static void emac_stop(struct emac_softc *sc);
-static void emac_intr(void *arg);
-static int emac_ioctl(struct ifnet *ifp, u_long command, caddr_t data);
+static void emac_start_locked(struct ifnet *);
+static void emac_init(void *);
+static void emac_stop(struct emac_softc *);
+static void emac_intr(void *);
+static int emac_ioctl(struct ifnet *, u_long, caddr_t);
 
-static void emac_rxeof(struct emac_softc *sc, int count);
-static void emac_txeof(struct emac_softc *sc);
+static void emac_rxeof(struct emac_softc *, int);
+static void emac_txeof(struct emac_softc *);
 
-static int emac_miibus_readreg(device_t dev, int phy, int reg);
-static int emac_miibus_writereg(device_t dev, int phy, int reg, int data);
+static int emac_miibus_readreg(device_t, int, int);
+static int emac_miibus_writereg(device_t, int, int, int);
 static void emac_miibus_statchg(device_t);
 
-static int emac_ifmedia_upd(struct ifnet *ifp);
-static void emac_ifmedia_sts(struct ifnet *ifp, struct ifmediareq *ifmr);
+static int emac_ifmedia_upd(struct ifnet *);
+static void emac_ifmedia_sts(struct ifnet *, struct ifmediareq *);
 
 static int sysctl_int_range(SYSCTL_HANDLER_ARGS, int, int);
 static int sysctl_hw_emac_proc_limit(SYSCTL_HANDLER_ARGS);
@@ -326,7 +329,7 @@ emac_rxeof(struct emac_softc *sc, int count)
 		len = reg_val & 0xffff;
 		status = (reg_val >> 16) & 0xffff;
 
-		if (len < 64) {
+		if (len < 64 || len > EMAC_MAC_MAXF) {
 			good_packet = 0;
 			if (bootverbose)
 				if_printf(ifp,
@@ -390,9 +393,6 @@ emac_rxeof(struct emac_softc *sc, int count)
 					m = NULL;
 					continue;
 				}
-			} else if (m->m_len > EMAC_MAC_MAXF) {
-				ifp->if_ierrors++;
-				continue;
 			}
 			ifp->if_ipackets++;
 			EMAC_UNLOCK(sc);
@@ -455,13 +455,14 @@ emac_init(void *xcs)
 static void
 emac_init_locked(struct emac_softc *sc)
 {
-	struct ifnet *ifp = sc->emac_ifp;
+	struct ifnet *ifp;
 	struct mii_data *mii;
 	uint32_t reg_val;
 	uint8_t *eaddr;
 
 	EMAC_ASSERT_LOCKED(sc);
 
+	ifp = sc->emac_ifp;
 	if ((ifp->if_drv_flags & IFF_DRV_RUNNING) != 0)
 		return;
 
@@ -577,16 +578,13 @@ emac_start_locked(struct ifnet *ifp)
 		return;
 	if (sc->emac_link == 0)
 		return;
-	if (IFQ_IS_EMPTY(&ifp->if_snd))
+	IFQ_DRV_DEQUEUE(&ifp->if_snd, m);
+	if (m == NULL)
 		return;
 
 	/* Select channel */
 	EMAC_WRITE_REG(sc, EMAC_TX_INS, 0);
 
-	IFQ_DRV_DEQUEUE(&ifp->if_snd, m);
-
-	if (m == NULL)
-		return;
 	/*
 	 * Emac controller wants 4 byte aligned TX buffers.
 	 * We have to copy pretty much all the time.
@@ -653,10 +651,10 @@ emac_intr(void *arg)
 	struct ifnet *ifp;
 	uint32_t int_status, reg_val;
 
+	EMAC_LOCK(sc);
 	ifp = sc->emac_ifp;
 	if ((ifp->if_drv_flags & IFF_DRV_RUNNING) == 0)
 		return;
-	EMAC_LOCK(sc);
 
 	/* Disable all interrupts */
 	EMAC_WRITE_REG(sc, EMAC_INT_CTL, 0);
@@ -750,14 +748,14 @@ emac_detach(device_t dev)
 	struct emac_softc *sc;
 
 	sc = device_get_softc(dev);
-
-	emac_stop(sc);
 	sc->emac_ifp->if_drv_flags &= ~IFF_DRV_RUNNING;
-
-	if (sc->emac_ifp != NULL)
-		if_free(sc->emac_ifp);
-
-	callout_drain(&sc->emac_tick_ch);
+	if (device_is_attached(dev)) {
+		ether_ifdetach(sc->emac_ifp);
+		EMAC_LOCK(sc);
+		emac_stop(sc);
+		EMAC_UNLOCK(sc);
+		callout_drain(&sc->emac_tick_ch);
+	}
 
 	if (sc->emac_intrhand != NULL)
 		bus_teardown_intr(sc->emac_dev, sc->emac_irq,
@@ -774,8 +772,54 @@ emac_detach(device_t dev)
 	if (sc->emac_irq != NULL)
 		bus_release_resource(dev, SYS_RES_IRQ, 0, sc->emac_irq);
 
+	if (sc->emac_ifp != NULL)
+		if_free(sc->emac_ifp);
+
 	if (mtx_initialized(&sc->emac_mtx))
 		mtx_destroy(&sc->emac_mtx);
+
+	return (0);
+}
+
+static int
+emac_shutdown(device_t dev)
+{
+
+	return (emac_suspend(dev));
+}
+
+static int
+emac_suspend(device_t dev)
+{
+	struct emac_softc *sc;
+	struct ifnet *ifp;
+
+	sc = device_get_softc(dev);
+
+	EMAC_LOCK(sc);
+	ifp = sc->emac_ifp;
+	if ((ifp->if_drv_flags & IFF_DRV_RUNNING) != 0)
+		emac_stop(sc);
+	EMAC_UNLOCK(sc);
+
+	return (0);
+}
+
+static int
+emac_resume(device_t dev)
+{
+	struct emac_softc *sc;
+	struct ifnet *ifp;
+
+	sc = device_get_softc(dev);
+
+	EMAC_LOCK(sc);
+	ifp = sc->emac_ifp;
+	if ((ifp->if_flags & IFF_UP) != 0) {
+		ifp->if_drv_flags &= ~IFF_DRV_RUNNING;
+		emac_init_locked(sc);
+	}
+	EMAC_UNLOCK(sc);
 
 	return (0);
 }
@@ -1040,6 +1084,9 @@ static device_method_t emac_methods[] = {
 	DEVMETHOD(device_probe,		emac_probe),
 	DEVMETHOD(device_attach,	emac_attach),
 	DEVMETHOD(device_detach,	emac_detach),
+	DEVMETHOD(device_shutdown,	emac_shutdown),
+	DEVMETHOD(device_suspend,	emac_suspend),
+	DEVMETHOD(device_resume,	emac_resume),
 
 	/* bus interface, for miibus */
 	DEVMETHOD(bus_print_child,	bus_generic_print_child),
@@ -1091,4 +1138,3 @@ sysctl_hw_emac_proc_limit(SYSCTL_HANDLER_ARGS)
 	return (sysctl_int_range(oidp, arg1, arg2, req,
 	    EMAC_PROC_MIN, EMAC_PROC_MAX));
 }
-

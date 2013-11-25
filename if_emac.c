@@ -652,10 +652,11 @@ emac_stop(struct emac_softc *sc)
 static void
 emac_intr(void *arg)
 {
-	struct emac_softc *sc = (struct emac_softc *)arg;
+	struct emac_softc *sc;
 	struct ifnet *ifp;
-	uint32_t int_status, reg_val;
+	uint32_t reg_val;
 
+	sc = (struct emac_softc *)arg;
 	EMAC_LOCK(sc);
 	ifp = sc->emac_ifp;
 	if ((ifp->if_drv_flags & IFF_DRV_RUNNING) == 0)
@@ -664,16 +665,16 @@ emac_intr(void *arg)
 	/* Disable all interrupts */
 	EMAC_WRITE_REG(sc, EMAC_INT_CTL, 0);
 	/* Get EMAC interrupt status */
-	int_status = EMAC_READ_REG(sc, EMAC_INT_STA);
+	reg_val = EMAC_READ_REG(sc, EMAC_INT_STA);
 	/* Clear ISR status */
-	EMAC_WRITE_REG(sc, EMAC_INT_STA, int_status);
+	EMAC_WRITE_REG(sc, EMAC_INT_STA, reg_val);
 
 	/* Received incoming packet */
-	if (int_status & 0x100)
+	if (reg_val & 0x100)
 		emac_rxeof(sc, sc->emac_rx_process_limit);
 
 	/* Transmit Interrupt check */
-	if (int_status & (0x01 | 0x02)){
+	if (reg_val & (0x01 | 0x02)){
 		emac_txeof(sc);
 		if (!IFQ_DRV_IS_EMPTY(&ifp->if_snd))
 			emac_start_locked(ifp);

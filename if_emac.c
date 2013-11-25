@@ -450,8 +450,9 @@ emac_tick(void *arg)
 static void
 emac_init(void *xcs)
 {
-	struct emac_softc *sc = xcs;
+	struct emac_softc *sc;
 
+	sc = (struct emac_softc *)xcs;
 	EMAC_LOCK(sc);
 	emac_init_locked(sc);
 	EMAC_UNLOCK(sc);
@@ -564,8 +565,8 @@ static void
 emac_start(struct ifnet *ifp)
 {
 	struct emac_softc *sc;
-	sc = ifp->if_softc;
 
+	sc = ifp->if_softc;
 	EMAC_LOCK(sc);
 	emac_start_locked(ifp);
 	EMAC_UNLOCK(sc);

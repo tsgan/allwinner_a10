@@ -329,7 +329,7 @@ emac_rxeof(struct emac_softc *sc, int count)
 		len = reg_val & 0xffff;
 		status = (reg_val >> 16) & 0xffff;
 
-		if (len < 64 || len > EMAC_MAC_MAXF) {
+		if (len < 64) {
 			good_packet = 0;
 			if (bootverbose)
 				if_printf(ifp,
@@ -393,6 +393,11 @@ emac_rxeof(struct emac_softc *sc, int count)
 					m = NULL;
 					continue;
 				}
+			} else if (m->m_len > EMAC_MAC_MAXF) {
+				ifp->if_ierrors++;
+				m_freem(m);
+				m = NULL;
+				continue;
 			}
 			ifp->if_ipackets++;
 			EMAC_UNLOCK(sc);

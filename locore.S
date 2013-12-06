@@ -51,18 +51,13 @@ __FBSDID("$FreeBSD: head/sys/arm/arm/locore.S 258845 2013-12-02 13:09:59Z zbb $"
                 /* 16540000 */
                 /* 16640000 */
 
-/*
-#define DEBUG_LOC ldr r0, =0x12450000; ldr r1, =0x65; str r1, [r0]
-#define DEBUG_LOC1 ldr r0, =0x16240000; ldr r1, =0x66; str r1, [r0]
-#define DEBUG_LOC2 ldr r0, =0x16340000; ldr r1, =0x67; str r1, [r0]
-#define DEBUG_LOC3 ldr r0, =0x16540000; ldr r1, =0x68; str r1, [r0]
-*/
-#define DEBUG_LOC ldr r0, =0x16640000; ldr r1, =0x69; str r1, [r0]
-/*
-#define DEBUG_LOC5 ldr r0, =0x12490000; ldr r1, =0x70; str r1, [r0]
-#define DEBUG_LOC6 ldr r0, =0x1A240000; ldr r1, =0x71; str r1, [r0]
-#define DEBUG_LOC7 ldr r0, =0x1A040000; ldr r1, =0x72; str r1, [r0]
-*/
+#define DEBUG_LOB ldr r0, =0x16640040; ldr r1, =0x1; str r1, [r0]
+#define DEBUG_LOC ldr r0, =0x16640070; ldr r1, =0x65; str r1, [r0]  //e
+#define DEBUG_LOC1 ldr r0, =0x16640070; ldr r1, =0x66; str r1, [r0] //f
+#define DEBUG_LOC2 ldr r0, =0x16640070; ldr r1, =0x67; str r1, [r0] //g
+#define DEBUG_LOC3 ldr r0, =0x16640070; ldr r1, =0x68; str r1, [r0] //h
+#define DEBUG_LOC4 ldr r0, =0x16640070; ldr r1, =0x69; str r1, [r0] //i
+#define DEBUG_LOC5 ldr r0, =0x16640070; ldr r1, =0x70; str r1, [r0] //j
 
 /* What size should this really be ? It is only used by initarm() */
 #define INIT_ARM_STACK_SIZE	(2048 * 4)
@@ -100,6 +95,7 @@ __FBSDID("$FreeBSD: head/sys/arm/arm/locore.S 258845 2013-12-02 13:09:59Z zbb $"
  */
 ENTRY_NP(btext)
 ASENTRY_NP(_start)
+DEBUG_LOB
 DEBUG_LOC
 	STOP_UNWINDING		/* Can't unwind into the bootloader! */
 
@@ -202,6 +198,8 @@ Lunmapped:
 	/* Set the Domain Access register.  Very important! */
 	mov     r0, #((DOMAIN_CLIENT << (PMAP_DOMAIN_KERNEL*2)) | DOMAIN_CLIENT)
 	mcr	p15, 0, r0, c3, c0, 0
+DEBUG_LOB
+DEBUG_LOC1
 	/* 
 	 * Enable MMU.
 	 * On armv6 enable extended page tables, and set alignment checking
@@ -219,10 +217,14 @@ Lunmapped:
 	nop
 	nop
 	nop
+DEBUG_LOB
+DEBUG_LOC2
 	CPWAIT(r0)
 
 #endif
 mmu_done:
+DEBUG_LOB
+DEBUG_LOC3
 	nop
 	adr	r1, .Lstart
 	ldmia	r1, {r1, r2, sp}	/* Set initial stack and */
@@ -232,9 +234,13 @@ mmu_done:
 	str	r3, [r1], #0x0004	/* get zero init data */
 	subs	r2, r2, #4
 	bgt	.L1
+DEBUG_LOB
+DEBUG_LOC4
 	ldr	pc, .Lvirt_done
 
 virt_done:
+DEBUG_LOB
+DEBUG_LOC5
 	mov	r1, #20			/* loader info size is 20 bytes also second arg */
 	subs	sp, sp, r1		/* allocate arm_boot_params struct on stack */
 	bic	sp, sp, #7		/* align stack to 8 bytes */

@@ -311,9 +311,9 @@ arm_vector_init(vm_offset_t va, int which)
 	unsigned int *vectors = (int *) va;
 	unsigned int *vectors_data = vectors + (page0_data - page0);
 	int vec;
-//        volatile uint32_t *uart = (uint32_t *) 0x20064000;
+	volatile uint32_t *uart_n = (uint32_t *) 0x16640040;
+	volatile uint32_t *uart = (uint32_t *) 0x16640070;
 
-//	*uart = '*';
 	/*
 	 * Loop through the vectors we're taking over, and copy the
 	 * vector's insn and data word.
@@ -327,10 +327,13 @@ arm_vector_init(vm_offset_t va, int which)
 		vectors_data[vec] = page0_data[vec];
 	}
 
-//	*uart = '0';
+	*uart_n = 1;
+	*uart = '0';
 	/* Now sync the vectors. */
 	cpu_icache_sync_range(va, (ARM_NVEC * 2) * sizeof(u_int));
 
+	*uart_n = 1;
+	*uart = '1';
 	vector_page = va;
 
 	if (va == ARM_VECTORS_HIGH) {
@@ -350,11 +353,14 @@ arm_vector_init(vm_offset_t va, int which)
 		 * ever encounter one that does not, we'll have to
 		 * rethink this.
 		 */
-//		*uart = '2';
+	*uart_n = 1;
+	*uart = '2';
 		cpu_control(CPU_CONTROL_VECRELOC, CPU_CONTROL_VECRELOC);
-//		*uart = '3';
+	*uart_n = 1;
+	*uart = '3';
 	}
-//	*uart = '4';
+	*uart_n = 1;
+	*uart = '4';
 }
 
 static void
@@ -1505,11 +1511,13 @@ initarm(struct arm_boot_params *abp)
 	 */
 	cpu_control(CPU_CONTROL_MMU_ENABLE, CPU_CONTROL_MMU_ENABLE);
 
-	*uart_n = 1;
-	*uart = 'E';
+//	*uart_n = 1;
+//	*uart = 'E';
 
 	set_stackptrs(0);
 
+//	*uart_n = 1;
+//	*uart = 'F';
 	/*
 	 * We must now clean the cache again....
 	 * Cleaning may be done by reading new data to displace any
@@ -1522,6 +1530,8 @@ initarm(struct arm_boot_params *abp)
 	 */
 	cpu_idcache_wbinv_all();
 
+//	*uart_n = 1;
+//	*uart = 'G';
 	/* Set stack for exception handlers */
 	data_abort_handler_address = (u_int)data_abort_handler;
 	prefetch_abort_handler_address = (u_int)prefetch_abort_handler;
@@ -1530,20 +1540,28 @@ initarm(struct arm_boot_params *abp)
 
 	init_proc0(kernelstack.pv_va);
 
+//	*uart_n = 1;
+//	*uart = 'H';
 //        cpufunc_control(CPU_CONTROL_DC_ENABLE|CPU_CONTROL_IC_ENABLE,
 //           CPU_CONTROL_DC_ENABLE|CPU_CONTROL_IC_ENABLE);
 
 	arm_intrnames_init();
+	*uart_n = 1;
+	*uart = 'I';
 //	printf("initarm4\n");
 	arm_vector_init(ARM_VECTORS_HIGH, ARM_VEC_ALL);
 
+	*uart_n = 1;
+	*uart = 'J';
 //	printf("initarm5\n");
 
 	arm_dump_avail_init(memsize, sizeof(dump_avail) / sizeof(dump_avail[0]));
 //	printf("initarm6\n");
 	*uart_n = 1;
-	*uart = 'F';
+	*uart = 'O';
 	pmap_bootstrap(freemempos, &kernel_l1pt);
+	*uart_n = 1;
+	*uart = 'P';
 //	printf("initarm7\n");
 	msgbufp = (void *)msgbufpv.pv_va;
 	msgbufinit(msgbufp, msgbufsize);
@@ -1551,6 +1569,8 @@ initarm(struct arm_boot_params *abp)
 	mutex_init();
 //	printf("initarm9\n");
 
+	*uart_n = 1;
+	*uart = 'Q';
 	/*
 	 * Prepare map of physical memory regions available to vm subsystem.
 	 */
@@ -1561,7 +1581,7 @@ initarm(struct arm_boot_params *abp)
 	kdb_init();
 
 	*uart_n = 1;
-	*uart = 'G';
+	*uart = 'R';
 //	printf("initarm11\n");
 	return ((void *)(kernelstack.pv_va + USPACE_SVC_STACK_TOP -
 	    sizeof(struct pcb)));

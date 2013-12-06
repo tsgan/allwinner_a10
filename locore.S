@@ -95,8 +95,8 @@ __FBSDID("$FreeBSD: head/sys/arm/arm/locore.S 258845 2013-12-02 13:09:59Z zbb $"
  */
 ENTRY_NP(btext)
 ASENTRY_NP(_start)
-DEBUG_LOB
-DEBUG_LOC
+//DEBUG_LOB
+//DEBUG_LOC
 	STOP_UNWINDING		/* Can't unwind into the bootloader! */
 
 	mov	r9, r0		/* 0 or boot mode from boot2 */
@@ -198,8 +198,8 @@ Lunmapped:
 	/* Set the Domain Access register.  Very important! */
 	mov     r0, #((DOMAIN_CLIENT << (PMAP_DOMAIN_KERNEL*2)) | DOMAIN_CLIENT)
 	mcr	p15, 0, r0, c3, c0, 0
-DEBUG_LOB
-DEBUG_LOC1
+//DEBUG_LOB
+//DEBUG_LOC1
 	/* 
 	 * Enable MMU.
 	 * On armv6 enable extended page tables, and set alignment checking
@@ -217,14 +217,12 @@ DEBUG_LOC1
 	nop
 	nop
 	nop
-DEBUG_LOB
-DEBUG_LOC2
 	CPWAIT(r0)
 
 #endif
 mmu_done:
-DEBUG_LOB
-DEBUG_LOC3
+//DEBUG_LOB
+//DEBUG_LOC3
 	nop
 	adr	r1, .Lstart
 	ldmia	r1, {r1, r2, sp}	/* Set initial stack and */
@@ -234,13 +232,11 @@ DEBUG_LOC3
 	str	r3, [r1], #0x0004	/* get zero init data */
 	subs	r2, r2, #4
 	bgt	.L1
-DEBUG_LOB
-DEBUG_LOC4
 	ldr	pc, .Lvirt_done
 
 virt_done:
-DEBUG_LOB
-DEBUG_LOC5
+//DEBUG_LOB
+//DEBUG_LOC5
 	mov	r1, #20			/* loader info size is 20 bytes also second arg */
 	subs	sp, sp, r1		/* allocate arm_boot_params struct on stack */
 	bic	sp, sp, #7		/* align stack to 8 bytes */

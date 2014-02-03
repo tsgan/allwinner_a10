@@ -1,0 +1,134 @@
+--- if_emac.c	2013-11-25 16:14:29.000000000 +0800
++++ /usr/src/sys/arm/allwinner/if_emac.c	2013-12-03 10:25:42.000000000 +0800
+@@ -100,6 +100,7 @@
+ 	struct callout		emac_tick_ch;
+ 	int			emac_watchdog_timer;
+ 	int			emac_rx_process_limit;
++	int			emac_tx_fifo_stat;
+ 	int			emac_link;
+ };
+ 
+@@ -121,7 +122,7 @@
+ static int emac_ioctl(struct ifnet *, u_long, caddr_t);
+ 
+ static void emac_rxeof(struct emac_softc *, int);
+-static void emac_txeof(struct emac_softc *);
++static void emac_txeof(struct emac_softc *, uint32_t);
+ 
+ static int emac_miibus_readreg(device_t, int, int);
+ static int emac_miibus_writereg(device_t, int, int, int);
+@@ -252,12 +253,18 @@
+ }
+ 
+ static void
+-emac_txeof(struct emac_softc *sc)
++emac_txeof(struct emac_softc *sc, uint32_t stat)
+ {
+ 	struct ifnet *ifp;
+ 
+ 	ifp = sc->emac_ifp;
+-	ifp->if_opackets++;
++
++	sc->emac_tx_fifo_stat &= ~(stat & 3);
++	if ((stat & 3) == 3)
++		ifp->if_opackets += 2;
++	else
++		ifp->if_opackets++;
++
+ 	ifp->if_drv_flags &= ~IFF_DRV_OACTIVE;
+ 
+ 	/* Unarm watchdog timer if no TX */
+@@ -551,6 +558,7 @@
+ 	ifp->if_drv_flags |= IFF_DRV_RUNNING;
+ 	ifp->if_drv_flags &= ~IFF_DRV_OACTIVE;
+ 
++	sc->emac_tx_fifo_stat = 0;
+ 	sc->emac_link = 0;
+ 
+ 	/* Switch to the current media. */
+@@ -577,20 +585,27 @@
+ {
+ 	struct emac_softc *sc;
+ 	struct mbuf *m, *m0;
+-	uint32_t reg_val;
++	uint32_t reg_val, channel;
+ 
+ 	sc = ifp->if_softc;
+ 	if (ifp->if_drv_flags & IFF_DRV_OACTIVE)
+ 		return;
+ 	if (sc->emac_link == 0)
+ 		return;
++	if ((channel = (sc->emac_tx_fifo_stat & 3)) == 3)
++		return;
+ 	IFQ_DRV_DEQUEUE(&ifp->if_snd, m);
+ 	if (m == NULL)
+ 		return;
+ 
+ 	/* Select channel */
+-	EMAC_WRITE_REG(sc, EMAC_TX_INS, 0);
++	if (channel != 1)
++		channel = 0;
++	else
++		channel = 1;
+ 
++	EMAC_WRITE_REG(sc, EMAC_TX_INS, channel);
++	sc->emac_tx_fifo_stat |= 1 << channel;
+ 	/*
+ 	 * Emac controller wants 4 byte aligned TX buffers.
+ 	 * We have to copy pretty much all the time.
+@@ -609,18 +624,29 @@
+ 	    EMAC_TX_IO_DATA, mtod(m, uint32_t *),
+ 	    roundup2(m->m_len, 4) / 4);
+ 
+-	/* Send the data lengh. */
+-	EMAC_WRITE_REG(sc, EMAC_TX_PL0, m->m_len);
+-
+-	/* Start translate from fifo to phy. */
+-	reg_val = EMAC_READ_REG(sc, EMAC_TX_CTL0);
+-	reg_val |= 1;
+-	EMAC_WRITE_REG(sc, EMAC_TX_CTL0, reg_val);
+-
++	if (channel == 0) {
++		/* Send the data lengh. */
++		EMAC_WRITE_REG(sc, EMAC_TX_PL0, m->m_len);
++
++		/* Start translate from fifo to phy. */
++		reg_val = EMAC_READ_REG(sc, EMAC_TX_CTL0);
++		reg_val |= 1;
++		EMAC_WRITE_REG(sc, EMAC_TX_CTL0, reg_val);
++	} else if (channel == 1) {
++		/* Send the data lengh. */
++		EMAC_WRITE_REG(sc, EMAC_TX_PL1, m->m_len);
++
++		/* Start translate from fifo to phy. */
++		reg_val = EMAC_READ_REG(sc, EMAC_TX_CTL1);
++		reg_val |= 1;
++		EMAC_WRITE_REG(sc, EMAC_TX_CTL1, reg_val);
++	}
+ 	/* Set timeout */
+ 	sc->emac_watchdog_timer = 5;
+ 
+-	ifp->if_drv_flags |= IFF_DRV_OACTIVE;
++	if ((sc->emac_tx_fifo_stat & 3) == 3)
++		ifp->if_drv_flags |= IFF_DRV_OACTIVE;
++
+ 	BPF_MTAP(ifp, m);
+ 	m_freem(m);
+ }
+@@ -636,6 +662,7 @@
+ 	ifp = sc->emac_ifp;
+ 	ifp->if_drv_flags &= ~(IFF_DRV_RUNNING | IFF_DRV_OACTIVE);
+ 	sc->emac_link = 0;
++	sc->emac_tx_fifo_stat = 0;
+ 
+ 	/* Disable all interrupt and clear interrupt status */
+ 	EMAC_WRITE_REG(sc, EMAC_INT_CTL, 0);
+@@ -676,7 +703,7 @@
+ 
+ 	/* Transmit Interrupt check */
+ 	if (reg_val & (0x01 | 0x02)){
+-		emac_txeof(sc);
++		emac_txeof(sc, reg_val);
+ 		if (!IFQ_DRV_IS_EMPTY(&ifp->if_snd))
+ 			emac_start_locked(ifp);
+ 	}

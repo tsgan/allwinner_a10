@@ -1,6 +1,6 @@
 Index: a10_gpio.c
 ===================================================================
---- a10_gpio.c	(revision 257406)
+--- a10_gpio.c	(revision 261702)
 +++ a10_gpio.c	(working copy)
 @@ -52,6 +52,7 @@
  #include <dev/ofw/ofw_bus_subr.h>
@@ -14,22 +14,12 @@ Index: a10_gpio.c
  #define	A10_GPIO_GP_INT_STA		0x214
  #define	A10_GPIO_GP_INT_DEB		0x218
  
-+static struct a10_gpio_softc *a10_gpio_sc = NULL;
++static struct a10_gpio_softc *a10_gpio_sc;
 +
  #define	A10_GPIO_WRITE(_sc, _off, _val)		\
      bus_space_write_4(_sc->sc_bst, _sc->sc_bsh, _off, _val)
  #define	A10_GPIO_READ(_sc, _off)		\
-@@ -425,6 +428,9 @@
- 	int i, rid;
- 	phandle_t gpio;
- 
-+	if (a10_gpio_sc)
-+		return (ENXIO);
-+
- 	sc->sc_dev = dev;
- 
- 	mtx_init(&sc->sc_mtx, "a10 gpio", "gpio", MTX_DEF);
-@@ -469,6 +475,9 @@
+@@ -473,6 +476,9 @@
  
  	device_add_child(dev, "gpioc", device_get_unit(dev));
  	device_add_child(dev, "gpiobus", device_get_unit(dev));
@@ -39,7 +29,7 @@ Index: a10_gpio.c
  	return (bus_generic_attach(dev));
  
  fail:
-@@ -514,3 +523,19 @@
+@@ -518,3 +524,19 @@
  };
  
  DRIVER_MODULE(a10_gpio, simplebus, a10_gpio_driver, a10_gpio_devclass, 0, 0);
@@ -50,7 +40,7 @@ Index: a10_gpio.c
 +	struct a10_gpio_softc *sc = a10_gpio_sc;
 +
 +	if (sc == NULL)
-+		return ENXIO;
++		return (ENXIO);
 +
 +	/* Configure pin mux settings for MII. */
 +	A10_GPIO_LOCK(sc);
@@ -59,9 +49,24 @@ Index: a10_gpio.c
 +
 +	return (0);
 +}
+Index: a20/files.a20
+===================================================================
+--- a20/files.a20	(revision 261702)
++++ a20/files.a20	(working copy)
+@@ -12,8 +12,10 @@
+ 
+ arm/allwinner/a20/a20_cpu_cfg.c 	standard
+ arm/allwinner/a10_clk.c 		standard
++arm/allwinner/a10_sramc.c		standard
+ arm/allwinner/a10_gpio.c		optional	gpio
+ arm/allwinner/a10_ehci.c		optional	ehci
++arm/allwinner/if_emac.c			optional	emac
+ arm/allwinner/a10_wdog.c		standard
+ arm/allwinner/timer.c			standard
+ arm/arm/bus_space-v6.c			standard
 Index: files.a10
 ===================================================================
---- files.a10	(revision 257406)
+--- files.a10	(revision 261702)
 +++ files.a10	(working copy)
 @@ -11,8 +11,10 @@
  
@@ -76,9 +81,27 @@ Index: files.a10
  arm/allwinner/aintc.c			standard
 Index: a10_clk.c
 ===================================================================
---- a10_clk.c	(revision 257406)
+--- a10_clk.c	(revision 261702)
 +++ a10_clk.c	(working copy)
-@@ -169,3 +169,19 @@
+@@ -127,7 +127,7 @@
+ 	uint32_t reg_value;
+ 
+ 	if (sc == NULL)
+-		return ENXIO;
++		return (ENXIO);
+ 
+ 	/* Gating AHB clock for USB */
+ 	reg_value = ccm_read_4(sc, CCM_AHB_GATING0);
+@@ -154,7 +154,7 @@
+ 	uint32_t reg_value;
+ 
+ 	if (sc == NULL)
+-		return ENXIO;
++		return (ENXIO);
+ 
+ 	/* Disable clock for USB */
+ 	reg_value = ccm_read_4(sc, CCM_USB_CLK);
+@@ -173,3 +173,19 @@
  	return (0);
  }
  
@@ -88,7 +111,7 @@ Index: a10_clk.c
 +	uint32_t reg_value;
 +
 +	if (sc == NULL)
-+		return ENXIO;
++		return (ENXIO);
 +
 +	/* Gating AHB clock for EMAC */
 +	reg_value = ccm_read_4(sc, CCM_AHB_GATING0);
@@ -100,7 +123,7 @@ Index: a10_clk.c
 +
 Index: a10_clk.h
 ===================================================================
---- a10_clk.h	(revision 257406)
+--- a10_clk.h	(revision 261702)
 +++ a10_clk.h	(working copy)
 @@ -103,6 +103,7 @@
  #define CCM_AHB_GATING_USB0	(1 << 0)
@@ -117,18 +140,3 @@ Index: a10_clk.h
 +int a10_clk_emac_activate(void);
  
  #endif /* _A10_CLK_H_ */
-Index: a20/files.a20
-===================================================================
---- a20/files.a20	(working copy)
-+++ a20/files.a20	(working copy)
-@@ -12,8 +12,10 @@
- 
- arm/allwinner/a20/a20_cpu_cfg.c 	standard
- arm/allwinner/a10_clk.c 		standard
-+arm/allwinner/a10_sramc.c		standard
- arm/allwinner/a10_gpio.c		optional	gpio
- arm/allwinner/a10_ehci.c		optional	ehci
-+arm/allwinner/if_emac.c			optional	emac
- arm/allwinner/a10_wdog.c		standard
- arm/allwinner/timer.c			standard
- arm/allwinner/bus_space.c		standard

@@ -295,6 +295,8 @@ emac_rxeof(struct emac_softc *sc, int count)
 		reg_val = EMAC_READ_REG(sc, EMAC_RX_IO_DATA);
 		if (reg_val != EMAC_PACKET_HEADER) {
 			/* Packet header is wrong */
+			if (bootverbose)
+				if_printf(ifp, "wrong packet header\n");
 			/* Disable RX */
 			reg_val = EMAC_READ_REG(sc, EMAC_CTL);
 			reg_val &= ~EMAC_CTL_RX_EN;

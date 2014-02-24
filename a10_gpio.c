@@ -27,7 +27,7 @@
  *
  */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: head/sys/arm/allwinner/a10_gpio.c 257200 2013-10-27 01:34:10Z ian $");
+__FBSDID("$FreeBSD: head/sys/arm/allwinner/a10_gpio.c 261410 2014-02-02 19:17:28Z ian $");
 
 #include <sys/param.h>
 #include <sys/systm.h>
@@ -103,7 +103,7 @@ struct a10_gpio_softc {
 #define	A10_GPIO_GP_INT_STA		0x214
 #define	A10_GPIO_GP_INT_DEB		0x218
 
-static struct a10_gpio_softc *a10_gpio_sc = NULL;
+static struct a10_gpio_softc *a10_gpio_sc;
 
 #define	A10_GPIO_WRITE(_sc, _off, _val)		\
     bus_space_write_4(_sc->sc_bst, _sc->sc_bsh, _off, _val)
@@ -413,6 +413,10 @@ a10_gpio_pin_toggle(device_t dev, uint32_t pin)
 static int
 a10_gpio_probe(device_t dev)
 {
+
+	if (!ofw_bus_status_okay(dev))
+		return (ENXIO);
+
 	if (!ofw_bus_is_compatible(dev, "allwinner,sun4i-gpio"))
 		return (ENXIO);
 
@@ -427,9 +431,6 @@ a10_gpio_attach(device_t dev)
 	uint32_t func;
 	int i, rid;
 	phandle_t gpio;
-
-	if (a10_gpio_sc)
-		return (ENXIO);
 
 	sc->sc_dev = dev;
 
@@ -530,7 +531,7 @@ a10_emac_gpio_config(uint32_t pin)
 	struct a10_gpio_softc *sc = a10_gpio_sc;
 
 	if (sc == NULL)
-		return ENXIO;
+		return (ENXIO);
 
 	/* Configure pin mux settings for MII. */
 	A10_GPIO_LOCK(sc);

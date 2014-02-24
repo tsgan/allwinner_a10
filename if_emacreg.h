@@ -60,6 +60,9 @@
 
 #define	EMAC_INT_CTL		0x54
 #define	EMAC_INT_STA		0x58
+#define	EMAC_INT_STA_TX		(0x01 | 0x02)
+#define	EMAC_INT_STA_RX		0x100
+#define	EMAC_INT_EN		(0xf << 0) | (1 << 8)
 
 #define	EMAC_MAC_CTL0		0x5C
 #define	EMAC_MAC_CTL1		0x60

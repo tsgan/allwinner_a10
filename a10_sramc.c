@@ -43,14 +43,12 @@ __FBSDID("$FreeBSD$");
 #include <machine/cpu.h>
 #include <machine/frame.h>
 #include <machine/intr.h>
+#include <machine/fdt.h>
 
 #include <dev/fdt/fdt_common.h>
 #include <dev/ofw/openfirm.h>
 #include <dev/ofw/ofw_bus.h>
 #include <dev/ofw/ofw_bus_subr.h>
-
-#include <machine/bus.h>
-#include <machine/fdt.h>
 
 #include "a10_sramc.h"
 
@@ -62,7 +60,7 @@ struct a10_sramc_softc {
 	bus_space_handle_t	bsh;
 };
 
-static struct a10_sramc_softc *a10_sramc_sc = NULL;
+static struct a10_sramc_softc *a10_sramc_sc;
 
 #define	sramc_read_4(sc, reg)		\
     bus_space_read_4((sc)->bst, (sc)->bsh, (reg))
@@ -76,7 +74,7 @@ a10_sramc_probe(device_t dev)
 
 	if (ofw_bus_is_compatible(dev, "allwinner,sun4i-sramc")) {
 		device_set_desc(dev, "Allwinner sramc module");
-		return(BUS_PROBE_DEFAULT);
+		return (BUS_PROBE_DEFAULT);
 	}
 
 	return (ENXIO);
@@ -87,9 +85,6 @@ a10_sramc_attach(device_t dev)
 {
 	struct a10_sramc_softc *sc = device_get_softc(dev);
 	int rid = 0;
-
-	if (a10_sramc_sc)
-		return (ENXIO);
 
 	sc->res = bus_alloc_resource_any(dev, SYS_RES_MEMORY, &rid, RF_ACTIVE);
 	if (!sc->res) {
@@ -128,7 +123,7 @@ a10_map_to_emac(void)
 	uint32_t reg_value;
 
 	if (sc == NULL)
-		return ENXIO;
+		return (ENXIO);
 
 	/* Map SRAM to EMAC, set bit 2 and 4. */
 	reg_value = sramc_read_4(sc, SRAM_CTL1_CFG);

@@ -27,7 +27,7 @@
 /* Simple clock driver for Allwinner A10 */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: head/sys/arm/allwinner/a10_clk.c 257200 2013-10-27 01:34:10Z ian $");
+__FBSDID("$FreeBSD: head/sys/arm/allwinner/a10_clk.c 261410 2014-02-02 19:17:28Z ian $");
 
 #include <sys/param.h>
 #include <sys/systm.h>
@@ -69,6 +69,10 @@ static struct a10_ccm_softc *a10_ccm_sc = NULL;
 static int
 a10_ccm_probe(device_t dev)
 {
+
+	if (!ofw_bus_status_okay(dev))
+		return (ENXIO);
+
 	if (ofw_bus_is_compatible(dev, "allwinner,sun4i-ccm")) {
 		device_set_desc(dev, "Allwinner Clock Control Module");
 		return(BUS_PROBE_DEFAULT);
@@ -123,7 +127,7 @@ a10_clk_usb_activate(void)
 	uint32_t reg_value;
 
 	if (sc == NULL)
-		return ENXIO;
+		return (ENXIO);
 
 	/* Gating AHB clock for USB */
 	reg_value = ccm_read_4(sc, CCM_AHB_GATING0);
@@ -150,7 +154,7 @@ a10_clk_usb_deactivate(void)
 	uint32_t reg_value;
 
 	if (sc == NULL)
-		return ENXIO;
+		return (ENXIO);
 
 	/* Disable clock for USB */
 	reg_value = ccm_read_4(sc, CCM_USB_CLK);
@@ -170,45 +174,12 @@ a10_clk_usb_deactivate(void)
 }
 
 int
-a10_clk_mmc_activate(void)
-{
-	struct a10_ccm_softc *sc = a10_ccm_sc;
-	uint32_t reg_value;
-	unsigned int pll5_clk;
-	unsigned int divider;
-	unsigned int n, k, p;
-
-	if (sc == NULL)
-		return ENXIO;
-
-	/* Gating AHB clock for SDMMC0 */
-	reg_value = ccm_read_4(sc, CCM_AHB_GATING0);
-	reg_value |= CCM_AHB_GATING_SDMMC0;
-	ccm_write_4(sc, CCM_AHB_GATING0, reg_value);
-
-	/* config mod clock */
-	reg_value = ccm_read_4(sc, CCM_PLL5_CFG);
-	n = (reg_value >> 8) & 0x1f;
-	k = ((reg_value >> 4) & 3) + 1;
-	p = 1 << ((reg_value >> 16) & 3);
-	pll5_clk = 24000000 * n * k / p;
-	if (pll5_clk > 400000000)
-		divider = 4;
-	else
-		divider = 3;
-	ccm_write_4(sc, CCM_MMC0_SCLK_CFG, (1U << 31) | (2U << 24) | divider);
-	printf("MMC0 MODE_CLK: 0x%08x\n", pll5_clk / (divider + 1));
-
-	return 0;
-}
-
-int
 a10_clk_emac_activate(void) {
 	struct a10_ccm_softc *sc = a10_ccm_sc;
 	uint32_t reg_value;
 
 	if (sc == NULL)
-		return ENXIO;
+		return (ENXIO);
 
 	/* Gating AHB clock for EMAC */
 	reg_value = ccm_read_4(sc, CCM_AHB_GATING0);

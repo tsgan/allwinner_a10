@@ -116,7 +116,7 @@ static void emac_reset(struct emac_softc *);
 static void emac_init_locked(struct emac_softc *);
 static void emac_start_locked(struct ifnet *);
 static void emac_init(void *);
-static void emac_stop(struct emac_softc *);
+static void emac_stop_locked(struct emac_softc *);
 static void emac_intr(void *);
 static int emac_ioctl(struct ifnet *, u_long, caddr_t);
 
@@ -144,6 +144,7 @@ emac_sys_setup(void)
 	int i;
 
 	a10_clk_emac_activate();
+
 	/*
 	 * Configure pin mux settings for MII.
 	 * Pins PA0 from PA17.
@@ -170,20 +171,20 @@ emac_get_hwaddr(struct emac_softc *sc, uint8_t *hwaddr)
 	val0 = EMAC_READ_REG(sc, EMAC_MAC_A0);
 	val1 = EMAC_READ_REG(sc, EMAC_MAC_A1);
 	if ((val0 | val1) != 0 && (val0 | val1) != 0xffffff) {
-		hwaddr[0] = val1 >> 16;
-		hwaddr[1] = val1 >> 8;
-		hwaddr[2] = val1 >> 0;
-		hwaddr[3] = val0 >> 16;
-		hwaddr[4] = val0 >> 8;
-		hwaddr[5] = val0 >> 0;
+		hwaddr[0] = (val1 >> 16) & 0xff;
+		hwaddr[1] = (val1 >> 8) & 0xff;
+		hwaddr[2] = (val1 >> 0) & 0xff;
+		hwaddr[3] = (val0 >> 16) & 0xff;
+		hwaddr[4] = (val0 >> 8) & 0xff;
+		hwaddr[5] = (val0 >> 0) & 0xff;
 	} else {
 		rnd = arc4random() & 0x00ffffff;
 		hwaddr[0] = 'b';
 		hwaddr[1] = 's';
 		hwaddr[2] = 'd';
-		hwaddr[3] = rnd >> 16;
-		hwaddr[4] = rnd >>  8;
-		hwaddr[5] = rnd >>  0;
+		hwaddr[3] = (rnd >> 16) & 0xff;
+		hwaddr[4] = (rnd >> 8) & 0xff;
+		hwaddr[5] = (rnd >> 0) & 0xff;
 	}
 	if (bootverbose)
 		printf("MAC address: %s\n", ether_sprintf(hwaddr));
@@ -255,6 +256,8 @@ static void
 emac_txeof(struct emac_softc *sc)
 {
 	struct ifnet *ifp;
+
+	EMAC_ASSERT_LOCKED(sc);
 
 	ifp = sc->emac_ifp;
 	ifp->if_opackets++;
@@ -545,7 +548,7 @@ emac_init_locked(struct emac_softc *sc)
 
 	/* Enable RX/TX0/RX Hlevel interrupt */
 	reg_val = EMAC_READ_REG(sc, EMAC_INT_CTL);
-	reg_val |= (0xf << 0) | (1 << 8);
+	reg_val |= EMAC_INT_EN;
 	EMAC_WRITE_REG(sc, EMAC_INT_CTL, reg_val);
 
 	ifp->if_drv_flags |= IFF_DRV_RUNNING;
@@ -626,7 +629,7 @@ emac_start_locked(struct ifnet *ifp)
 }
 
 static void
-emac_stop(struct emac_softc *sc)
+emac_stop_locked(struct emac_softc *sc)
 {
 	struct ifnet *ifp;
 	uint32_t reg_val;
@@ -671,11 +674,11 @@ emac_intr(void *arg)
 	EMAC_WRITE_REG(sc, EMAC_INT_STA, reg_val);
 
 	/* Received incoming packet */
-	if (reg_val & 0x100)
+	if (reg_val & EMAC_INT_STA_RX)
 		emac_rxeof(sc, sc->emac_rx_process_limit);
 
 	/* Transmit Interrupt check */
-	if (reg_val & (0x01 | 0x02)){
+	if (reg_val & EMAC_INT_STA_TX){
 		emac_txeof(sc);
 		if (!IFQ_DRV_IS_EMPTY(&ifp->if_snd))
 			emac_start_locked(ifp);
@@ -684,7 +687,7 @@ emac_intr(void *arg)
 	if ((ifp->if_drv_flags & IFF_DRV_RUNNING) != 0) {
 		/* Re-enable interrupt mask */
 		reg_val = EMAC_READ_REG(sc, EMAC_INT_CTL);
-		reg_val |= (0xf << 0) | (1 << 8);
+		reg_val |= EMAC_INT_EN;
 		EMAC_WRITE_REG(sc, EMAC_INT_CTL, reg_val);
 	}
 	EMAC_UNLOCK(sc);
@@ -713,7 +716,7 @@ emac_ioctl(struct ifnet *ifp, u_long command, caddr_t data)
 				emac_init_locked(sc);
 		} else {
 			if ((ifp->if_drv_flags & IFF_DRV_RUNNING) != 0)
-				emac_stop(sc);
+				emac_stop_locked(sc);
 		}
 		sc->emac_if_flags = ifp->if_flags;
 		EMAC_UNLOCK(sc);
@@ -759,7 +762,7 @@ emac_detach(device_t dev)
 	if (device_is_attached(dev)) {
 		ether_ifdetach(sc->emac_ifp);
 		EMAC_LOCK(sc);
-		emac_stop(sc);
+		emac_stop_locked(sc);
 		EMAC_UNLOCK(sc);
 		callout_drain(&sc->emac_tick_ch);
 	}
@@ -806,7 +809,7 @@ emac_suspend(device_t dev)
 	EMAC_LOCK(sc);
 	ifp = sc->emac_ifp;
 	if ((ifp->if_drv_flags & IFF_DRV_RUNNING) != 0)
-		emac_stop(sc);
+		emac_stop_locked(sc);
 	EMAC_UNLOCK(sc);
 
 	return (0);

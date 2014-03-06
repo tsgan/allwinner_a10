@@ -101,7 +101,7 @@ platform_mp_start_ap(void)
 	    pmap_kextract((vm_offset_t)mpentry));
 
 	/*
-	 * Step1: Assert cpu core reset low and set L1_RST_DISABLE low.
+	 * Assert cpu core reset low and set L1_RST_DISABLE low.
 	 * Ensure DBGPWRDUP is set to LOW to prevent any external
 	 * debug access to the processor.
 	 */
@@ -120,7 +120,7 @@ platform_mp_start_ap(void)
 		bus_space_write_4(fdtbus_bs_tag, cpucfg, CPUCFG_DBGCTL1, val);
 	}
 
-	/* Step2: release power clamp */
+	/* Release power clamp */
 	bus_space_write_4(fdtbus_bs_tag, cpucfg, CPU1_PWR_CLAMP, 0xff);
 	bus_space_write_4(fdtbus_bs_tag, cpucfg, CPU1_PWR_CLAMP, 0x7f);
 	bus_space_write_4(fdtbus_bs_tag, cpucfg, CPU1_PWR_CLAMP, 0x3f);
@@ -132,7 +132,7 @@ platform_mp_start_ap(void)
 	bus_space_write_4(fdtbus_bs_tag, cpucfg, CPU1_PWR_CLAMP, 0x00);
 	DELAY(10000);
 
-	/* Step3: Clear power-off gating */
+	/* Clear power-off gating */
 	val = bus_space_read_4(fdtbus_bs_tag, cpucfg, CPU1_PWROFF_REG);
 	val &= ~(1);
 	bus_space_write_4(fdtbus_bs_tag, cpucfg, CPU1_PWROFF_REG, val);
@@ -140,10 +140,10 @@ platform_mp_start_ap(void)
 
 	for (i = 0; i < mp_ncpus; i++) {
 
-		/* Step4: De-assert cpu core reset */
+		/* De-assert cpu core reset */
 		bus_space_write_4(fdtbus_bs_tag, cpucfg, CPU_RST_CTL(i), 3);
 
-		/* Step5: Assert DBGPWRDUP signal */
+		/* Assert DBGPWRDUP signal */
 		val = bus_space_read_4(fdtbus_bs_tag, cpucfg, CPUCFG_DBGCTL1);
 		val |= (1 << i);
 		bus_space_write_4(fdtbus_bs_tag, cpucfg, CPUCFG_DBGCTL1, val);

@@ -37,7 +37,7 @@ __FBSDID("$FreeBSD$");
 #include <machine/fdt.h>
 #include <machine/intr.h>
 
-#define	CPUCFG_PHYSBASE		0x01c25c00
+#define	CPUCFG_BASE		0xe1c25c00
 #define	CPUCFG_SIZE		0x0400
 
 #define	CPUCFG_P_REG0		0x01a4
@@ -69,6 +69,7 @@ platform_mp_setmaxid(void)
 
 	mp_ncpus = ncpu;
 	mp_maxid = ncpu - 1;
+	printf("mp_ncpus: %d, mp_maxid: %d\n", mp_ncpus, mp_maxid);
 }
 
 int
@@ -89,7 +90,7 @@ platform_mp_start_ap(void)
 	uint32_t val;
 	int i;
 
-	if (bus_space_map(fdtbus_bs_tag, CPUCFG_PHYSBASE, CPUCFG_SIZE, 0, &cpucfg) != 0)
+	if (bus_space_map(fdtbus_bs_tag, CPUCFG_BASE, CPUCFG_SIZE, 0, &cpucfg) != 0)
 		panic("Couldn't map the CPUCFG\n");
 
 	cpu_idcache_wbinv_all();

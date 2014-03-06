@@ -46,7 +46,7 @@ __FBSDID("$FreeBSD$");
 #define	CPUCFG_DBGCTL1		0x01e4
 #define	CPU1_PWR_CLAMP		0x01b0
 #define	CPU1_PWROFF_REG		0x01b4
-#define	CPUX_RST_CTL(x)		(0x40 + (x) * 0x40)
+#define	CPU_RST_CTL(x)		(0x40 + (x) * 0x40)
 
 void
 platform_mp_init_secondary(void)
@@ -101,20 +101,20 @@ platform_mp_start_ap(void)
 	    pmap_kextract((vm_offset_t)mpentry));
 
 	/*
-	 * Step1: Assert nCOREPORESET LOW and hold L1RSTDISABLE LOW.
-	 * Ensure DBGPWRDUP is held LOW to prevent any external
+	 * Step1: Assert cpu core reset low and set L1_RST_DISABLE low.
+	 * Ensure DBGPWRDUP is set to LOW to prevent any external
 	 * debug access to the processor.
 	 */
 	for (i = 0; i < mp_ncpus; i++) {
 		/* Assert cpu core reset */
-		bus_space_write_4(fdtbus_bs_tag, cpucfg, CPUX_RST_CTL(i), 0);
+		bus_space_write_4(fdtbus_bs_tag, cpucfg, CPU_RST_CTL(i), 0);
 
-		/* L1RSTDISABLE hold low */
+		/* Set L1_RST_DISABLE low */
 		val = bus_space_read_4(fdtbus_bs_tag, cpucfg, CPUCFG_GENCTL);
 		val &= ~(1 << i);
 		bus_space_write_4(fdtbus_bs_tag, cpucfg, CPUCFG_GENCTL, val);
 
-		/* DBGPWRDUP hold low */
+		/* Set DBGPWRDUP low */
 		val = bus_space_read_4(fdtbus_bs_tag, cpucfg, CPUCFG_DBGCTL1);
 		val &= ~(1 << i);
 		bus_space_write_4(fdtbus_bs_tag, cpucfg, CPUCFG_DBGCTL1, val);
@@ -132,7 +132,7 @@ platform_mp_start_ap(void)
 	bus_space_write_4(fdtbus_bs_tag, cpucfg, CPU1_PWR_CLAMP, 0x00);
 	DELAY(10000);
 
-	/* Step3: clear power-off gating */
+	/* Step3: Clear power-off gating */
 	val = bus_space_read_4(fdtbus_bs_tag, cpucfg, CPU1_PWROFF_REG);
 	val &= ~(1);
 	bus_space_write_4(fdtbus_bs_tag, cpucfg, CPU1_PWROFF_REG, val);
@@ -140,10 +140,10 @@ platform_mp_start_ap(void)
 
 	for (i = 0; i < mp_ncpus; i++) {
 
-		/* Step4: de-assert core reset */
-		bus_space_write_4(fdtbus_bs_tag, cpucfg, CPUX_RST_CTL(i), 3);
+		/* Step4: De-assert cpu core reset */
+		bus_space_write_4(fdtbus_bs_tag, cpucfg, CPU_RST_CTL(i), 3);
 
-		/* Step5: assert DBGPWRDUP signal */
+		/* Step5: Assert DBGPWRDUP signal */
 		val = bus_space_read_4(fdtbus_bs_tag, cpucfg, CPUCFG_DBGCTL1);
 		val |= (1 << i);
 		bus_space_write_4(fdtbus_bs_tag, cpucfg, CPUCFG_DBGCTL1, val);

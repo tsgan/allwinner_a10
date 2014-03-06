@@ -38,7 +38,7 @@ __FBSDID("$FreeBSD$");
 #include <machine/intr.h>
 
 #define	CPUCFG_PHYSBASE		0x01c25c00
-#define	CPUCFG_SIZE		0x1000
+#define	CPUCFG_SIZE		0x0400
 
 #define	CPUCFG_P_REG0		0x01a4
 #define	CPUCFG_GENCTL		0x0184
@@ -128,11 +128,13 @@ platform_mp_start_ap(void)
 	bus_space_write_4(fdtbus_bs_tag, cpucfg, CPU1_PWR_CLAMP, 0x03);
 	bus_space_write_4(fdtbus_bs_tag, cpucfg, CPU1_PWR_CLAMP, 0x01);
 	bus_space_write_4(fdtbus_bs_tag, cpucfg, CPU1_PWR_CLAMP, 0x00);
+	DELAY(10000);
 
 	/* Step3: clear power-off gating */
 	val = bus_space_read_4(fdtbus_bs_tag, cpucfg, CPU1_PWROFF_REG);
 	val &= ~(1);
 	bus_space_write_4(fdtbus_bs_tag, cpucfg, CPU1_PWROFF_REG, val);
+	DELAY(1000);
 
 	for (i = 0; i < mp_ncpus; i++) {
 

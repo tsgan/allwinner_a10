@@ -90,20 +90,21 @@ platform_mp_start_ap(void)
 	uint32_t val;
 	int i;
 
-	if (bus_space_map(fdtbus_bs_tag, CPUCFG_BASE, CPUCFG_SIZE, 0, &cpucfg) != 0)
+	if (bus_space_map(fdtbus_bs_tag, CPUCFG_BASE, CPUCFG_SIZE, 0,
+	    &cpucfg) != 0)
 		panic("Couldn't map the CPUCFG\n");
 
 	cpu_idcache_wbinv_all();
 	cpu_l2cache_wbinv_all();
 
-	bus_space_write_4(fdtbus_bs_tag, cpucfg, CPUCFG_P_REG0, pmap_kextract((vm_offset_t)mpentry));
+	bus_space_write_4(fdtbus_bs_tag, cpucfg, CPUCFG_P_REG0,
+	    pmap_kextract((vm_offset_t)mpentry));
 
 	/*
 	 * Step1: Assert nCOREPORESET LOW and hold L1RSTDISABLE LOW.
 	 * Ensure DBGPWRDUP is held LOW to prevent any external
 	 * debug access to the processor.
 	 */
-
 	for (i = 0; i < mp_ncpus; i++) {
 		/* Assert cpu core reset */
 		bus_space_write_4(fdtbus_bs_tag, cpucfg, CPUX_RST_CTL(i), 0);

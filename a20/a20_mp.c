@@ -105,7 +105,7 @@ platform_mp_start_ap(void)
 	 * Ensure DBGPWRDUP is set to LOW to prevent any external
 	 * debug access to the processor.
 	 */
-	for (i = 0; i < mp_ncpus; i++) {
+	for (i = 1; i < mp_ncpus; i++) {
 		/* Assert cpu core reset */
 		bus_space_write_4(fdtbus_bs_tag, cpucfg, CPU_RST_CTL(i), 0);
 
@@ -138,7 +138,7 @@ platform_mp_start_ap(void)
 	bus_space_write_4(fdtbus_bs_tag, cpucfg, CPU1_PWROFF_REG, val);
 	DELAY(1000);
 
-	for (i = 0; i < mp_ncpus; i++) {
+	for (i = 1; i < mp_ncpus; i++) {
 
 		/* De-assert cpu core reset */
 		bus_space_write_4(fdtbus_bs_tag, cpucfg, CPU_RST_CTL(i), 3);

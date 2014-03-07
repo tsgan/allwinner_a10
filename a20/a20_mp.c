@@ -101,13 +101,13 @@ platform_mp_start_ap(void)
 	    pmap_kextract((vm_offset_t)mpentry));
 
 	/*
-	 * Assert cpu core reset low and set L1_RST_DISABLE low.
+	 * Assert cpu core reset low and set L1RSTDISABLE low.
 	 * Ensure DBGPWRDUP is set to LOW to prevent any external
 	 * debug access to the processor.
 	 */
 	bus_space_write_4(fdtbus_bs_tag, cpucfg, CPU1_RST_CTL, 0);
 
-	/* Set L1_RST_DISABLE low */
+	/* Set L1RSTDISABLE low */
 	val = bus_space_read_4(fdtbus_bs_tag, cpucfg, CPUCFG_GENCTL);
 	val &= ~(1 << 1);
 	bus_space_write_4(fdtbus_bs_tag, cpucfg, CPUCFG_GENCTL, val);

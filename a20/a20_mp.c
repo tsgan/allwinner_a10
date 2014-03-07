@@ -38,15 +38,16 @@ __FBSDID("$FreeBSD$");
 #include <machine/intr.h>
 
 #define	CPUCFG_BASE		0xe1c25c00
-#define	CPUCFG_SIZE		0x0400
+#define	CPUCFG_SIZE		0x400
 
-#define	CPUCFG_P_REG0		0x01a4
-#define	CPUCFG_GENCTL		0x0184
-#define	CPUCFG_DBGCTL0		0x01e0
-#define	CPUCFG_DBGCTL1		0x01e4
-#define	CPU1_PWR_CLAMP		0x01b0
-#define	CPU1_PWROFF_REG		0x01b4
-#define	CPU_RST_CTL(x)		(0x40 + (x) * 0x40)
+#define	CPUCFG_P_REG0		0x1a4
+#define	CPUCFG_GENCTL		0x184
+#define	CPUCFG_DBGCTL0		0x1e0
+#define	CPUCFG_DBGCTL1		0x1e4
+#define	CPU1_PWR_CLAMP		0x1b0
+#define	CPU1_PWROFF_REG		0x1b4
+#define	CPU0_RST_CTL		0x40
+#define	CPU1_RST_CTL		0x80
 
 void
 platform_mp_init_secondary(void)
@@ -88,7 +89,6 @@ platform_mp_start_ap(void)
 	bus_space_handle_t cpucfg;
 
 	uint32_t val;
-	int i;
 
 	if (bus_space_map(fdtbus_bs_tag, CPUCFG_BASE, CPUCFG_SIZE, 0,
 	    &cpucfg) != 0)
@@ -105,20 +105,17 @@ platform_mp_start_ap(void)
 	 * Ensure DBGPWRDUP is set to LOW to prevent any external
 	 * debug access to the processor.
 	 */
-	for (i = 1; i < mp_ncpus; i++) {
-		/* Assert cpu core reset */
-		bus_space_write_4(fdtbus_bs_tag, cpucfg, CPU_RST_CTL(i), 0);
+	bus_space_write_4(fdtbus_bs_tag, cpucfg, CPU1_RST_CTL, 0);
 
-		/* Set L1_RST_DISABLE low */
-		val = bus_space_read_4(fdtbus_bs_tag, cpucfg, CPUCFG_GENCTL);
-		val &= ~(1 << i);
-		bus_space_write_4(fdtbus_bs_tag, cpucfg, CPUCFG_GENCTL, val);
+	/* Set L1_RST_DISABLE low */
+	val = bus_space_read_4(fdtbus_bs_tag, cpucfg, CPUCFG_GENCTL);
+	val &= ~(1 << 1);
+	bus_space_write_4(fdtbus_bs_tag, cpucfg, CPUCFG_GENCTL, val);
 
-		/* Set DBGPWRDUP low */
-		val = bus_space_read_4(fdtbus_bs_tag, cpucfg, CPUCFG_DBGCTL1);
-		val &= ~(1 << i);
-		bus_space_write_4(fdtbus_bs_tag, cpucfg, CPUCFG_DBGCTL1, val);
-	}
+	/* Set DBGPWRDUP low */
+	val = bus_space_read_4(fdtbus_bs_tag, cpucfg, CPUCFG_DBGCTL1);
+	val &= ~(1 << 1);
+	bus_space_write_4(fdtbus_bs_tag, cpucfg, CPUCFG_DBGCTL1, val);
 
 	/* Release power clamp */
 	bus_space_write_4(fdtbus_bs_tag, cpucfg, CPU1_PWR_CLAMP, 0xff);
@@ -134,20 +131,17 @@ platform_mp_start_ap(void)
 
 	/* Clear power-off gating */
 	val = bus_space_read_4(fdtbus_bs_tag, cpucfg, CPU1_PWROFF_REG);
-	val &= ~(1);
+	val &= ~(1 << 0);
 	bus_space_write_4(fdtbus_bs_tag, cpucfg, CPU1_PWROFF_REG, val);
 	DELAY(1000);
 
-	for (i = 1; i < mp_ncpus; i++) {
+	/* De-assert cpu core reset */
+	bus_space_write_4(fdtbus_bs_tag, cpucfg, CPU1_RST_CTL, 3);
 
-		/* De-assert cpu core reset */
-		bus_space_write_4(fdtbus_bs_tag, cpucfg, CPU_RST_CTL(i), 3);
-
-		/* Assert DBGPWRDUP signal */
-		val = bus_space_read_4(fdtbus_bs_tag, cpucfg, CPUCFG_DBGCTL1);
-		val |= (1 << i);
-		bus_space_write_4(fdtbus_bs_tag, cpucfg, CPUCFG_DBGCTL1, val);
-	}
+	/* Assert DBGPWRDUP signal */
+	val = bus_space_read_4(fdtbus_bs_tag, cpucfg, CPUCFG_DBGCTL1);
+	val |= (1 << 1);
+	bus_space_write_4(fdtbus_bs_tag, cpucfg, CPUCFG_DBGCTL1, val);
 
 	armv7_sev();
 	bus_space_unmap(fdtbus_bs_tag, cpucfg, CPUCFG_SIZE);

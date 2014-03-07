@@ -101,7 +101,7 @@ platform_mp_start_ap(void)
 	    pmap_kextract((vm_offset_t)mpentry));
 
 	/*
-	 * Assert cpu core reset low and set L1RSTDISABLE low.
+	 * Assert nCOREPORESET low and set L1RSTDISABLE low.
 	 * Ensure DBGPWRDUP is set to LOW to prevent any external
 	 * debug access to the processor.
 	 */

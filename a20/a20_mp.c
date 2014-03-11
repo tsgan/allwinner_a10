@@ -74,7 +74,6 @@ platform_mp_setmaxid(void)
 
 	mp_ncpus = ncpu;
 	mp_maxid = ncpu - 1;
-	printf("mp_ncpus: %d, mp_maxid: %d\n", mp_ncpus, mp_maxid);
 }
 
 int

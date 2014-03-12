@@ -40,18 +40,18 @@ __FBSDID("$FreeBSD$");
 #define	CPUCFG_BASE		0x01c25c00
 #define	CPUCFG_SIZE		0x400
 
-#define	CPUCFG_P_REG0		0x1a4
-#define	CPUCFG_GENCTL		0x184
-#define	CPUCFG_DBGCTL0		0x1e0
-#define	CPUCFG_DBGCTL1		0x1e4
-#define	CPU1_PWR_CLAMP		0x1b0
-#define	CPU1_PWROFF_REG		0x1b4
 #define	CPU0_RST_CTL		0x40
 #define	CPU0_CTL		0x44
 #define	CPU0_STATUS		0x48
 #define	CPU1_RST_CTL		0x80
 #define	CPU1_CTL		0x84
 #define	CPU1_STATUS		0x88
+#define	CPUCFG_GENCTL		0x184
+#define	CPUCFG_P_REG0		0x1a4
+#define	CPU1_PWR_CLAMP		0x1b0
+#define	CPU1_PWROFF_REG		0x1b4
+#define	CPUCFG_DBGCTL0		0x1e0
+#define	CPUCFG_DBGCTL1		0x1e4
 
 void
 platform_mp_init_secondary(void)

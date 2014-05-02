@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2013 Ganbold Tsagaankhuu <ganbold@gmail.com>
+ * Copyright (c) 2013 Ganbold Tsagaankhuu <ganbold@freebsd.org>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -27,7 +27,7 @@
 /* Simple clock driver for Allwinner A10 */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: head/sys/arm/allwinner/a10_clk.c 261410 2014-02-02 19:17:28Z ian $");
+__FBSDID("$FreeBSD: head/sys/arm/allwinner/a10_clk.c 263711 2014-03-25 08:31:47Z ganbold $");
 
 #include <sys/param.h>
 #include <sys/systm.h>
@@ -189,3 +189,52 @@ a10_clk_emac_activate(void) {
 	return (0);
 }
 
+int
+a10_clk_sata_activate(void)
+{
+	struct a10_ccm_softc *sc = a10_ccm_sc;
+	uint32_t ocfg, ncfg;
+	int k;
+
+	if (sc == NULL)
+		return (ENXIO);
+
+	/*
+	 * SATA needs PLL6 to be a 100MHz clock.
+	 */
+	ocfg = ccm_read_4(sc, CCM_PLL6_CFG);
+	k = SHIFTOUT(ocfg, CCM_PLL_CFG_FACTOR_K);
+	printf("k = %d, ocfg = %u\n", k, ocfg);
+
+	/*
+	 * Output freq is 24MHz * n * k / m / 6.
+	 * To get to 100MHz, k & m must be equal and n must be 25.
+	 */
+	ncfg = ocfg;
+	ncfg &= ~(CCM_PLL_CFG_FACTOR_M | CCM_PLL_CFG_FACTOR_N);
+	ncfg &= ~(CCM_PLL_CFG_BYPASS);
+	ncfg |= SHIFTIN(k, CCM_PLL_CFG_FACTOR_M);
+	printf("SHIFTIN(k, CCM_PLL_CFG_FACTOR_M) = %d\n", SHIFTIN(k, CCM_PLL_CFG_FACTOR_M));
+
+	ncfg |= SHIFTIN(25, CCM_PLL_CFG_FACTOR_N);
+	printf("SHIFTIN(25, CCM_PLL_CFG_FACTOR_N) = %d\n", SHIFTIN(25, CCM_PLL_CFG_FACTOR_N));
+
+	ncfg |= CCM_PLL_CFG_ENABLE | CCM_PLL6_CFG_SATA_CLK_EN;
+	if (ncfg != ocfg)
+		ccm_write_4(sc, CCM_PLL6_CFG, ncfg);
+
+	/*
+	 * Make sure it's enabled for the AHB.
+	 */
+	ncfg = ccm_read_4(sc, CCM_AHB_GATING0);
+	ncfg |= CCM_AHB_GATING_SATA;
+	ccm_write_4(sc, CCM_AHB_GATING0, ncfg);
+	DELAY(1000);
+
+	/*
+	 * Now turn it on (forcing it to use PLL6).
+	 */
+	ccm_write_4(sc, CCM_SATA_CLK, CCM_CLK_ENABLE);
+
+	return (0);
+}

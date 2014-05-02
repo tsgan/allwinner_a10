@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2013 Ganbold Tsagaankhuu <ganbold@gmail.com>
+ * Copyright (c) 2013 Ganbold Tsagaankhuu <ganbold@freebsd.org>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -23,7 +23,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $FreeBSD: head/sys/arm/allwinner/a10_clk.h 246851 2013-02-15 21:29:03Z gonzo $
+ * $FreeBSD: head/sys/arm/allwinner/a10_clk.h 263711 2014-03-25 08:31:47Z ganbold $
  */
 
 #ifndef _A10_CLK_H_
@@ -103,18 +103,29 @@
 #define CCM_AHB_GATING_USB0	(1 << 0)
 #define CCM_AHB_GATING_EHCI0	(1 << 1)
 #define CCM_AHB_GATING_EHCI1	(1 << 3)
-#define CCM_AHB_GATING_SDMMC0	(1 << 8)
-#define CCM_AHB_GATING_SATA	(1 << 25)
 #define CCM_AHB_GATING_EMAC	(1 << 17)
+#define CCM_AHB_GATING_SATA	(1 << 25)
 
 #define CCM_USB_PHY		(1 << 8)
 #define CCM_USB0_RESET		(1 << 0)
 #define CCM_USB1_RESET		(1 << 1)
 #define CCM_USB2_RESET		(1 << 2)
 
+#define CCM_CLK_ENABLE			(1 << 31)
+#define CCM_PLL_CFG_ENABLE		(1 << 31)
+#define CCM_PLL_CFG_BYPASS		(1 << 30)
+#define CCM_PLL_CFG_FACTOR_N		(1 << 12) | (1 << 8)
+#define CCM_PLL_CFG_FACTOR_K		(1 << 5) | (1 << 4)
+#define CCM_PLL_CFG_FACTOR_M		0x03
+#define CCM_PLL6_CFG_SATA_CLK_EN	(1 << 14)
+
+#define LOWEST_SET_BIT(mask)	((((mask) - 1) & (mask)) ^ (mask))
+#define SHIFTOUT(x, mask)	(((x) & (mask)) / LOWEST_SET_BIT(mask))
+#define SHIFTIN(x, mask)	((x) * LOWEST_SET_BIT(mask))
+
 int a10_clk_usb_activate(void);
 int a10_clk_usb_deactivate(void);
-int a10_clk_mmc_activate(void);
 int a10_clk_emac_activate(void);
+int a10_clk_sata_activate(void);
 
 #endif /* _A10_CLK_H_ */

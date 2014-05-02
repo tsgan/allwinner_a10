@@ -111,6 +111,10 @@ struct a10_ahci_softc {
 
 #define GPIO_AHCI_PWR		40
 
+/* Per-port registers */
+#define AHCI_P_OFFSET(port) (0x80 * (port))
+#define SW_AHCI_P_DMA(p)	(0x170 + AHCI_P_OFFSET(p))
+
 static int	a10_ahci_probe(device_t dev);
 static int	a10_ahci_attach(device_t dev);
 static int	a10_ahci_detach(device_t dev);
@@ -125,7 +129,28 @@ static int	a10_ahci_setup_intr(device_t dev, device_t child,
     driver_intr_t *function, void *argument, void **cookiep);
 static int	a10_ahci_teardown_intr(device_t dev, device_t child,
     struct resource *irq, void *cookie);
+/*
+static void
+a10_ahci_channel_start(device_t dev, device_t child)
+{
+	struct a10_ahci_softc *sc;
+	struct ata_channel *ch;
+	uint32_t dma_reg, dma;
 
+	printf("---------- dma_reg first ------------\n");
+	sc = device_get_softc(dev);
+	ch = device_get_softc(child);
+	dma_reg = SW_AHCI_P_DMA(ch->unit);
+
+	printf("---------- dma_reg %x ------------\n", dma_reg);
+
+	dma = AHCI_READ_4(sc, dma_reg);
+	dma &= ~0xff00;
+	dma |= 0x4400;
+	AHCI_WRITE_4(sc, dma_reg, dma);
+	printf("---------- dma_reg last ------------\n");
+}
+*/
 static int
 a10_ahci_probe(device_t dev)
 {
@@ -146,128 +171,93 @@ a10_ahci_phy_init(device_t dev)
 	sc = device_get_softc(dev);
 	sc->sc_dev = dev;
 
-	printf("---------- 10 ------------\n");
-
 	DELAY(5000);
 	AHCI_WRITE_4(sc, SW_AHCI_RWCR, 0);
-	DELAY(10);
-
-	printf("---------- 100 ------------\n");
 
 	reg_val = AHCI_READ_4(sc, SW_AHCI_PHYCS1R);
-	reg_val |= (0x1<<19);
+	reg_val |= (1 << 19);
 	AHCI_WRITE_4(sc, SW_AHCI_PHYCS1R, reg_val);
-	DELAY(10);
-
-	printf("---------- 1001 ------------\n");
 
 	reg_val = AHCI_READ_4(sc, SW_AHCI_PHYCS0R);
-	reg_val |= 0x1<<23;
-	reg_val |= 0x1<<18;
-	reg_val &= ~(0x7<<24);
-	reg_val |= 0x5<<24;
+	reg_val |= (1 << 18);
+	reg_val |= (1 << 23);
+	reg_val |= (1 << 24);
+	reg_val |= (1 << 26);
+	reg_val &= ~(1 << 25);
 	AHCI_WRITE_4(sc, SW_AHCI_PHYCS0R, reg_val);
-	DELAY(10);
-
-	printf("---------- 1002 ------------\n");
 
 	reg_val = AHCI_READ_4(sc, SW_AHCI_PHYCS1R);
-	reg_val &= ~(0x3<<16);
-	reg_val |= (0x2<<16);
-	reg_val &= ~(0x1f<<8);
-	reg_val |= (6<<8);
-	reg_val &= ~(0x3<<6);
-	reg_val |= (2<<6);
-	AHCI_WRITE_4(sc, SW_AHCI_PHYCS1R, reg_val);
-	DELAY(10);
+	reg_val |= (1 << 7);
+	reg_val |= (1 << 9);
+	reg_val |= (1 << 10);
+	reg_val |= (1 << 17);
 
-	printf("---------- 1003 ------------\n");
+	reg_val &= ~(1 << 6);
+	reg_val &= ~(1 << 8);
+	reg_val &= ~(1 << 11);
+	reg_val &= ~(1 << 12);
+	reg_val &= ~(1 << 16);
+	AHCI_WRITE_4(sc, SW_AHCI_PHYCS1R, reg_val);
 
 	reg_val = AHCI_READ_4(sc, SW_AHCI_PHYCS1R);
-	reg_val |= (0x1<<28);
-	reg_val |= (0x1<<15);
+	reg_val |= (1 << 15);
+	reg_val |= (1 << 28);
 	AHCI_WRITE_4(sc, SW_AHCI_PHYCS1R, reg_val);
-	DELAY(10);
-
-	printf("---------- 1004 ------------\n");
 
 	reg_val = AHCI_READ_4(sc, SW_AHCI_PHYCS1R);
-	reg_val &= ~(0x1<<19);
+	reg_val &= ~(1 << 19);
 	AHCI_WRITE_4(sc, SW_AHCI_PHYCS1R, reg_val);
-	DELAY(10);
-
-	printf("---------- 1005 ------------\n");
 
 	reg_val = AHCI_READ_4(sc, SW_AHCI_PHYCS0R);
-	reg_val &= ~(0x7<<20);
-	reg_val |= (0x03<<20);
+	reg_val |= (1 << 20);
+	reg_val |= (1 << 21);
+	reg_val &= ~(1 << 22);
 	AHCI_WRITE_4(sc, SW_AHCI_PHYCS0R, reg_val);
 	DELAY(10);
-
-	printf("---------- 1006 ------------\n");
 
 	reg_val = AHCI_READ_4(sc, SW_AHCI_PHYCS2R);
-	reg_val &= ~(0x1f<<5);
-	reg_val |= (0x19<<5);
+	reg_val |= (1 << 5);
+	reg_val |= (1 << 8);
+	reg_val |= (1 << 9);
+	reg_val &= ~(1 << 6);
+	reg_val &= ~(1 << 7);
 	AHCI_WRITE_4(sc, SW_AHCI_PHYCS2R, reg_val);
-	DELAY(20);
+	DELAY(10);
 
-	printf("---------- 110 XXX ------------\n");
-
-	DELAY(5000);
 	reg_val = AHCI_READ_4(sc, SW_AHCI_PHYCS0R);
-	reg_val |= 0x1<<19;
+	reg_val |= (1 << 19);
 	AHCI_WRITE_4(sc, SW_AHCI_PHYCS0R, reg_val);
-	DELAY(20);
-
-	printf("---------- 110 ------------\n");
 
 	timeout = 1000;
-	do{
-		DELAY(10);
+	do {
+		DELAY(1);
 		reg_val = AHCI_READ_4(sc, SW_AHCI_PHYCS0R);
-		timeout --;
-		if(!timeout) break;
-	}while((reg_val&(0x7<<28))!=(0x02<<28));
-
-	printf("---------- 1100 ------------\n");
+	} while(--timeout && 
+		SHIFTOUT(reg_val, ((1 << 28) | (1 << 30)) != 2));
 
 	if(!timeout)
-	{
 		device_printf(dev, "SATA AHCI Phy Power Failed!!\n");
-	}
-
-	reg_val = AHCI_READ_4(sc, SW_AHCI_PHYCS2R);
-	reg_val |= 0x1<<24;
-	AHCI_WRITE_4(sc, SW_AHCI_PHYCS2R, reg_val);
-
-	printf("---------- 11000 ------------\n");
-
-	timeout = 1000;
-	do{
-		DELAY(10);
+	else {
 		reg_val = AHCI_READ_4(sc, SW_AHCI_PHYCS2R);
-		timeout --;
-		if(!timeout) break;
-	}while(reg_val&(0x1<<24));
-
-	printf("---------- 111 ------------\n");
-
-	if(!timeout)
-	{
-		device_printf(dev, "SATA AHCI Phy Calibration Failed!!\n");
+		reg_val |= (1 << 24);
+		AHCI_WRITE_4(sc, SW_AHCI_PHYCS2R, reg_val);
+		timeout = 1000;
+		do {
+			DELAY(10);
+			reg_val = AHCI_READ_4(sc, SW_AHCI_PHYCS2R);
+		} while(--timeout && (reg_val & (1 << 24)));
+		if(!timeout)
+			device_printf(dev, "SATA AHCI Phy calibration Failed!!\n");
 	}
-
-	DELAY(15000);
+	DELAY(10);
 	AHCI_WRITE_4(sc, SW_AHCI_RWCR, 0x07);
-
-	printf("---------- 11 ------------\n");
 }
 
 static int
 a10_ahci_attach(device_t dev)
 {
 	struct a10_ahci_softc *sc;
+//	struct ata_channel *ch;
 	int mem_id, irq_id, error, i;
 	device_t child;
         device_t sc_gpio_dev;
@@ -276,22 +266,21 @@ a10_ahci_attach(device_t dev)
 	sc->sc_dev = dev;
 
 	/* Allocate resources */
+	mem_id = 0;
 	sc->sc_mem_res = bus_alloc_resource_any(dev, SYS_RES_MEMORY,
 	    &mem_id, RF_ACTIVE);
 	if (sc->sc_mem_res == NULL) {
 		device_printf(dev, "could not allocate memory.\n");
-		return (ENOMEM);
+                error = ENOMEM;
+                goto err;
 	}
-
-	printf("---------- 12 ------------\n");
 
 	sc->sc_mem_res_bustag = rman_get_bustag(sc->sc_mem_res);
 	sc->sc_mem_res_bushdl = rman_get_bushandle(sc->sc_mem_res);
 	KASSERT(sc->sc_mem_res_bustag && sc->sc_mem_res_bushdl,
 	    ("cannot get bus handle or tag."));
 
-	printf("---------- 13 ------------\n");
-
+	irq_id = 0;
 	sc->sc_irq_res = bus_alloc_resource_any(dev, SYS_RES_IRQ, &irq_id,
 	    RF_ACTIVE);
 	if (sc->sc_irq_res == NULL) {
@@ -301,24 +290,37 @@ a10_ahci_attach(device_t dev)
 	}
 
 	/* Enable SATA Clock in SATA PLL */
-	a10_clk_ahci_activate();
+	a10_clk_sata_activate();
+
+	/* Attach channels */
+	for (i = 0; i < SATA_CHAN_NUM; i++) {
+		child = device_add_child(dev, "ahcich", -1);
+		if (!child) {
+			device_printf(dev, "cannot add channel %d.\n", i);
+			error = ENOMEM;
+			goto err;
+		}
+//		ch = device_get_softc(child);
+//		ch->unit = i;
+//		printf("---------- 14.1 ------------\n");
+//		a10_ahci_channel_start(dev, child);
+//		printf("---------- 14.2 ------------\n");
+	}
 
 	/* Init phy */
 	a10_ahci_phy_init(dev);
 
-	printf("---------- 0 ------------\n");
         /* Get the GPIO device, we need this to give power to USB */
         sc_gpio_dev = devclass_get_device(devclass_find("gpio"), 0);
         if (sc_gpio_dev == NULL) {
                 device_printf(dev, "Error: failed to get the GPIO device\n");
+                error = ENXIO;
                 goto err;
         }
 
         /* Give power to SATA */
         GPIO_PIN_SETFLAGS(sc_gpio_dev, GPIO_AHCI_PWR, GPIO_PIN_OUTPUT);
         GPIO_PIN_SET(sc_gpio_dev, GPIO_AHCI_PWR, GPIO_PIN_HIGH);
-
-	printf("---------- 1 ------------\n");
 
 	error = bus_setup_intr(dev, sc->sc_irq_res,
 	    INTR_TYPE_BIO | INTR_MPSAFE | INTR_ENTROPY,
@@ -328,25 +330,12 @@ a10_ahci_attach(device_t dev)
 		goto err;
 	}
 
-	/* Attach channels */
-	for (i = 0; i < SATA_CHAN_NUM; i++) {
-		child = device_add_child(dev, "ahcich", -1);
-
-		if (!child) {
-			device_printf(dev, "cannot add channel %d.\n", i);
-			error = ENOMEM;
-			goto err;
-		}
-	}
-
-	printf("---------- 2 ------------\n");
-
 	bus_generic_attach(dev);
 	return (0);
 
 err:
 	a10_ahci_detach(dev);
-	return (ENXIO);
+	return (error);
 }
 
 static int
@@ -487,6 +476,7 @@ static driver_t a10_ahci_driver = {
 devclass_t a10_ahci_devclass;
 
 DRIVER_MODULE(a10_ahci, simplebus, a10_ahci_driver, a10_ahci_devclass, 0, 0);
+
 //MODULE_VERSION(a10_ahci, 1);
 //MODULE_DEPEND(a10_ahci, cam, 1, 1, 1);
 

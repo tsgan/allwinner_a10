@@ -525,7 +525,7 @@ MODULE_VERSION(a10_ahci, 1);
 MODULE_DEPEND(a10_ahci, ata, 1, 1, 1);
 
 static void
-ahci_channel_start(device_t dev, struct ata_channel *ch)
+ahci_channel_start(device_t dev)
 {
         struct a10_ahci_softc *sc = device_get_softc(device_get_parent(dev));
 	uint32_t reg_value;
@@ -593,7 +593,9 @@ ahci_channel_attach(device_t dev)
         ch->r_io[ATA_SCONTROL].res = sc->sc_mem_res;
         ch->r_io[ATA_SCONTROL].offset = ATA_SCONTROL;
 
-	ahci_channel_start(dev, ch);
+	ahci_channel_start(dev);
+
+        ata_dmainit(dev);
 
         ata_generic_hw(dev);
         ch->attached = 1;
@@ -610,7 +612,7 @@ static device_method_t ahci_channel_methods[] = {
         DEVMETHOD(device_suspend,   ata_suspend),
         DEVMETHOD(device_resume,    ata_resume),
 
-        { 0, 0 }
+	DEVMETHOD_END
 };
 
 driver_t ahci_channel_driver = {
@@ -619,4 +621,3 @@ driver_t ahci_channel_driver = {
         sizeof(struct ata_channel),
 };
 DRIVER_MODULE(ata, a10_ahci, ahci_channel_driver, ata_devclass, 0, 0);
-

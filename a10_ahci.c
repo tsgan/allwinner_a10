@@ -152,7 +152,7 @@ a10_ahci_phy_init(device_t dev)
 
 	DELAY(5000);
 	AHCI_WRITE_4(sc, SW_AHCI_RWCR, 0);
-
+/*
 	reg_val = AHCI_READ_4(sc, SW_AHCI_PHYCS1R);
 	reg_val |= (1 << 19);
 	AHCI_WRITE_4(sc, SW_AHCI_PHYCS1R, reg_val);
@@ -208,7 +208,7 @@ a10_ahci_phy_init(device_t dev)
 
 	timeout = 1000;
 	do {
-		DELAY(1);
+		DELAY(10);
 		reg_val = AHCI_READ_4(sc, SW_AHCI_PHYCS0R);
 	} while(--timeout && 
 		SHIFTOUT(reg_val, ((1 << 28) | (1 << 30))) != 2);
@@ -227,6 +227,88 @@ a10_ahci_phy_init(device_t dev)
 		if(!timeout)
 			device_printf(dev, "SATA AHCI Phy calibration Failed!!\n");
 	}
+
+*/
+	reg_val = AHCI_READ_4(sc, SW_AHCI_PHYCS1R);
+	reg_val |= (0x1 << 19);
+	AHCI_WRITE_4(sc, SW_AHCI_PHYCS1R, reg_val);
+	DELAY(10);
+
+	reg_val = AHCI_READ_4(sc, SW_AHCI_PHYCS0R);
+	reg_val |= (0x1 << 23);
+	reg_val |= (0x1 << 18);
+	reg_val &= ~(0x7<<24);
+	reg_val |= (0x5 << 24);
+	AHCI_WRITE_4(sc, SW_AHCI_PHYCS0R, reg_val);
+	DELAY(10);
+
+	reg_val = AHCI_READ_4(sc, SW_AHCI_PHYCS1R);
+	reg_val &= ~(0x3 << 16);
+	reg_val |= (0x2 << 16);
+	reg_val &= ~(0x1f << 8);
+	reg_val |= (6 << 8);
+	reg_val &= ~(0x3 << 6);
+	reg_val |= (2 << 6);
+	AHCI_WRITE_4(sc, SW_AHCI_PHYCS1R, reg_val);
+	DELAY(10);
+
+	reg_val = AHCI_READ_4(sc, SW_AHCI_PHYCS1R);
+	reg_val |= (0x1 << 28);
+	reg_val |= (0x1 << 15);
+	AHCI_WRITE_4(sc, SW_AHCI_PHYCS1R, reg_val);
+	DELAY(10);
+
+	reg_val = AHCI_READ_4(sc, SW_AHCI_PHYCS1R);
+	reg_val &= ~(0x1 << 19);
+	AHCI_WRITE_4(sc, SW_AHCI_PHYCS1R, reg_val);
+	DELAY(10);
+
+	reg_val = AHCI_READ_4(sc, SW_AHCI_PHYCS0R);
+	reg_val &= ~(0x7 << 20);
+	reg_val |= (0x03 << 20);
+	AHCI_WRITE_4(sc, SW_AHCI_PHYCS0R, reg_val);
+	DELAY(10);
+
+	reg_val = AHCI_READ_4(sc, SW_AHCI_PHYCS2R);
+	reg_val &= ~(0x1f << 5);
+	reg_val |= (0x19 << 5);
+	AHCI_WRITE_4(sc, SW_AHCI_PHYCS2R, reg_val);
+	DELAY(20);
+
+	DELAY(5000);
+	reg_val = AHCI_READ_4(sc, SW_AHCI_PHYCS0R);
+	reg_val |= (0x1 << 19);
+	AHCI_WRITE_4(sc, SW_AHCI_PHYCS0R, reg_val);
+	DELAY(20);
+
+	timeout = 1000;
+	do {
+		DELAY(10);
+		reg_val = AHCI_READ_4(sc, SW_AHCI_PHYCS0R);
+		timeout --;
+		if(!timeout) 
+			break;
+	} while((reg_val & (0x7 << 28)) != (0x02 << 28));
+
+	if(!timeout)
+		device_printf(dev, "SATA AHCI Phy Power Failed!!\n");
+
+	reg_val = AHCI_READ_4(sc, SW_AHCI_PHYCS2R);
+	reg_val |= (0x1 << 24);
+	AHCI_WRITE_4(sc, SW_AHCI_PHYCS2R, reg_val);
+
+	timeout = 1000;
+	do {
+		DELAY(10);
+		reg_val = AHCI_READ_4(sc, SW_AHCI_PHYCS2R);
+		timeout --;
+		if(!timeout) 
+			break;
+	} while(reg_val & (0x1 << 24));
+
+	if(!timeout)
+		device_printf(dev, "SATA AHCI Phy Calibration Failed!!\n");
+
 	DELAY(10);
 	AHCI_WRITE_4(sc, SW_AHCI_RWCR, 0x07);
 }

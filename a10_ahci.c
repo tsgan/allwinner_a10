@@ -111,10 +111,6 @@ struct a10_ahci_softc {
 
 #define GPIO_AHCI_PWR		40
 
-/* Per-port registers */
-#define AHCI_P_OFFSET(port)	(0x80 * (port))
-#define SW_AHCI_P_DMA(p)	(0x170 + AHCI_P_OFFSET(p))
-
 static int	a10_ahci_probe(device_t dev);
 static int	a10_ahci_attach(device_t dev);
 static int	a10_ahci_detach(device_t dev);

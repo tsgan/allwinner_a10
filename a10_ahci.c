@@ -192,7 +192,6 @@ a10_ahci_phy_init(device_t dev)
 	reg_val |= (1 << 21);
 	reg_val &= ~(1 << 22);
 	AHCI_WRITE_4(sc, SW_AHCI_PHYCS0R, reg_val);
-	DELAY(10);
 
 	reg_val = AHCI_READ_4(sc, SW_AHCI_PHYCS2R);
 	reg_val |= (1 << 5);
@@ -212,7 +211,7 @@ a10_ahci_phy_init(device_t dev)
 		DELAY(1);
 		reg_val = AHCI_READ_4(sc, SW_AHCI_PHYCS0R);
 	} while(--timeout && 
-		SHIFTOUT(reg_val, ((1 << 28) | (1 << 30)) != 2));
+		SHIFTOUT(reg_val, ((1 << 28) | (1 << 30))) != 2);
 
 	if(!timeout)
 		device_printf(dev, "SATA AHCI Phy Power Failed!!\n");
@@ -236,7 +235,6 @@ static int
 a10_ahci_attach(device_t dev)
 {
 	struct a10_ahci_softc *sc;
-//	struct ata_channel *ch;
 	int mem_id, irq_id, error, i;
 	device_t child;
         device_t sc_gpio_dev;
@@ -456,18 +454,12 @@ static void
 ahci_channel_start(device_t dev, struct ata_channel *ch)
 {
         struct a10_ahci_softc *sc = device_get_softc(device_get_parent(dev));
-	uint32_t dma_reg, dma;
+	uint32_t reg_value;
 
-	printf("---------- dma_reg first ------------\n");
-	dma_reg = SW_AHCI_P_DMA(ch->unit);
-
-	printf("---------- dma_reg %x ------------\n", dma_reg);
-
-	dma = AHCI_READ_4(sc, dma_reg);
-	dma &= ~0xff00;
-	dma |= 0x4400;
-	AHCI_WRITE_4(sc, dma_reg, dma);
-	printf("---------- dma_reg last ------------\n");
+	reg_value = AHCI_READ_4(sc, SW_AHCI_P0DMACR);
+	reg_value &= ~0xff00;
+	reg_value |= 0x4400;
+	AHCI_WRITE_4(sc, SW_AHCI_P0DMACR, reg_value);
 }
 
 static int
@@ -493,7 +485,6 @@ ahci_channel_attach(device_t dev)
                 return (0);
 
         ch->dev = dev;
-//        ch->unit = device_get_unit(dev);
         ch->flags |= ATA_USE_16BIT | ATA_NO_SLAVE | ATA_SATA;
 
         for (i = 0; i < ATA_MAX_RES; i++)
@@ -528,9 +519,7 @@ ahci_channel_attach(device_t dev)
         ch->r_io[ATA_SCONTROL].res = sc->sc_mem_res;
         ch->r_io[ATA_SCONTROL].offset = ATA_SCONTROL;
 
-	printf("---------- 14.1 ------------\n");
 	ahci_channel_start(dev, ch);
-	printf("---------- 14.2 ------------\n");
 
         ata_generic_hw(dev);
         ch->attached = 1;

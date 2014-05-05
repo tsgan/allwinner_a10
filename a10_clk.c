@@ -204,7 +204,6 @@ a10_clk_sata_activate(void)
 	 */
 	ocfg = ccm_read_4(sc, CCM_PLL6_CFG);
 	k = SHIFTOUT(ocfg, CCM_PLL_CFG_FACTOR_K);
-	printf("k = %d, ocfg = %u\n", k, ocfg);
 
 	/*
 	 * Output freq is 24MHz * n * k / m / 6.
@@ -213,11 +212,9 @@ a10_clk_sata_activate(void)
 	ncfg = ocfg;
 	ncfg &= ~(CCM_PLL_CFG_FACTOR_M | CCM_PLL_CFG_FACTOR_N);
 	ncfg &= ~(CCM_PLL_CFG_BYPASS);
-	ncfg |= SHIFTIN(k, CCM_PLL_CFG_FACTOR_M);
-	printf("SHIFTIN(k, CCM_PLL_CFG_FACTOR_M) = %d\n", SHIFTIN(k, CCM_PLL_CFG_FACTOR_M));
 
+	ncfg |= SHIFTIN(k, CCM_PLL_CFG_FACTOR_M);
 	ncfg |= SHIFTIN(25, CCM_PLL_CFG_FACTOR_N);
-	printf("SHIFTIN(25, CCM_PLL_CFG_FACTOR_N) = %d\n", SHIFTIN(25, CCM_PLL_CFG_FACTOR_N));
 
 	ncfg |= CCM_PLL_CFG_ENABLE | CCM_PLL6_CFG_SATA_CLK_EN;
 	if (ncfg != ocfg)

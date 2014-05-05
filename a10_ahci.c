@@ -232,7 +232,6 @@ a10_ahci_phy_init(device_t dev)
 	reg_val = AHCI_READ_4(sc, SW_AHCI_PHYCS1R);
 	reg_val |= (0x1 << 19);
 	AHCI_WRITE_4(sc, SW_AHCI_PHYCS1R, reg_val);
-	DELAY(10);
 
 	reg_val = AHCI_READ_4(sc, SW_AHCI_PHYCS0R);
 	reg_val |= (0x1 << 23);
@@ -240,7 +239,6 @@ a10_ahci_phy_init(device_t dev)
 	reg_val &= ~(0x7<<24);
 	reg_val |= (0x5 << 24);
 	AHCI_WRITE_4(sc, SW_AHCI_PHYCS0R, reg_val);
-	DELAY(10);
 
 	reg_val = AHCI_READ_4(sc, SW_AHCI_PHYCS1R);
 	reg_val &= ~(0x3 << 16);
@@ -250,36 +248,30 @@ a10_ahci_phy_init(device_t dev)
 	reg_val &= ~(0x3 << 6);
 	reg_val |= (2 << 6);
 	AHCI_WRITE_4(sc, SW_AHCI_PHYCS1R, reg_val);
-	DELAY(10);
 
 	reg_val = AHCI_READ_4(sc, SW_AHCI_PHYCS1R);
 	reg_val |= (0x1 << 28);
 	reg_val |= (0x1 << 15);
 	AHCI_WRITE_4(sc, SW_AHCI_PHYCS1R, reg_val);
-	DELAY(10);
 
 	reg_val = AHCI_READ_4(sc, SW_AHCI_PHYCS1R);
 	reg_val &= ~(0x1 << 19);
 	AHCI_WRITE_4(sc, SW_AHCI_PHYCS1R, reg_val);
-	DELAY(10);
 
 	reg_val = AHCI_READ_4(sc, SW_AHCI_PHYCS0R);
 	reg_val &= ~(0x7 << 20);
 	reg_val |= (0x03 << 20);
 	AHCI_WRITE_4(sc, SW_AHCI_PHYCS0R, reg_val);
-	DELAY(10);
 
 	reg_val = AHCI_READ_4(sc, SW_AHCI_PHYCS2R);
 	reg_val &= ~(0x1f << 5);
 	reg_val |= (0x19 << 5);
 	AHCI_WRITE_4(sc, SW_AHCI_PHYCS2R, reg_val);
-	DELAY(20);
+	DELAY(10);
 
-	DELAY(5000);
 	reg_val = AHCI_READ_4(sc, SW_AHCI_PHYCS0R);
 	reg_val |= (0x1 << 19);
 	AHCI_WRITE_4(sc, SW_AHCI_PHYCS0R, reg_val);
-	DELAY(20);
 
 	timeout = 1000;
 	do {

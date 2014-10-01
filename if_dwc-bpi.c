@@ -471,6 +471,9 @@ dwc_init_locked(struct dwc_softc *sc)
 
        	WRITE4(sc, INTERRUPT_ENABLE, INT_EN_DEFAULT);
 
+	/* Mask GMAC interrupts */
+	WRITE4(sc, INTERRUPT_MASK, 0x207);
+
 	/* Start DMA */
 	reg = READ4(sc, OPERATION_MODE);
 	reg |= (MODE_ST | MODE_SR);
@@ -1162,7 +1165,7 @@ dwc_attach(device_t dev)
 	        return (ENXIO);
 
 	/* Mask GMAC interrupts */
-	WRITE4(sc, INTERRUPT_MASK, 0x207);
+	//WRITE4(sc, INTERRUPT_MASK, 0x207);
 
 	/* Setup addresses */
 	WRITE4(sc, RX_DESCR_LIST_ADDR, sc->rxdesc_ring_paddr);

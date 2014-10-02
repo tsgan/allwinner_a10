@@ -997,8 +997,10 @@ setup_dma(struct dwc_softc *sc)
 	}
 
 	for (idx = 0; idx < TX_DESC_COUNT; idx++) {
-		sc->txdesc_ring[idx].dmamac_cntl = DDESC_TXCTRL_TXCHAIN;
-		sc->txdesc_ring[idx].txrx_status = 0;
+		sc->txdesc_ring[idx].txrx_status = DDESC_TXCTRL_TXCHAIN;
+		sc->txdesc_ring[idx].dmamac_cntl = 0;
+//		sc->txdesc_ring[idx].dmamac_cntl = DDESC_TXCTRL_TXCHAIN;
+//		sc->txdesc_ring[idx].txrx_status = 0;
 		nidx = next_txidx(sc, idx);
 		sc->txdesc_ring[idx].addr_next = sc->txdesc_ring_paddr + \
 		    (nidx * sizeof(struct dwc_hwdesc));

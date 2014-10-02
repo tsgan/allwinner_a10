@@ -84,29 +84,83 @@ __FBSDID("$FreeBSD: head/sys/dev/dwc/if_dwc.c 272226 2014-09-27 20:43:01Z glebiu
 #define	WRITE4(_sc, _reg, _val) \
 	bus_write_4((_sc)->res[0], _reg, _val)
 
+#define	READ4_SID(_sc, _reg) \
+	bus_read_4((_sc)->res[1], _reg)
+#define	WRITE4_SID(_sc, _reg, _val) \
+	bus_write_4((_sc)->res[1], _reg, _val)
+
 #define	WATCHDOG_TIMEOUT_SECS	5
 #define	STATS_HARVEST_INTERVAL	2
 #define	MII_CLK_VAL		2
 
 #include <arm/allwinner/if_dwc-bpi.h>
+#include <arm/allwinner/a10_clk.h>
+#include <arm/allwinner/a10_gpio.h>
 
 #define	DWC_LOCK(sc)			mtx_lock(&(sc)->mtx)
 #define	DWC_UNLOCK(sc)			mtx_unlock(&(sc)->mtx)
 #define	DWC_ASSERT_LOCKED(sc)		mtx_assert(&(sc)->mtx, MA_OWNED);
 #define	DWC_ASSERT_UNLOCKED(sc)		mtx_assert(&(sc)->mtx, MA_NOTOWNED);
 
-#define	DDESC_TDES0_OWN			(1 << 31)
-#define	DDESC_TDES0_TXINT		(1 << 30)
-#define	DDESC_TDES0_TXLAST		(1 << 29)
-#define	DDESC_TDES0_TXFIRST		(1 << 28)
-#define	DDESC_TDES0_TXCRCDIS		(1 << 27)
-#define	DDESC_TDES0_TXRINGEND		(1 << 21)
-#define	DDESC_TDES0_TXCHAIN		(1 << 20)
+/* tx/rx status definitions */
 
+/* tx status bits definitions */
+#define	DDESC_TDES0_OWN			(1 << 31)
+#define	DDESC_TDES0_MSK		        (0x1ffff << 0)
+
+#define DDESC_TDES0_TXINT               (1 << 30)
+#define DDESC_TDES0_TXLAST              (1 << 29)
+#define DDESC_TDES0_TXFIRST             (1 << 28)
+#define DDESC_TDES0_TXCRCDIS            (1 << 27)
+#define DDESC_TDES0_TXRINGEND           (1 << 21)
+#define DDESC_TDES0_TXCHAIN             (1 << 20)
+
+/* rx status bits definitions */
 #define	DDESC_RDES0_OWN			(1 << 31)
 #define	DDESC_RDES0_FL_MASK		0x3fff
 #define	DDESC_RDES0_FL_SHIFT		16	/* Frame Length */
 #define	DDESC_RDES1_CHAINED		(1 << 14)
+
+#define DDESC_RXSTS_DAFILTERFAIL        (1 << 30)
+#define DDESC_RXSTS_FRMLENMSK           (0x3FFF << 16)
+#define DDESC_RXSTS_FRMLENSHFT          (16)
+#define DDESC_RXSTS_ERROR               (1 << 15)
+#define DDESC_RXSTS_RXTRUNCATED         (1 << 14)
+#define DDESC_RXSTS_SAFILTERFAIL        (1 << 13)
+#define DDESC_RXSTS_RXIPC_GIANTFRAME    (1 << 12)
+#define DDESC_RXSTS_RXDAMAGED           (1 << 11)
+#define DDESC_RXSTS_RXVLANTAG           (1 << 10)
+#define DDESC_RXSTS_RXFIRST             (1 << 9)
+#define DDESC_RXSTS_RXLAST              (1 << 8)
+#define DDESC_RXSTS_RXIPC_GIANT         (1 << 7)
+#define DDESC_RXSTS_RXCOLLISION         (1 << 6)
+#define DDESC_RXSTS_RXFRAMEETHER        (1 << 5)
+#define DDESC_RXSTS_RXWATCHDOG          (1 << 4)
+#define DDESC_RXSTS_RXMIIERROR          (1 << 3)
+#define DDESC_RXSTS_RXDRIBBLING         (1 << 2)
+#define DDESC_RXSTS_RXCRC               (1 << 1)
+
+/* tx control bits definitions */
+#define DDESC_TXCTRL_TXINT               (1 << 31)
+#define DDESC_TXCTRL_TXLAST              (1 << 30)
+#define DDESC_TXCTRL_TXFIRST             (1 << 29)
+#define DDESC_TXCTRL_TXCHECKINSCTRL      (3 << 27)
+#define DDESC_TXCTRL_TXCRCDIS            (1 << 26)
+#define DDESC_TXCTRL_TXRINGEND           (1 << 25)
+#define DDESC_TXCTRL_TXCHAIN             (1 << 24)
+#define DDESC_TXCTRL_SIZE1MASK           (0x7FF << 0)
+#define DDESC_TXCTRL_SIZE1SHFT           (0)
+#define DDESC_TXCTRL_SIZE2MASK           (0x7FF << 11)
+#define DDESC_TXCTRL_SIZE2SHFT           (11)
+
+/* rx control bits definitions */
+#define DDESC_RXCTRL_RXINTDIS            (1 << 31)
+#define DDESC_RXCTRL_RXRINGEND           (1 << 25)
+#define DDESC_RXCTRL_RXCHAIN             (1 << 24)
+#define DDESC_RXCTRL_SIZE1MASK           (0x7FF << 0)
+#define DDESC_RXCTRL_SIZE1SHFT           (0)
+#define DDESC_RXCTRL_SIZE2MASK           (0x7FF << 11)
+#define DDESC_RXCTRL_SIZE2SHFT           (11)
 
 struct dwc_bufmap {
 	bus_dmamap_t	map;
@@ -119,8 +173,8 @@ struct dwc_bufmap {
  */
 struct dwc_hwdesc
 {
-	uint32_t tdes0;
-	uint32_t tdes1;
+	uint32_t txrx_status;
+	uint32_t dmamac_cntl;
 	uint32_t addr;		/* pointer to buffer data */
 	uint32_t addr_next;	/* link to next descriptor */
 };
@@ -128,9 +182,9 @@ struct dwc_hwdesc
 /*
  * Driver data and defines.
  */
-#define	RX_DESC_COUNT	1024
+#define	RX_DESC_COUNT	16
 #define	RX_DESC_SIZE	(sizeof(struct dwc_hwdesc) * RX_DESC_COUNT)
-#define	TX_DESC_COUNT	1024
+#define	TX_DESC_COUNT	16
 #define	TX_DESC_SIZE	(sizeof(struct dwc_hwdesc) * TX_DESC_COUNT)
 
 /*
@@ -140,9 +194,11 @@ struct dwc_hwdesc
 #define	DWC_DESC_RING_ALIGN		2048
 
 struct dwc_softc {
-	struct resource		*res[2];
+	struct resource		*res[3];
 	bus_space_tag_t		bst;
 	bus_space_handle_t	bsh;
+	bus_space_tag_t		sid_bst;
+	bus_space_handle_t	sid_bsh;
 	device_t		dev;
 	int			mii_clk;
 	device_t		miibus;
@@ -183,6 +239,7 @@ struct dwc_softc {
 
 static struct resource_spec dwc_spec[] = {
 	{ SYS_RES_MEMORY,	0,	RF_ACTIVE },
+        { SYS_RES_MEMORY,       1,      RF_ACTIVE },
 	{ SYS_RES_IRQ,		0,	RF_ACTIVE },
 	{ -1, 0 }
 };
@@ -229,18 +286,19 @@ dwc_setup_txdesc(struct dwc_softc *sc, int idx, bus_addr_t paddr,
 		flags = 0;
 		--sc->txcount;
 	} else {
-		flags = DDESC_TDES0_TXCHAIN | DDESC_TDES0_TXFIRST
-		    | DDESC_TDES0_TXLAST | DDESC_TDES0_TXINT;
+		flags = ((len << DDESC_TXCTRL_SIZE1SHFT) & \
+		    DDESC_TXCTRL_SIZE1MASK) | DDESC_TXCTRL_TXLAST | \
+		    DDESC_TXCTRL_TXFIRST;
 		++sc->txcount;
 	}
 
 	sc->txdesc_ring[idx].addr = (uint32_t)(paddr);
-	sc->txdesc_ring[idx].tdes0 = flags;
-	sc->txdesc_ring[idx].tdes1 = len;
+	sc->txdesc_ring[idx].txrx_status = flags;
+	sc->txdesc_ring[idx].dmamac_cntl = len;
 
 	if (paddr && len) {
 		wmb();
-		sc->txdesc_ring[idx].tdes0 |= DDESC_TDES0_OWN;
+		sc->txdesc_ring[idx].txrx_status |= DDESC_TDES0_OWN;
 		wmb();
 	}
 
@@ -316,6 +374,7 @@ dwc_txstart_locked(struct dwc_softc *sc)
 
 	if (enqueued != 0) {
 		WRITE4(sc, TRANSMIT_POLL_DEMAND, 0x1);
+//		WRITE4(sc, TRANSMIT_POLL_DEMAND, 0xffffffff);
 		sc->tx_watchdog_count = WATCHDOG_TIMEOUT_SECS;
 	}
 }
@@ -462,17 +521,19 @@ dwc_init_locked(struct dwc_softc *sc)
 
 	dwc_setup_rxfilter(sc);
 
-	/* Initializa DMA and enable transmitters */
+	/* Initialize DMA and enable transmitters */
 	reg = READ4(sc, OPERATION_MODE);
 	reg |= (MODE_TSF | MODE_OSF | MODE_FUF);
 	reg &= ~(MODE_RSF);
 	reg |= (MODE_RTC_LEV32 << MODE_RTC_SHIFT);
 	WRITE4(sc, OPERATION_MODE, reg);
 
-       	WRITE4(sc, INTERRUPT_ENABLE, INT_EN_DEFAULT);
+	/* Flush TX */
+	reg = READ4(sc, OPERATION_MODE);
+	reg |= (MODE_FTF);
+	WRITE4(sc, OPERATION_MODE, reg);
 
-	/* Mask GMAC interrupts */
-	WRITE4(sc, INTERRUPT_MASK, 0x207);
+       	WRITE4(sc, INTERRUPT_ENABLE, INT_EN_DEFAULT);
 
 	/* Start DMA */
 	reg = READ4(sc, OPERATION_MODE);
@@ -484,6 +545,9 @@ dwc_init_locked(struct dwc_softc *sc)
 	reg |= (CONF_JD | CONF_ACS | CONF_BE);
 	reg |= (CONF_TE | CONF_RE);
 	WRITE4(sc, MAC_CONFIGURATION, reg);
+
+	/* Mask GMAC interrupts */
+	WRITE4(sc, INTERRUPT_MASK, 0x207);
 
 	/*
 	 * Call mii_mediachg() which will call back into dwc_miibus_statchg()
@@ -512,10 +576,11 @@ dwc_setup_rxdesc(struct dwc_softc *sc, int idx, bus_addr_t paddr)
 	nidx = next_rxidx(sc, idx);
 	sc->rxdesc_ring[idx].addr_next = sc->rxdesc_ring_paddr +	\
 	    (nidx * sizeof(struct dwc_hwdesc));
-	sc->rxdesc_ring[idx].tdes1 = DDESC_RDES1_CHAINED | MCLBYTES;
+	sc->rxdesc_ring[idx].dmamac_cntl = (MCLBYTES & DDESC_RXCTRL_SIZE1MASK) | \
+	    DDESC_RXCTRL_RXCHAIN;
 
 	wmb();
-	sc->rxdesc_ring[idx].tdes0 = DDESC_RDES0_OWN;
+	sc->rxdesc_ring[idx].txrx_status = DDESC_RDES0_OWN;
 	wmb();
 
 	return (nidx);
@@ -763,9 +828,17 @@ dwc_txfinish_locked(struct dwc_softc *sc)
 
 	while (sc->tx_idx_tail != sc->tx_idx_head) {
 		desc = &sc->txdesc_ring[sc->tx_idx_tail];
-		if ((desc->tdes0 & DDESC_TDES0_OWN) != 0)
+		if ((desc->txrx_status & DDESC_TDES0_OWN) != 0)
 			break;
-		bmap = &sc->txbuf_map[sc->tx_idx_tail];
+
+//		desc->dmamac_cntl = ((len << DDESC_TXCTRL_SIZE1SHFT) &	\
+//		    DDESC_TXCTRL_SIZE1MASK) | DDESC_TXCTRL_TXLAST |	\
+//		    DDESC_TXCTRL_TXFIRST;
+		wmb();
+		desc->txrx_status |= DDESC_TDES0_OWN;
+		wmb();
+
+      		bmap = &sc->txbuf_map[sc->tx_idx_tail];
 		bus_dmamap_sync(sc->txbuf_tag, bmap->map,
 		    BUS_DMASYNC_POSTWRITE);
 		bus_dmamap_unload(sc->txbuf_tag, bmap->map);
@@ -797,7 +870,7 @@ dwc_rxfinish_locked(struct dwc_softc *sc)
 	for (;;) {
 		idx = sc->rx_idx;
 
-		rdes0 = sc->rxdesc_ring[idx].tdes0;
+		rdes0 = sc->rxdesc_ring[idx].txrx_status;
 		if ((rdes0 & DDESC_RDES0_OWN) != 0)
 			break;
 
@@ -816,6 +889,7 @@ dwc_rxfinish_locked(struct dwc_softc *sc)
 			DWC_UNLOCK(sc);
 			(*ifp->if_input)(ifp, m);
 			DWC_LOCK(sc);
+
 		} else {
 			/* XXX Zero-length packet ? */
 		}
@@ -829,6 +903,9 @@ dwc_rxfinish_locked(struct dwc_softc *sc)
 			}
 		} else
 			if_inc_counter(sc->ifp, IFCOUNTER_IQDROPS, 1);
+
+	        /* make current descriptor valid again */
+		sc->rxdesc_ring[idx].txrx_status |= DDESC_RDES0_OWN;
 
 		sc->rx_idx = next_rxidx(sc, sc->rx_idx);
 	}
@@ -920,8 +997,8 @@ setup_dma(struct dwc_softc *sc)
 	}
 
 	for (idx = 0; idx < TX_DESC_COUNT; idx++) {
-		sc->txdesc_ring[idx].tdes0 = DDESC_TDES0_TXCHAIN;
-		sc->txdesc_ring[idx].tdes1 = 0;
+		sc->txdesc_ring[idx].dmamac_cntl = DDESC_TXCTRL_TXCHAIN;
+		sc->txdesc_ring[idx].txrx_status = 0;
 		nidx = next_txidx(sc, idx);
 		sc->txdesc_ring[idx].addr_next = sc->txdesc_ring_paddr + \
 		    (nidx * sizeof(struct dwc_hwdesc));
@@ -1115,13 +1192,17 @@ dwc_attach(device_t dev)
 	sc->bst = rman_get_bustag(sc->res[0]);
 	sc->bsh = rman_get_bushandle(sc->res[0]);
 
+	/* SID */
+	sc->sid_bst = rman_get_bustag(sc->res[1]);
+	sc->sid_bsh = rman_get_bushandle(sc->res[1]);
+
 	mtx_init(&sc->mtx, device_get_nameunit(sc->dev),
 	    MTX_NETWORK_LOCK, MTX_DEF);
 
 	callout_init_mtx(&sc->dwc_callout, &sc->mtx, 0);
 
 	/* Setup interrupt handler. */
-	error = bus_setup_intr(dev, sc->res[1], INTR_TYPE_NET | INTR_MPSAFE,
+	error = bus_setup_intr(dev, sc->res[2], INTR_TYPE_NET | INTR_MPSAFE,
 	    NULL, dwc_intr, sc, &sc->intr_cookie);
 	if (error != 0) {
 		device_printf(dev, "could not setup interrupt handler.\n");
@@ -1134,6 +1215,20 @@ dwc_attach(device_t dev)
 		return (ENXIO);
 	}
 
+	/* Activate clock */
+	a10_clk_gmac_activate();
+
+	/* Configure pin mux settings for GMAC */
+//	for (i = 0; i <= 16; i++) {
+
+		/* skip unused pins in RGMII mode */
+//		if (i == 9 || i == 14)
+//			continue;
+
+//		a10_gmac_gpio_config(i);
+//		sunxi_gpio_set_drv(pin, 3);
+//	}
+	
 	/* Reset */
 	reg = READ4(sc, BUS_MODE);
 	reg |= (BUS_MODE_SWR);
@@ -1149,6 +1244,18 @@ dwc_attach(device_t dev)
 		return (ENXIO);
 	}
 
+	/* Set hw address again */
+	reg = READ4_SID(sc, 0x0);//read the chipID
+	macaddr[0] = 0x02; /* Non OUI / registered MAC address */
+	macaddr[1] = (reg >> 0) & 0xff;
+	reg = READ4_SID(sc, 0x0c);
+	macaddr[2] = (reg >> 24) & 0xff;
+	macaddr[3] = (reg >> 16) & 0xff;
+	macaddr[4] = (reg >> 8) & 0xff;
+	macaddr[5] = (reg >> 0) & 0xff;
+
+	printf("MAC address: %s\n", ether_sprintf(macaddr));
+	
 	reg = READ4(sc, BUS_MODE);
 	reg |= (BUS_MODE_EIGHTXPBL);
 	reg |= (BUS_MODE_PBL_BEATS_8 << BUS_MODE_PBL_SHIFT);

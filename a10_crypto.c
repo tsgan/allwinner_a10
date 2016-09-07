@@ -62,8 +62,6 @@ struct a10_crypto_softc {
 	uint32_t		sc_buf[A10_SS_FIFO_WORDS];
 };
 
-static struct a10_crypto_softc *a10_crypto_sc;
-
 static struct resource_spec a10_crypto_spec[] = {
 	{ SYS_RES_MEMORY,	0,	RF_ACTIVE },
 	{ -1, 0 }
@@ -162,8 +160,6 @@ a10_crypto_attach(device_t dev)
 		device_printf(dev, "cannot allocate resources for device\n");
 		return (ENXIO);
 	}
-
-	a10_crypto_sc = sc;
 
 	/* Get clocks and enable them */
 	err = clk_get_by_ofw_name(dev, 0, "ahb", &clk_gate);

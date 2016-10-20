@@ -45,11 +45,12 @@ __FBSDID("$FreeBSD$");
 #include <dev/ofw/ofw_bus.h>
 #include <dev/ofw/ofw_bus_subr.h>
 #include <dev/extres/clk/clk.h>
+#include <dev/extres/hwreset/hwreset.h>
 
 #include <arm/allwinner/a10_crypto.h>
 
 static struct ofw_compat_data compat_data[] = {
-	{ "allwinner,sun4i-a10-crypto",		1},
+	{ "allwinner,sun4i-a10-crypto",		1 },
 	{ NULL,					0 }
 };
 
@@ -150,27 +151,39 @@ static int
 a10_crypto_attach(device_t dev)
 {
 	struct a10_crypto_softc *sc;
+	hwreset_t rst_ahb;
 	clk_t clk_ss, clk_gate;
 	int err, i;
 	uint32_t val = 0;
 
 	sc = device_get_softc(dev);
+	clk_ss = clk_gate = NULL;
+	rst_ahb = NULL;
 
 	if (bus_alloc_resources(dev, a10_crypto_spec, &sc->res) != 0) {
 		device_printf(dev, "cannot allocate resources for device\n");
 		return (ENXIO);
 	}
 
+	/* De-assert reset */
+	if (hwreset_get_by_ofw_name(dev, 0, "ahb", &rst_ahb) == 0) {
+		err = hwreset_deassert(rst_ahb);
+		if (err != 0) {
+			device_printf(dev, "cannot de-assert reset\n");
+			goto error;
+		}
+	}
+
 	/* Get clocks and enable them */
 	err = clk_get_by_ofw_name(dev, 0, "ahb", &clk_gate);
 	if (err != 0) {
 		device_printf(dev, "Cannot get gate clock\n");
-		return (ENXIO);
+		goto error;
 	}
 	err = clk_get_by_ofw_name(dev, 0, "mod", &clk_ss);
 	if (err != 0) {
 		device_printf(dev, "Cannot get SS clock\n");
-		return (ENXIO);
+		goto error;
 	}
 	err = clk_enable(clk_gate);
 	if (err != 0) {
@@ -182,6 +195,7 @@ a10_crypto_attach(device_t dev)
 		device_printf(dev, "Cannot enable SS clock\n");
 		goto error;
 	}
+
 	/*
 	 * "Die Bonding ID"
 	 */
@@ -212,6 +226,8 @@ error:
 		clk_release(clk_gate);
 	if (clk_ss != NULL)
 		clk_release(clk_ss);
+	if (rst_ahb != NULL)
+		hwreset_release(rst_ahb);
 	bus_release_resources(dev, a10_crypto_spec, &sc->res);
 	return (ENXIO);
 }

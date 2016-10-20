@@ -27,8 +27,6 @@
 #ifndef	A10_CRYPTO_H_
 #define	A10_CRYPTO_H_
 
-#define	A10_SS_PHYSBASE			0x01c15000
-#define	A10_SS_SIZE			0x1000
 #define	A10_SS_CTL			0x00
 #define	A10_SS_KEY0			0x04
 #define	A10_SS_KEY1			0x08

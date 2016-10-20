@@ -129,12 +129,6 @@ __FBSDID("$FreeBSD$");
 #define	A10_IR				1
 #define	A13_IR				2
 
-struct aw_ir_raw_buffer {
-	unsigned long		dcnt;	/*Packet Count*/
-#define	IR_RAW_BUF_SIZE		128
-	unsigned char		buf[IR_RAW_BUF_SIZE];
-};
-
 struct aw_ir_softc {
 	device_t		dev;
 	struct resource		*res[2];
@@ -144,6 +138,9 @@ struct aw_ir_softc {
 	int			fifo_size;
 	struct aw_ir_raw_buffer *rawbuf;
 	unsigned long		code;
+	unsigned long		dcnt;	/*Packet Count*/
+#define	IR_RAW_BUF_SIZE		128
+	unsigned char		buf[IR_RAW_BUF_SIZE];
 	int			timer_used;
 	struct evdev_dev	*sc_evdev;
 };
@@ -164,15 +161,15 @@ static void
 aw_ir_reset_rawbuffer(struct aw_ir_softc *sc)
 {
 
-	sc->rawbuf->dcnt = 0;
+	sc->dcnt = 0;
 }
 
 static void
 aw_ir_write_rawbuffer(struct aw_ir_softc *sc, unsigned char data)
 {
 
-	if (sc->rawbuf->dcnt < IR_RAW_BUF_SIZE)
-		sc->rawbuf->buf[sc->rawbuf->dcnt++] = data;
+	if (sc->dcnt < IR_RAW_BUF_SIZE)
+		sc->buf[sc->dcnt++] = data;
 	else
 		device_printf(sc->dev, "aw_ir_write_rawbuffer: IR RX Buffer Full!\n");
 }
@@ -182,8 +179,8 @@ aw_ir_read_rawbuffer(struct aw_ir_softc *sc)
 {
 	unsigned char data = 0x00;
 
-	if (sc->rawbuf->dcnt > 0)
-		data = sc->rawbuf->buf[--sc->rawbuf->dcnt];
+	if (sc->dcnt > 0)
+		data = sc->buf[--sc->dcnt];
 
 	return data;
 }
@@ -192,14 +189,14 @@ static int
 aw_ir_rawbuffer_empty(struct aw_ir_softc *sc)
 {
 
-	return (sc->rawbuf->dcnt == 0);
+	return (sc->dcnt == 0);
 }
 
 static int
 aw_ir_rawbuffer_full(struct aw_ir_softc *sc)
 {
 
-	return (sc->rawbuf->dcnt >= IR_RAW_BUF_SIZE);
+	return (sc->dcnt >= IR_RAW_BUF_SIZE);
 }
 
 static void
@@ -208,9 +205,9 @@ print_err_code(struct aw_ir_softc *sc)
 	unsigned long i = 0;
 
 	device_printf(sc->dev, "error code:\n");
-	for (i = 0; i < sc->rawbuf->dcnt; i++) {
+	for (i = 0; i < sc->dcnt; i++) {
 		device_printf(sc->dev, "%d:%d  ",
-		    ((sc->rawbuf->buf[i] & 0x80) >> 7), (sc->rawbuf->buf[i] & 0x7f));
+		    ((sc->buf[i] & 0x80) >> 7), (sc->buf[i] & 0x7f));
 		if((i + 1) % 6 == 0)
 			device_printf(sc->dev, "\n");
 	}
@@ -227,15 +224,15 @@ aw_ir_packet_handler(struct aw_ir_softc *sc)
 	unsigned long i=0;
 	unsigned int active_delay = 0;
 
-	device_printf(sc->dev, "dcnt = %d \n", (int)sc->rawbuf->dcnt);
+	device_printf(sc->dev, "dcnt = %d \n", (int)sc->dcnt);
 
 	/* Find Lead '1' */
 	active_delay = (IR_ACTIVE_T + 1) * (IR_ACTIVE_T_C ? 128 : 1);
 	device_printf(sc->dev, "%d active_delay = %d\n", __LINE__, active_delay);
 	len = 0;
 	len += (active_delay >> 1);
-	for (i = 0; i < sc->rawbuf->dcnt; i++) {
-		val = sc->rawbuf->buf[i];
+	for (i = 0; i < sc->dcnt; i++) {
+		val = sc->buf[i];
 		if (val & 0x80)
 			len += val & 0x7f;
 		else {
@@ -254,8 +251,8 @@ aw_ir_packet_handler(struct aw_ir_softc *sc)
 
 	/* Find Lead '0' */
 	len = 0;
-	for (; i < sc->rawbuf->dcnt; i++) {
-		val = sc->rawbuf->buf[i];
+	for (; i < sc->dcnt; i++) {
+		val = sc->buf[i];
 		if (val & 0x80) {
 			if(len > IR_L0_MIN)
 				break;
@@ -274,8 +271,8 @@ aw_ir_packet_handler(struct aw_ir_softc *sc)
 	bitCnt = 0;
 	last = 1;
 	len = 0;
-	for (; i < sc->rawbuf->dcnt; i++) {
-		val = sc->rawbuf->buf[i];
+	for (; i < sc->dcnt; i++) {
+		val = sc->buf[i];
 		if (last) {
 			if (val & 0x80)
 				len += val & 0x7f;
@@ -349,7 +346,7 @@ static void aw_ir_timer_handle(void *arg)
 
     device_printf(sc->dev, "IR KEY TIMER OUT UP\n");
 
-    sc->rawbuf->dcnt = 0;
+    sc->dcnt = 0;
 
     device_printf(sc->dev, "aw_ir_timer_handle: timeout\n");
 }
@@ -393,12 +390,12 @@ aw_ir_intr(void *arg)
 
 		if (aw_ir_rawbuffer_full(sc)) {
 			device_printf(sc->dev, "Raw Buffer Full!\n");
-			sc->rawbuf->dcnt = 0;
+			sc->dcnt = 0;
 			return;
 		}
 
 		code = aw_ir_packet_handler(sc);
-		sc->rawbuf->dcnt = 0;
+		sc->dcnt = 0;
 		code_valid = aw_ir_code_valid(code);
 
 		device_printf(sc->dev, "IR code = 0x%lx\n", code);
@@ -411,7 +408,7 @@ aw_ir_intr(void *arg)
 
 				device_printf(sc->dev, "IR KEY UP\n");
 
-				sc->rawbuf->dcnt = 0;
+				sc->dcnt = 0;
 			}
 			if ((code == IR_REPEAT_CODE) || (code_valid)) {
 				/* Error, may interfere from other sources */
@@ -429,8 +426,8 @@ aw_ir_intr(void *arg)
 		}
 
 		if (sc->timer_used) {
-			sc->rawbuf->dcnt++;
-			if (sc->rawbuf->dcnt == 1) {
+			sc->dcnt++;
+			if (sc->dcnt == 1) {
 				if (code_valid) {
 					/* update saved code */
 					sc->code = code;
@@ -487,14 +484,6 @@ aw_ir_attach(device_t dev)
 		return (ENXIO);
 	}
 
-	if (bus_setup_intr(dev, sc->res[1],
-	    INTR_TYPE_MISC | INTR_MPSAFE, NULL, aw_ir_intr, sc,
-	    &sc->intrhand)) {
-		bus_release_resources(dev, aw_ir_spec, sc->res);
-		device_printf(dev, "cannot setup interrupt handler\n");
-		return (ENXIO);
-	}
-
 	switch (ofw_bus_search_compatible(dev, compat_data)->ocd_data) {
 	case A10_IR:
 		sc->fifo_size = 16;
@@ -513,7 +502,7 @@ aw_ir_attach(device_t dev)
 		}
 	}
 
-	sc->rawbuf->dcnt = 0;
+	sc->dcnt = 0;
 	sc->code = 0;
 	sc->timer_used = 0;
 
@@ -547,6 +536,14 @@ aw_ir_attach(device_t dev)
 	if (err != 0) {
 		device_printf(dev, "Cannot enable IR clock\n");
 		goto error;
+	}
+
+	if (bus_setup_intr(dev, sc->res[1],
+	    INTR_TYPE_MISC | INTR_MPSAFE, NULL, aw_ir_intr, sc,
+	    &sc->intrhand)) {
+		bus_release_resources(dev, aw_ir_spec, sc->res);
+		device_printf(dev, "cannot setup interrupt handler\n");
+		return (ENXIO);
 	}
 
 	/* Enable CIR Mode */

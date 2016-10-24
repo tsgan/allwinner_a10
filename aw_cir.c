@@ -25,7 +25,7 @@
  */
 
 /*
- * Allwinner sunXi IR controller
+ * Allwinner sunXi Consumer IR controller
  */
 
 #include <sys/cdefs.h>
@@ -101,22 +101,14 @@ __FBSDID("$FreeBSD$");
 #define	VAL_MASK		0x80
 /* Bits 0:14 - sample duration  */
 #define	PERIOD_MASK		0x7f
-/* From 0x80 to pulse bit */
-#define	PULSE_BIT		17
-#define	SAMPLES_TO_US(v)	((((unsigned long) v) * 1000000UL) / 46875UL)
 
 /* Clock rate for IR0 or IR1 clock in CIR mode */
-#define IR_BASE_CLK		8000000
+/* 6 MHz */
+#define	IR_BASE_CLK		3000000
 /* Freq sample = 3MHz/64 = 46875Hz (21.3us) */
 #define	IR_SAMPLE_64		(0 << 0)
 /* Freq sample 3MHz/128 = 23437.5Hz (42.7us) */
 #define	IR_SAMPLE_128		(1 << 0)
-/* Noise threshold in samples  */
-#define	IR_RXNOISE		1
-/* Idle threshold in samples */
-#define	IR_RXIDLE		20
-/* Time after which device stops sending data in ms */
-#define	IR_TIMEOUT		120
 
 #define	A10_IR			1
 #define	A13_IR			2
@@ -173,7 +165,7 @@ static unsigned char
 aw_ir_read_data(struct aw_ir_softc *sc)
 {
 
-    return (unsigned char)(READ(sc, IR_RXFIFO) & 0xff);
+	return (unsigned char)(READ(sc, IR_RXFIFO) & 0xff);
 }
 
 static void
@@ -181,21 +173,14 @@ aw_ir_handle_packets(struct aw_ir_softc *sc)
 {
 	unsigned int i;
 	unsigned int val = 0;
-	unsigned int pulse;
 
 	device_printf(sc->dev, "Buffer len: %d\n", sc->dcnt);
-	for(i = 0; i < sc->dcnt; ) {
-		pulse = (unsigned int) (sc->buf[i] & VAL_MASK);
-		for(; i < sc->dcnt && (sc->buf[i] & VAL_MASK) == pulse; i++) {
-			val += SAMPLES_TO_US(sc->buf[i] & PERIOD_MASK);
-		}
-		val |= pulse << PULSE_BIT;
-		device_printf(sc->dev,
-		    "buf: %x, val: %x, level: %d for %dus\n",
-		    sc->buf[i], val,
-		    (sc->buf[i] & VAL_MASK) ? 1 : 0, val & PERIOD_MASK);
+	for (i = 0; i < sc->dcnt; i++) {
+		val = (unsigned int)sc->buf[i];
 
-		evdev_push_event(sc->sc_evdev, EV_KEY, val, 1);
+		device_printf(sc->dev, "val: %x\n", val);
+
+		evdev_push_event(sc->sc_evdev, EV_MSC, MSC_SCAN, val);
 		evdev_sync(sc->sc_evdev);
 	}
 }
@@ -368,10 +353,7 @@ aw_ir_attach(device_t dev)
 	evdev_set_id(sc->sc_evdev, BUS_HOST, 0, 0, 0);
 	evdev_support_prop(sc->sc_evdev, INPUT_PROP_DIRECT);
 	evdev_support_event(sc->sc_evdev, EV_SYN);
-	evdev_support_event(sc->sc_evdev, EV_KEY);
-	evdev_support_event(sc->sc_evdev, EV_REP);
 	evdev_support_event(sc->sc_evdev, EV_MSC);
-
 	evdev_support_msc(sc->sc_evdev, MSC_SCAN);
 
 	err = evdev_register(sc->sc_evdev);
@@ -390,7 +372,7 @@ error:
 	if (rst_apb != NULL)
 		hwreset_release(rst_apb);
 	evdev_free(sc->sc_evdev);
-	sc->sc_evdev = NULL;    /* Avoid double free */
+	sc->sc_evdev = NULL;	/* Avoid double free */
 
 	bus_release_resources(dev, aw_ir_spec, sc->res);
 	return (ENXIO);

@@ -151,7 +151,8 @@ aw_ir_buffer_write(struct aw_ir_softc *sc, unsigned char data)
 	if (sc->dcnt < IR_RAW_BUF_SIZE)
 		sc->buf[sc->dcnt++] = data;
 	else
-		device_printf(sc->dev, "IR RX Buffer Full!\n");
+		if (bootverbose)
+			device_printf(sc->dev, "IR RX Buffer Full!\n");
 }
 
 static int
@@ -174,11 +175,14 @@ aw_ir_handle_packets(struct aw_ir_softc *sc)
 	unsigned int i;
 	unsigned int val = 0;
 
-	device_printf(sc->dev, "Buffer len: %d\n", sc->dcnt);
+	if (bootverbose)
+		device_printf(sc->dev, "Buffer len: %d\n", sc->dcnt);
+
 	for (i = 0; i < sc->dcnt; i++) {
 		val = (unsigned int)sc->buf[i];
 
-		device_printf(sc->dev, "val: %x\n", val);
+		if (bootverbose)
+			device_printf(sc->dev, "val: %x\n", val);
 
 		evdev_push_event(sc->sc_evdev, EV_MSC, MSC_SCAN, val);
 		evdev_sync(sc->sc_evdev);
@@ -207,7 +211,8 @@ aw_ir_intr(void *arg)
 		/* Read FIFO */
 		for (i = 0; i < dcnt; i++) {
 			if (aw_ir_buffer_full(sc)) {
-				device_printf(sc->dev, "raw buffer full\n");
+				if (bootverbose)
+					device_printf(sc->dev, "raw buffer full\n");
 				break;
 			} else
 				aw_ir_buffer_write(sc, aw_ir_read_data(sc));
@@ -216,14 +221,17 @@ aw_ir_intr(void *arg)
 
 	if (val & IR_RXINT_RPEI_EN) {
 		/* RX Packet end */
-		device_printf(sc->dev, "RX Packet end\n");
+		if (bootverbose)
+			device_printf(sc->dev, "RX Packet end\n");
 		aw_ir_handle_packets(sc);
-		device_printf(sc->dev, "Buffer written\n");
+		if (bootverbose)
+			device_printf(sc->dev, "Buffer written\n");
 		sc->dcnt = 0;
 	}
 	if (val & IR_RXINT_ROI_EN) {
 		/* RX FIFO overflow */
-		device_printf(sc->dev, "RX FIFO overflow\n");
+		if (bootverbose)
+			device_printf(sc->dev, "RX FIFO overflow\n");
 		/* Flush raw buffer */
 		aw_ir_buffer_reset(sc);
 	}
@@ -323,8 +331,10 @@ aw_ir_attach(device_t dev)
 	/* Enable CIR Mode */
 	WRITE(sc, IR_CTL, IR_CTL_MD);
 
-	/* Set clock sample, filter, idle, active thresholds */
-	/* Fsample = 3MHz/64 =46875Hz (21.3us) */
+	/*
+	 * Set clock sample, filter, idle thresholds.
+	 * sample = 3MHz/64 =46875Hz (21.3us)
+	 */
 	val = IR_SAMPLE_64;
 	val |= (IR_RXFILT_VAL | IR_RXIDLE_VAL);
 	WRITE(sc, IR_CIR, val);
@@ -337,8 +347,8 @@ aw_ir_attach(device_t dev)
 
 	/*
 	 * Enable interrupt in case of overflow, packet end
-	 * and FIFO available with trigger level.
-	 * Rx FIFO Threshold = FIFOsz/2
+	 * and FIFO available.
+	 * Rx FIFO Threshold = FIFO size / 2
 	 */
 	WRITE(sc, IR_RXINT, IR_RXINT_ROI_EN | IR_RXINT_RPEI_EN |
 	    IR_RXINT_RAI_EN | IR_RXINT_RAL((sc->fifo_size >> 1) - 1));

@@ -88,8 +88,6 @@ __FBSDID("$FreeBSD$");
 /* Clear all interrupt status */
 #define	 IR_RXSTA_CLEARALL	0xff
 
-/* Frequency of Sample Clock = 46875.Hz, Cycle is 21.3us */
-
 /* IR Sample Configure Reg */
 #define	IR_CIR			0x34
 /* Filter Threshold = 8 * 21.3 = ~128us < 200us */
@@ -103,12 +101,34 @@ __FBSDID("$FreeBSD$");
 #define	PERIOD_MASK		0x7f
 
 /* Clock rate for IR0 or IR1 clock in CIR mode */
-/* 6 MHz */
 #define	IR_BASE_CLK		3000000
 /* Freq sample = 3MHz/64 = 46875Hz (21.3us) */
 #define	IR_SAMPLE_64		(0 << 0)
 /* Freq sample 3MHz/128 = 23437.5Hz (42.7us) */
 #define	IR_SAMPLE_128		(1 << 0)
+
+#define	IR_ERROR_CODE		0xffffffff
+#define	IR_REPEAT_CODE		0x0
+
+/* 80 * 42.7 = ~3.4ms, Lead1(4.5ms) > IR_L1_MIN */
+#define	IR_L1_MIN		80
+/* 40 * 42.7 = ~1.7ms, Lead0(4.5ms) Lead0R(2.25ms) > IR_L0_MIN */
+#define	IR_L0_MIN		40
+/* 26 * 42.7 = ~1109us ~= 561 * 2, Pulse < IR_PMAX */
+#define	IR_PMAX			26
+/* 26 * 42.7 = ~1109us ~= 561 * 2, D1 > IR_DMID, D0 <= IR_DMID */
+#define	IR_DMID			26
+/* 53 * 42.7 = ~2263us ~= 561 * 4, D < IR_DMAX */
+#define	IR_DMAX			53
+
+/* Active Thresholds */
+#define	IR_ACTIVE_T		((0 & 0xff) << 16)
+#define	IR_ACTIVE_T_C		((1 & 0xff) << 23)
+
+/* Code masks */
+#define	CODE_MASK		0x00ff00ff
+#define	INV_CODE_MASK		0xff00ff00
+#define	VALID_CODE_MASK		0x00ff0000
 
 #define	A10_IR			1
 #define	A13_IR			2
@@ -169,24 +189,126 @@ aw_ir_read_data(struct aw_ir_softc *sc)
 	return (unsigned char)(READ(sc, IR_RXFIFO) & 0xff);
 }
 
-static void
+static unsigned long
 aw_ir_handle_packets(struct aw_ir_softc *sc)
 {
-	unsigned int i;
-	unsigned int val = 0;
+	unsigned long len;
+	unsigned char val = 0x00;
+	unsigned char last = 0x00;
+	unsigned long code = 0;
+	int bitCnt = 0;
+	unsigned long i=0;
+	unsigned int active_delay = 0;
 
 	if (bootverbose)
-		device_printf(sc->dev, "Buffer len: %d\n", sc->dcnt);
+		device_printf(sc->dev, "sc->dcnt = %d \n", (int)sc->dcnt);
 
-	for (i = 0; i < sc->dcnt; i++) {
-		val = (unsigned int)sc->buf[i];
-
-		if (bootverbose)
-			device_printf(sc->dev, "val: %x\n", val);
-
-		evdev_push_event(sc->sc_evdev, EV_MSC, MSC_SCAN, val);
-		evdev_sync(sc->sc_evdev);
+	/* Find Lead '1' */
+	active_delay = (IR_ACTIVE_T + 1) * (IR_ACTIVE_T_C ? 128 : 1);
+	len = 0;
+	len += (active_delay >> 1);
+	if (bootverbose)
+		device_printf(sc->dev, "Initial len: %ld\n", len);
+	for (i = 0;  i < sc->dcnt; i++) {
+		val = sc->buf[i];
+		if (val & VAL_MASK)
+			len += val & PERIOD_MASK;
+		else {
+			if (len > IR_L1_MIN)
+				break;
+			len = 0;
+		}
 	}
+
+	if (bootverbose)
+		device_printf(sc->dev, "len = %ld\n", len);
+
+	if ((val & VAL_MASK) || (len <= IR_L1_MIN)) {
+		if (bootverbose)
+			device_printf(sc->dev, "start 1 error code\n");
+		goto error_code; /* Invalid Code */
+	}
+
+	/* Find Lead '0' */
+	len = 0;
+	for (; i < sc->dcnt; i++) {
+		val = sc->buf[i];
+		if (val & VAL_MASK) {
+			if(len > IR_L0_MIN)
+				break;
+			len = 0;
+		} else
+			len += val & PERIOD_MASK;
+	}
+
+	if ((!(val & VAL_MASK)) || (len <= IR_L0_MIN)) {
+		if (bootverbose)
+			device_printf(sc->dev, "start 0 error code\n");
+		goto error_code; /* Invalid Code */
+	}
+
+	/* Start decoding */
+	code = 0; /* 0 for Repeat Code */
+	bitCnt = 0;
+	last = 1;
+	len = 0;
+	for (; i < sc->dcnt; i++) {
+		val = sc->buf[i];
+		if (last) {
+			if (val & VAL_MASK)
+				len += val & PERIOD_MASK;
+			else {
+				if (len > IR_PMAX) {	/* Error Pulse */
+					if (bootverbose)
+						device_printf(sc->dev,
+						    "len > IR_PMAX\n");
+					goto error_code;
+				}
+				last = 0;
+				len = val & PERIOD_MASK;
+			}
+		} else {
+			if (val & VAL_MASK) {
+				if (len > IR_DMAX) {	/* Error Distant */
+					if (bootverbose)
+						device_printf(sc->dev,
+						    "len > IR_DMAX\n");
+					goto error_code;
+				} else {
+					if (len > IR_DMID) {
+						/* data '1'*/
+						code |= 1 << bitCnt;
+					}
+					bitCnt++;
+					if (bitCnt == 32)
+						break;  /* decode over */
+				}
+				last = 1;
+				len = val & PERIOD_MASK;
+			} else
+				len += val & PERIOD_MASK;
+		}
+	}
+	return (code);
+
+error_code:
+
+	return (IR_ERROR_CODE);
+}
+
+static int
+aw_ir_validate_code(unsigned long code)
+{
+	unsigned long v1, v2;
+
+	/* Don't check address */
+	v1 = code & CODE_MASK;
+	v2 = (code & INV_CODE_MASK) >> 8;
+
+	if (((v1 ^ v2) & VALID_CODE_MASK) == VALID_CODE_MASK)
+		return (0);	/* valid */
+	else
+		return (1);	/* invalid */
 }
 
 static void
@@ -195,6 +317,8 @@ aw_ir_intr(void *arg)
 	struct aw_ir_softc *sc;
 	uint32_t val;
 	int i, dcnt;
+	unsigned long ir_code;
+	int valid;
 
 	sc = (struct aw_ir_softc *)arg;
 
@@ -212,7 +336,8 @@ aw_ir_intr(void *arg)
 		for (i = 0; i < dcnt; i++) {
 			if (aw_ir_buffer_full(sc)) {
 				if (bootverbose)
-					device_printf(sc->dev, "raw buffer full\n");
+					device_printf(sc->dev,
+					    "raw buffer full\n");
 				break;
 			} else
 				aw_ir_buffer_write(sc, aw_ir_read_data(sc));
@@ -223,9 +348,19 @@ aw_ir_intr(void *arg)
 		/* RX Packet end */
 		if (bootverbose)
 			device_printf(sc->dev, "RX Packet end\n");
-		aw_ir_handle_packets(sc);
-		if (bootverbose)
-			device_printf(sc->dev, "Buffer written\n");
+		ir_code = aw_ir_handle_packets(sc);
+		valid = aw_ir_validate_code(ir_code);
+		if (valid == 0) {
+			evdev_push_event(sc->sc_evdev,
+			    EV_MSC, MSC_SCAN, ir_code);
+			evdev_sync(sc->sc_evdev);
+		}
+		if (bootverbose) {
+			device_printf(sc->dev, "Final IR code: %lx\n",
+			    ir_code);
+			device_printf(sc->dev, "Is IR code valid ? %d\n",
+			    valid);
+		}
 		sc->dcnt = 0;
 	}
 	if (val & IR_RXINT_ROI_EN) {
@@ -333,10 +468,10 @@ aw_ir_attach(device_t dev)
 
 	/*
 	 * Set clock sample, filter, idle thresholds.
-	 * sample = 3MHz/64 =46875Hz (21.3us)
 	 */
-	val = IR_SAMPLE_64;
+	val = IR_SAMPLE_128;	/* Fsample = 3MHz/128 = 23437.5Hz (42.7us) */
 	val |= (IR_RXFILT_VAL | IR_RXIDLE_VAL);
+	val |= (IR_ACTIVE_T | IR_ACTIVE_T_C);
 	WRITE(sc, IR_CIR, val);
 
 	/* Invert Input Signal */
